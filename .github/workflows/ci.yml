@@ -53,8 +53,8 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3"
-          extensions: mbstring, pdo_mysql, bcmath, xml
+          php-version: "8.4"
+          extensions: mbstring, pdo_mysql, bcmath, xml, pdo_sqlite
           coverage: none
 
       - name: Install Composer dependencies
