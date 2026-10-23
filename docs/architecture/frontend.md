@@ -1,10 +1,10 @@
 # React frontend architecture — Milestone 1
 
-**Status:** Approved design target. Setup branch currently has stock React/Vite TypeScript app; routing, Tailwind, Axios and TanStack Query packages have not yet been installed as of the audit.
+**Status:** Approved design target. Initial integrated scaffold has stock React/Vite TypeScript app; routing, Tailwind, Axios and TanStack Query packages have not yet been installed as of the audit.
 
 ## Boundaries
 
-- Browser calls only the Laravel API; it never queries MySQL or TMDB directly.
+- Browser calls **only Core Laravel API** (`http://localhost:8000/api/v1`); it never queries Catalog (`:8001`), MySQL, or TMDB directly. The Core façade owns the public movie routes.
 - Axios client in `src/lib/api/` handles common base URL, JSON headers, credentials, CSRF support and normalized error extraction.
 - TanStack Query caches **remote API response state**; local UI state remains in components/hooks. React Router handles navigation.
 - Auth state must be resolved from `GET /api/v1/auth/me`, not a local storage token.
@@ -56,4 +56,4 @@ Initialize `/sanctum/csrf-cookie` before registration/login/logout state-changin
 
 ## Quality gates
 
-Current setup branch uses Oxlint (`npm run lint`), TypeScript check (`npx tsc -b --noEmit`) and `npm run build`; there is no frontend test runner yet. Before complicated interactions, select a small component test stack (proposal: Vitest + Testing Library) with documented ownership. All delivered pages must use real API calls; local mocks are permissible only in isolated tests or design previews explicitly marked as such.
+Current scaffold uses Oxlint (`npm run lint`), TypeScript check (`npx tsc -b --noEmit`) and `npm run build`; there is no frontend test runner yet. Before complicated interactions, select a small component test stack (proposal: Vitest + Testing Library) with documented ownership. All delivered pages must use real API calls; local mocks are permissible only in isolated tests or design previews explicitly marked as such.

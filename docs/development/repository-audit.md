@@ -1,5 +1,7 @@
 # Repository audit — 2026-10-23 (historical snapshot)
 
+> **Later verification, 2026-10-23:** Setup PR #1 was subsequently merged into `dev` (commit `6d6e60c80c3d0f5d5516df5d3971954ae8ac96d9` observed). The branch table below deliberately preserves its earlier read-only snapshot. Current architecture is now two independently runnable Laravel backends; see [ADR 0001](../decisions/0001-initial-architecture.md).
+
 **Source:** Read-only GitHub inspection of `hsn-bachir/VYBE` on 23 October 2026. Earlier conversations reported PR #1 merged; **GitHub itself showed it open**, so branch evidence supersedes the prior assertion. Re-run this audit after integration; do not silently rewrite its history.
 
 | Ref | Git revision | Observed |

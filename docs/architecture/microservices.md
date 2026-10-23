@@ -1,33 +1,50 @@
-# Microservices: requirement analysis and future options
+# VYBE microservices — Milestone 1 decision
 
-**Status: UNDECIDED until instructor rubric is confirmed.** The course mentions Laravel/MVC and microservices, but no verified requirement yet states how many separately deployable services, independent databases or demonstrations are mandatory for Milestone 1.
+**Decision:** Implement two **independently executable Laravel backends** in the same GitHub monorepo: Core API and Movie Catalog. The user approved this approach after sharing the university grading item “Effectively designs and integrates well-structured micro-services to solve complex problems.” **The precise instructor acceptance criteria remain unverified.**
 
-## Terminology matters
-
-- **MVC:** Pattern organizing HTTP/controller, domain/model, and view/representation responsibilities. Laravel supports MVC.
-- **Layered/modular monolith:** One deployed Laravel API with internal auth/movie modules and one persistence boundary. This is the current Milestone 1 architectural direction.
-- **Microservices:** Independently runnable/deployable applications owning bounded capabilities, defined service contracts and typically independent data ownership, plus the operational burden of network calls, auth trust, observability and deployment.
-
-**Do not call one Laravel runtime with `/auth` and `/movies` routes "microservices".** Dockerizing a monolith also doesn't automatically make it microservices.
-
-## Proposed future service boundaries (not approved or implemented)
-
-| Potential service | Owns | Dependencies and tradeoffs |
+| Concern | Core API | Movie Catalog |
 | --- | --- | --- |
-| Identity | User identities, credentials/sessions/OAuth later | Other services need verified identity mechanism; complexity in service-to-service auth |
-| Movie catalog | TMDB client, cached catalog, provider rankings | Can run independently but adds network hops; cache/data ownership must remain singular |
-| Community | Reviews, watchlists, follows later | Needs identity/movie references across service boundaries, event consistency and moderation |
+| Application | `backend/` Laravel process :8000 | `services/movie-catalog/` Laravel process :8001 |
+| Domain | Identity, session, public API/BFF | Movie data, upstream TMDB integration, caching |
+| Storage | `vybe_core` (users, sessions, framework tables) | `vybe_movies` (movies, framework cache/jobs) |
+| API | Browser `/api/v1` using Sanctum | Internal `/api/internal/v1` using service token |
+| Deploy/test | Independently start/test/deploy | Independently start/test/deploy |
+| External dependencies | Catalog via HTTP | TMDB via HTTP |
 
-If microservices are compulsory now, hold an architecture checkpoint and select the **minimum acceptable decomposition** before auth/movie features. A possible educational split is an identity service and catalog service behind a gateway or BFF, but this would require explicit session/auth trust, database ownership, ports, CI, local orchestration and deployments. Do not implement it without instructor/team agreement.
+## Request diagram
 
-## Evaluation questions for instructor
+```mermaid
+sequenceDiagram
+ participant UI as React SPA
+ participant Core as Core API
+ participant Cat as Catalog API
+ participant DB as vybe_movies
+ participant TMDB as TMDB
+ UI->>Core: GET /api/v1/movies/search?query=...
+ Core->>Cat: GET /api/internal/v1/movies/search + service token
+ Cat->>Cat: validate + ranked-cache lookup
+ alt cache miss
+ Cat->>TMDB: search provider API
+ TMDB-->>Cat: ranked response
+ Cat->>DB: upsert summary metadata (not full-detail freshness)
+ end
+ Cat-->>Core: normalized JSON
+ Core-->>UI: public JSON response
+```
 
-1. Must we run at least two **separately deployable** services, or are distinct Laravel modules acceptable?
-2. Is synchronous REST sufficient, or are async events/message queues mandatory?
-3. Is shared MySQL allowed, or is database-per-service required?
-4. Does the requirement apply in Milestone 1 or only final delivery?
-5. What runtime/demo evidence, deployment diagrams and API boundaries are assessed?
+The internal service token authenticates a backend service, **not** a user. Do not forward Sanctum cookies to Catalog. Requests to Catalog must use private networking/TLS outside the localhost demo. Its `/api/internal/v1` endpoints must not be public in production; authorization headers alone are not a replacement for network restrictions.
 
-## Decision gate
+### Failure handling and operational boundaries
 
-Record written acceptance in a new ADR before splitting runtime and data. Update API contracts, local setup, CI and AGENTS scope at the same time. Until then, document the monolith accurately and don't create pseudo-microservice folders.
+- Core handles Catalog timeout/network errors as `503 UPSTREAM_UNAVAILABLE` and logs a traceable, secret-free diagnostic. No PHP class imports across services.
+- Catalog distinguishes TMDB genuine 404 from upstream outages, serves stale movie *details* when a cached copy exists, and never synthesizes TMDB ranking from arbitrary cached movies.
+- Two DB schemas can run on one XAMPP server locally; databases are still separately owned, and services have no cross-DB SQL or FK relations.
+- CI runs independent migrations/tests; documentation describes environment, ports, and two processes. During demo, stopping Catalog should produce a controlled public failure in Core.
+
+### Future evolution — NOT Milestone 1
+
+Reviews/watchlists/community may become separate services if complexity and rubric justify it. Distributed user identity and events need a separate ADR when those domains enter scope. No message broker, Kubernetes, service mesh, or dedicated gateway process now: Core already serves as the browser-facing API/BFF.
+
+### Instructor questions still open
+
+Minimum service count? Required independent deployment evidence? REST vs message queues? Allowed shared MySQL server with separate databases? Must services be demonstrated in Milestone 1? These answers affect grading—not whether the two Laravel apps are independently runnable.
