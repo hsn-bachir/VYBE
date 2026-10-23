@@ -1,46 +1,35 @@
-# VYBE — Agent instructions
+# VYBE — repository-wide engineering instructions
 
-Applies to the whole repository. Read `backend/AGENTS.md` or `frontend/AGENTS.md` when working in that tree. Read the relevant docs before changing behavior.
+## Source of truth
+- Read the checked-out source and the relevant `docs/` contracts first. Planned architecture is not evidence of implementation.
+- **Active scope: Milestone 1 (`v0.1.0`) only.** Core SPA authentication, VYBE UI foundation, separate Movie Catalog service, movie metadata/search/popular/details, tests, docs, CI.
+- Out of scope: production OAuth, reviews, watchlists, social accounts, social graph, recommendations, administration. OAuth buttons may be disabled and labelled “Coming soon.”
+- Team has **approved two independently runnable Laravel backends** for Milestone 1; instructor has not confirmed whether this fully meets microservices grading expectations. See [ADR 0001](docs/decisions/0001-initial-architecture.md).
 
-## Source of truth and scope
+## Architectural boundaries
+- `frontend/`: React SPA. Calls **only** Core API (`backend/`), never Catalog directly, TMDB directly, or either database.
+- `backend/`: Core Laravel API/BFF. Owns user accounts, Sanctum stateful SPA sessions, auth endpoints, public `/api/v1/movies/*` proxy/adapter, and `vybe_core` database. It **must not** query `vybe_movies` or call TMDB.
+- `services/movie-catalog/`: independently runnable Laravel Catalog API. Owns `vybe_movies`, movie normalization, TMDB secrets/client, persistent movie metadata and provider-ordered list caching. It **must not** query `vybe_core` or manage browser sessions.
+- Core → Catalog: versioned HTTP JSON with internal service authentication, short timeouts, bounded retries where safe, error translation. The internal token is server-to-server only and is never exposed in `VITE_*` variables.
+- Each backend uses pragmatic route → controller → FormRequest (when appropriate) → service → Eloquent/external client → Resource. Avoid fake generic repository layers.
+- Add independent, disposable test databases. NEVER run `migrate:fresh`, database wipes, or destructive SQL on shared or non-test data.
+- Interservice relationships in later milestones use IDs/contracts, not cross-service foreign keys.
 
-- Current implementation is defined by **the checked-out branch and source code**, not by this document or previous chat summaries.
-- `docs/architecture/system-overview.md` is long-range context; future proposals are **not** authorization to implement them.
-- **Active: Milestone 1 only.** Allowed: project foundation, VYBE shared UI, users/movies schema, Sanctum email/password SPA auth, TMDB popular/search/details, persistent caching, tests and docs.
-- **Out of scope:** OAuth implementation, social accounts, reviews, watchlists, followers, social feeds, recommendations, admin dashboards, payments. OAuth buttons may be disabled/"Coming soon".
-- Mark findings as **implemented / approved / proposed / undecided**. Do not describe unmerged branch code as released or integrated.
+## Delivery and collaboration
+1. Check branch and working-tree state. Work from up-to-date `dev` on a task branch.
+2. Read relevant [architecture](docs/architecture/system-overview.md), [public/internal contracts](docs/api/contracts.md), [database ownership](docs/database/schema.md) and [design system](docs/design/design-system.md).
+3. Make focused, reviewable changes. Update contract/doc/test in the same PR as behavior changes.
+4. Do not claim something works without running checks; do not fabricate TMDB content, credentials, CI results or local server status.
+5. Do not install unnecessary dependencies, silently broaden the milestone, or alter another service's database.
+6. Do not commit `.env`, secrets, DB dumps, access tokens or framework keys; redact exceptions/logs.
+7. Do not commit, switch branches, push or merge unless explicitly authorized by the person running the agent.
+8. Every PR targets `dev`, passes applicable CI, and receives human review. Releases go `dev` → `main`.
 
-## Work protocol
+## Applicable validation
+- Core: `cd backend && php artisan test` plus migration verification against a disposable MySQL database.
+- Catalog: `cd services/movie-catalog && php artisan test` plus migration verification against its **own** disposable MySQL database.
+- Frontend: `cd frontend && npm run lint && npx tsc -b --noEmit && npm run build`.
+- Provider HTTP must be faked in automated tests. Verify 401/403/419/422/429, internal-service failure, cache freshness and stale fallbacks as relevant.
 
-1. Confirm the working branch and inspect existing code before proposing edits.
-2. Check architecture, DB, API and design contracts relevant to the request.
-3. Plan small, reviewable changes; preserve working behavior and current conventions.
-4. Prefer framework defaults and straightforward code. Avoid speculative abstractions and dependencies.
-5. For changes affecting contracts, data, security or architecture, update corresponding docs and tests in the same PR.
-6. Never invent test results, live DB state, TMDB responses or frontend data.
-7. Do not switch branches, commit, push, merge, amend history, or install broad tooling without explicit authorization.
-8. Do not inspect, copy, print or commit secret files. Keep credentials out of browser bundles, errors and logs.
-
-## Runtime architecture
-
-React/TypeScript SPA → Laravel `/api/v1` → application services → Eloquent/MySQL or TMDB client. Backend owns TMDB secrets. Typical request flow: route → controller → FormRequest (when there is request payload/validation) → service → model/external client → API Resource. Do not add layers solely for appearance.
-
-- Backend: documented in [backend architecture](docs/architecture/backend.md).
-- Frontend: [frontend architecture](docs/architecture/frontend.md), shared layout/tokens and feature modules.
-- API: [contracts](docs/api/contracts.md). DB: [schema](docs/database/schema.md).
-- Security: cookie/session Sanctum for same-site SPA; no bearer/session token persisted in localStorage; CSRF and credentialed CORS required.
-- TMDB: metadata keyed on `tmdb_id`; separate shorter-lived ranking cache; avoid marking incomplete list summaries as fully hydrated details.
-- University microservices requirement needs clarification; a modular Laravel application is **not** independently deployed microservices.
-
-## Quality and safety
-
-- Run focused tests first and then appropriate broader checks; report actual commands/outcomes.
-- Backend: `php artisan test`, plus dedicated disposable-MySQL migration tests when applicable. NEVER run `migrate:fresh`, `db:wipe` or destructive SQL against non-disposable data.
-- Frontend: `npm run lint`, `npx tsc -b --noEmit`, `npm run build`; add interaction tests when introduced.
-- Avoid disabling authorization, CSRF, request validation or rate limiting to make tests pass.
-- No placeholder UI data in delivered functionality; display honest loading/error/empty states.
-- Use `main` stable, `dev` integration and task branches. PRs target `dev`, releases `main`.
-
-## Completion report
-
-State what changed, files touched, tests run with outcomes, remaining limitations/assumptions, required migrations/environment steps and whether docs/contracts need approval. If unable to test, say so.
+## Final response requirements
+Report changed files, checks actually run and results, affected API/DB contracts, configuration or migration steps, assumptions and unresolved risks.

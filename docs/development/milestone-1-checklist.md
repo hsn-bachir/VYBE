@@ -1,55 +1,57 @@
-# Milestone 1 readiness, implementation and release checklist
+# Milestone 1 (`v0.1.0`) — two-service execution and acceptance
 
-**Status as of 2026-10-23:** Scaffold verified on `feature/project-setup`; PR #1 is open, not yet merged into `dev` per GitHub. Feature sections below are **not complete**. Update checkboxes only with code revision/test evidence.
+**Branch evidence:** Setup PR #1 has merged into `dev` as checked 2026-10-23. Foundation source package is **not merged** until its own PR passes. Check actual branch commits for later claims.
 
-## Foundation
+## 0. Architecture and team readiness
 
-- [x] Repository created with `main`, `dev`, `feature/project-setup`.
-- [x] Laravel/React starter present on `feature/project-setup` (not integrated at audit).
-- [x] Setup PR CI passing for its latest audited head.
-- [ ] Setup PR #1 reviewed and merged into `dev`; verify branch commit/tree afterwards.
-- [ ] Collaborators invited and accepted — requires manual GitHub confirmation.
-- [ ] Branch policies actually enforced or documented manual procedure.
-- [ ] Documentation foundation reviewed and merged into `dev`.
-- [ ] University microservices milestone expectations resolved and ADR updated.
+- [x] Monorepo, `main`, `dev`, short-lived feature branches and PR+CI convention.
+- [x] Initial Laravel/React scaffolding integrated through PR #1 into `dev`.
+- [x] Project owner approved Core API + Movie Catalog independent Laravel processes, separate DB ownership and Core-only browser façade.
+- [ ] Confirm with instructor whether two separate services satisfy the 20-mark microservices rubric and whether deploy/demo requirements apply now.
+- [ ] Review and merge docs/service-foundation PR. Confirm Catalog exists as committed Laravel app (not just starter overlay).
+- [ ] Verify Core and Catalog migrations with separate disposable MySQL databases and green CI.
+- [ ] Confirm four developer owners/reviewers and teammate access.
 
-## Development and design
+## 1. Contract and platform foundation (all developers)
 
-- [ ] Install approved frontend packages and centralize design tokens.
-- [ ] Add AppLayout/AuthLayout and consistent responsive navigation.
-- [ ] Create accessible buttons, inputs, cards, skeletons, empty/error/toasts.
-- [ ] Approve final logo/icon treatment separately.
+- [ ] Approve public Core and internal Catalog API response/error contracts.
+- [ ] Set shared local hosts, secure service-secret provisioning, split DBs; document exact XAMPP flavor/PHP version.
+- [ ] Add PR tests for Core service client failing gracefully when Catalog unavailable.
+- [ ] Add shared, centralized design tokens and React Router/Tailwind/Axios/TanStack Query packages.
 
-## Database and authentication
+## 2. Core API owner
 
-- [ ] `users` migration satisfies [schema](../database/schema.md), with nullable hashed password, name 100, avatar URL.
-- [ ] `movies` migration includes unique `tmdb_id`, metadata fields and timestamps.
-- [ ] Verify migration/test behavior against isolated MySQL, not only SQLite.
-- [ ] Install/configure Sanctum SPA and stateful cookie/CSRF/CORS flow.
-- [ ] Implement + test registration, login, logout and `/auth/me` contracts.
-- [ ] Implement frontend forms, session bootstrap/auth guard, 401/419 handling.
-- [ ] Display disabled future Google/GitHub options honestly.
+- [ ] Update `vybe_core.users` migration to name(100), nullable password, avatar_url(2048); no Catalog movie table.
+- [ ] Install Sanctum and enable API/stateful SPA/CORS/cookie settings; login/logout session security.
+- [ ] Implement `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` with tests (validation, 401/419/429).
+- [ ] Implement public `/movies/*` façade and `MovieCatalogClient` using HTTP fake tests and internal token.
 
-## TMDB movie features
+## 3. Movie Catalog owner
 
-- [ ] Store TMDB credentials in backend config only; verify TMDB attribution requirements.
-- [ ] Implement robust provider client with HTTP fakes for tests.
-- [ ] Implement normalized movie Resources and DTO/API contracts.
-- [ ] Persistent unique `tmdb_id` upserts, detail hydration and 7-day configurable TTL.
-- [ ] Separate 15-minute configurable popular/search ranked-list caches.
-- [ ] Define/test stale detail fallback, upstream failures, pagination and search validation.
-- [ ] Build popular/home, discover/search, detail and 404 pages with real Laravel API data.
-- [ ] Add responsive/loading/empty/error/retry states and official TMDB credits.
+- [ ] Scaffold Catalog app, remove starter users migration/model, configure own `vybe_movies`, token middleware, protected `/api/internal/v1/health` and tests.
+- [ ] Implement TMDB HTTP client with safe timeouts, error classification and HTTP fakes.
+- [ ] Implement movie normalization, unique `tmdb_id` summary upserts vs full-detail hydration, 7-day configurable persistent metadata freshness.
+- [ ] Implement short-lived TMDB-ranked popular/search caching (15-minute configurable), separate from movie table.
+- [ ] Implement `/api/internal/v1/movies/popular`, `/search`, `/{tmdb_id}` and tests for errors, stale fallback, pagination, 404/503.
 
-## Quality and release
+## 4. Frontend foundation/auth owner
 
-- [ ] Backend feature tests and MySQL migration tests pass on CI.
-- [ ] Frontend lint/typecheck/build pass; add interaction tests for actual UI when tool chosen.
-- [ ] Security checks: no secrets, no localStorage tokens, session regeneration, CSRF, rate limits.
-- [ ] Docs and API examples match implementation, no promised-but-missing features.
-- [ ] Teammate demonstration smoke-test from clean clone.
-- [ ] Reviewed `dev` → `main` PR, green CI, tag `v0.1.0`.
+- [ ] `AppLayout`, `AuthLayout`, navigation, buttons, inputs, skeletons, toasts, empty/errors and responsive VYBE tokens.
+- [ ] Login/register forms, Sanctum CSRF init, current-user query, logout/guards, form errors.
+- [ ] Google/GitHub buttons disabled with “Coming soon”; no OAuth implementation.
 
-## Out of scope / not a hidden requirement
+## 5. Frontend movie discovery owner
 
-OAuth implementation, watchlists, reviews, activity feeds, social graph, recommendation engine, admin tools, production microservice orchestration unless explicitly demanded by instructor. Any scope change requires team decision and document update.
+- [ ] Typed public API and TanStack Query hooks, no direct Catalog/TMDB browser calls.
+- [ ] Popular/home, search/discover, details and not-found pages using **real Core API data**.
+- [ ] Pagination, debounced search, loading/retry/empty/error/stale UI, responsive posters, TMDB logo/notice in Credits.
+
+## 6. Integration and release (shared)
+
+- [ ] Independently boot all three apps and both MySQL schemas from a clean clone.
+- [ ] CI: independent Core and Catalog migrations/tests + frontend lint/typecheck/build + relevant integration tests.
+- [ ] Demo authentication CSRF/session lifecycle, two-service search, stale detail on TMDB outage and controlled Core 503 when Catalog is down.
+- [ ] Review API docs vs real response shapes; no secrets, fake features or contradictory claims.
+- [ ] Human review + green CI: `dev` → `main`, tag `v0.1.0` only after acceptance.
+
+**Out of scope:** actual OAuth, social tables, review/watchlist systems, moderation/admin, paid features, distributed message broker and advanced orchestration.

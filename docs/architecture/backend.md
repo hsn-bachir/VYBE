@@ -1,77 +1,61 @@
-# Laravel backend architecture — Milestone 1
+# Backend architecture — Core and Catalog
 
-**Status:** Approved target, not present in initial setup scaffold. Actual setup branch includes Laravel 13 and basic web routing; API routing and Sanctum are not installed/configured as of audit. See [audit](../development/repository-audit.md).
+**Status:** Approved implementation target; the foundation package adds Catalog scaffold only. Endpoint features still require their own PRs.
 
-## Ownership and runtime
+## Core API (`backend/`)
 
-`backend/` is one deployable Laravel application. It owns session authentication, MySQL/Eloquent persistence, provider HTTP and normalized JSON API. Laravel's HTTP client is the only TMDB caller. Controller → FormRequest → service → model/external API client → API Resource describes roles, not a rigid dependency count for every trivial request.
-
-### Proposed organization
+Independently runnable Laravel application on `http://localhost:8000`, connected to `vybe_core`. It is the sole browser-facing API and owns Sanctum sessions and users. Its responsibilities are registration/login/logout/me, validation, authentication throttles, and a public movie façade that requests Catalog through a server-configured `MovieCatalogClient`.
 
 ```text
-backend/
-  app/
-    Http/
-      Controllers/Api/V1/Auth/
-      Controllers/Api/V1/Movies/
-      Requests/Auth/
-      Requests/Movies/
-      Resources/
-    Models/User.php
-    Models/Movie.php
-    Services/Auth/
-    Services/Movies/
-    Integrations/Tmdb/TmdbClient.php
-  config/services.php
-  routes/api.php
-  database/migrations/
-  tests/Feature/
-  tests/Unit/
+backend/app/
+  Http/Controllers/Api/V1/AuthController.php
+  Http/Controllers/Api/V1/MovieController.php  # HTTP adapter; no TMDB logic
+  Http/Requests/Auth/{LoginRequest,RegisterRequest}.php
+  Http/Requests/Movies/{SearchMoviesRequest,ListMoviesRequest}.php
+  Http/Resources/UserResource.php
+  Models/User.php
+  Integrations/MovieCatalog/MovieCatalogClient.php
 ```
 
-Names and locations can be adjusted to Laravel conventions; avoid unnecessary repository/DTO/framework boilerplate. Code isn't implemented merely because its target path appears above.
+The movie façade validates parameters and translates Catalog failures, but never queries Catalog's database, stores movie metadata, or makes direct TMDB requests.
 
-## HTTP conventions
+### Sanctum stateful SPA
 
-- API `GET /api/v1/movies/*` is public; `/api/v1/auth/me` and logout require authenticated session.
-- Auth register/login are guest endpoints with validation + rate limits, and successful login regenerates the session ID.
-- Prefix `/api/v1` exactly once: Laravel's `routes/api.php` normally includes `/api` automatically, so group `v1` within it.
-- FormRequests for request parameters and payloads; controllers map inputs to services and return Resources or framework responses.
-- Validation 422, unauthenticated 401, forbidden 403, unknown movie 404, provider outage 502/503 (proposed contract), rate-limited 429, server error 500 without stack details.
-- Do not return raw TMDB schema or sensitive Eloquent attributes to clients.
+React runs at `http://localhost:5173` and calls the Core API at `http://localhost:8000`. Browser first calls **`GET /sanctum/csrf-cookie`**, then sends cookie-backed credentialed POSTs and receives normal session cookies. Configure `statefulApi()`, allowed CORS origins with credentials, `SANCTUM_STATEFUL_DOMAINS`, and a common browser hostname. Use `SESSION_DOMAIN` unset for local `localhost`. Login regenerates session; logout invalidates it and regenerates CSRF token. No bearer JWT/localStorage scheme.
 
-## Sanctum SPA setup plan
+### Core → Catalog HTTP
 
-1. Install Sanctum in the framework-compatible way (e.g. `php artisan install:api` if appropriate) and enable `routes/api.php`.
-2. Enable the stateful API middleware in `bootstrap/app.php` (Laravel's `statefulApi()` configuration).
-3. Explicitly configure first-party stateful domains (including dev ports), cookie domain, session driver, CORS allowed origin (`http://localhost:5173`) and credential support.
-4. Use a common hostname (`localhost`) for frontend/backend; initialize CSRF using `/sanctum/csrf-cookie`. Axios must send credentials and XSRF token.
-5. Implement registration with a required password, login via session guard, logout via session invalidation and CSRF regeneration, and `/me` resource. Password is nullable in schema for *future* OAuth-only users; never allow blank-password email sign-in.
-6. Harden with session regeneration, login throttling, sensible password policy, login error normalization, secure cookies in HTTPS environments and authorization tests.
-7. In production, SPA and backend must share the same top-level domain for cookie-based Sanctum; determine hosting topology early.
+Configured base URL `MOVIE_CATALOG_URL=http://localhost:8001`, token `MOVIE_CATALOG_TOKEN` (secret, Core only). Call `GET /api/internal/v1/movies/*` with `X-VYBE-Service-Token`. Bound connection/read timeouts. Do not expose internal URI/token or raw upstream errors to the SPA. Catalog 404 maps to public 404; Catalog unavailable maps to public 503; validation stays 422. No blind retries on writes; GET retries should be tightly bounded.
 
-Refer to [Laravel Sanctum SPA docs](https://laravel.com/docs/13.x/sanctum) and [API routing docs](https://laravel.com/docs/13.x/routing) and verify against installed version before coding.
+## Catalog API (`services/movie-catalog/`)
 
-## TMDB integration plan
+Separate Laravel process on `http://localhost:8001`, connected to **`vybe_movies` only**. The Catalog provides normalized TMDB movie data and persistent caching. Its internal business routes are protected by `EnsureInternalCatalogToken` middleware using a nonempty token configured at runtime and constant-time comparison.
 
-A `TmdbClient` wraps Laravel HTTP calls: credentials only from server env/config; connect/read timeout; bounded retries only on transient failures; explicit 404 vs 429 vs 5xx. Avoid logging tokens, raw URLs with secrets or user search values without need. Fake all provider HTTP for tests.
+```text
+services/movie-catalog/app/
+  Http/Controllers/Internal/V1/MovieController.php # planned
+  Http/Requests/Movies/{SearchMoviesRequest,ListMoviesRequest}.php # planned
+  Http/Resources/MovieResource.php # planned
+  Http/Middleware/EnsureInternalCatalogToken.php
+  Models/Movie.php
+  Services/MovieService.php # planned
+  Integrations/Tmdb/TmdbClient.php # planned
+services/movie-catalog/config/catalog.php
+services/movie-catalog/routes/api.php
+```
 
-A movie service maps upstream properties to VYBE's schema, upserts by unique `tmdb_id` safely and uses `metadata_fetched_at` for **complete detail** freshness (default 7 days). Popular/search *ordered identifiers* use separate short-lived cache (proposed 15 min) by endpoint + page + query + locale. List summaries may persist compatible fields but must not reset detailed metadata freshness or overwrite known fields with absent values. Parallel upserts must tolerate unique-index conflicts.
+Catalog has **no users migration, no Sanctum browser session handling, and no OAuth code**. Its DB may include necessary framework cache/jobs tables. Middleware must protect all `/api/internal/v1/` business routes. `/up` is a separate Laravel liveness endpoint, not a movie API.
 
-When TMDB fails:
-- Detail: if a cached record exists, return a documented stale response; otherwise return an appropriate upstream-unavailable error.
-- Popular/search: stale ranking fallback is an explicit optional policy; do not fabricate popularity ordering from local DB entries. If none, return retryable upstream error.
-- Distinguish upstream not found from upstream unavailable and log diagnostics safely.
+### TMDB/cache semantics
 
-See [API contracts](../api/contracts.md), [schema](../database/schema.md).
+- `tmdb_id` unique on `movies`, cache full detail with `metadata_fetched_at` for 7 days by default; only successful full detail hydration refreshes the timestamp.
+- Summary/list upserts update fields actually provided and never erase hydrated data; use unique-index-safe upserts under concurrent requests.
+- `popular` and `search` are **TMDB-ranked**, stored as ordered identifiers/responses in a distinct short-lived cache (default 15 minutes; page and normalized query in cache key).
+- Upstream 404 is not a timeout/503; stale details can be served during provider outages when a DB copy exists, marked `meta.stale`.
+- Set strict provider timeouts and bounded retries. Use Laravel HTTP fakes in tests, not live TMDB.
 
-## Testing strategy
+## Quality requirements
 
-- Request/feature tests: success, 401/419/422/429, session lifecycle, CSRF where test middleware is enabled, pagination/search.
-- Service tests: list summary vs detail hydration, fresh/stale refresh, upstream failure with stale local metadata, missing metadata error, upsert concurrency/uniqueness.
-- Migration tests against disposable MySQL 8.0, plus verify local MariaDB compatibility if used. CI migration job and PHPUnit currently use **different DB settings**; verify `phpunit.xml` before calling tests MySQL-backed.
-- No live TMDB requests in automated tests; Laravel HTTP fake provider responses.
+Separate MySQL migration test jobs for Core and Catalog, plus PHP tests. PHPUnit may still default to SQLite `:memory:`; a MySQL migration job is not proof the entire PHPUnit suite uses MySQL. Add integration coverage deliberately. No dangerous database reset outside disposable test DBs.
 
-## Security and deployment notes
-
-Never commit `.env`, `APP_KEY`, DB password, TMDB access token or prod CORS whitelist. Do not expose provider creds via frontend `VITE_*`. Use least-privilege DB user beyond disposable local XAMPP. HTTPS + secure session cookies for deployed environments. API health checks should not disclose configuration.
+Read [public/internal contracts](../api/contracts.md) and [database ownership](../database/schema.md).

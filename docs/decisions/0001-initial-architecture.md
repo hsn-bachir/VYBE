@@ -1,45 +1,41 @@
-# ADR 0001 — Initial VYBE architecture
+# ADR 0001 — VYBE monorepo and two-service architecture
 
-- **Status:** Proposed pending team/instructor acceptance
+- **Status:** Accepted by project owner for Milestone 1 (pending university grading clarification)
 - **Date:** 2026-10-23
-- **Scope:** Milestone 1 only; document proposed evolution without constructing it
+- **Supersedes:** An initial *proposed* single Laravel backend design that was never built beyond scaffolding.
 
 ## Context
 
-Four university developers must build movie discovery with Laravel/MVC and a stated microservices requirement. Milestone 1 is restricted to shared project foundations, local MySQL, basic email/password SPA auth and TMDB popular/search/details with persistent cache. The team needs incremental delivery, GitHub PRs and an architecture Codex can follow. Exact microservices grading/deployment conditions are still unknown.
+The team has four developers, a Laravel/MVC requirement, and a grading rubric allocating 20 marks to designing and integrating “well-structured micro-services”. A simple controller/service split within one running Laravel backend would not convincingly demonstrate independent microservices. Milestone 1 remains limited to user authentication, TMDB movie discovery/caching and shared React UI.
 
-## Proposed decision
+## Decision
 
-1. **One GitHub monorepo** with `backend/` Laravel JSON REST API, `frontend/` React/Vite/TypeScript SPA, `docs/` for source-of-truth decisions; `main` stable and `dev` integration.
-2. **One Laravel backend runtime initially** (modular monolith), structured by native MVC HTTP boundaries and thin controller/services/API Resources; database and TMDB credentials never accessible from the browser.
-3. **MySQL persistence** for users and persistent TMDB movie metadata, with independent shorter-lived provider ranking caches; external movie key is `tmdb_id`.
-4. **Sanctum session-cookie SPA auth** rather than localStorage tokens; future OAuth/social services are documented only.
-5. **Feature-based frontend** with shared layouts/design tokens, Axios, TanStack Query and React Router. Accessible responsive loading/errors are core behavior.
-6. **Open questions** are recorded explicitly; a service split requires a later ADR and instructor confirmation, not silent reinterpretation of modular code as microservices.
+1. Keep a **single monorepo** with long-lived `main` and `dev`, feature branches, reviewed PRs and CI.
+2. Keep `frontend/` as one React/Vite/TypeScript SPA. Its sole backend is `backend/` Core API.
+3. Implement `backend/` as an **independently runnable Laravel Core API** that owns `vybe_core`, user accounts, Sanctum first-party session authentication and public `/api/v1` routes. It adapts movie requests by calling Catalog over HTTP, not TMDB.
+4. Implement `services/movie-catalog/` as a **second independently runnable Laravel application** that owns `vybe_movies`, TMDB provider integration, normalized metadata, and ranked-result cache. Core authenticates to internal Catalog endpoints using a server-only token. Databases are logically isolated (same XAMPP server may host both locally).
+5. No additional API gateway container, Redis cluster, event bus, Docker orchestration, social service, or OAuth implementation in Milestone 1 unless later required by evidence.
+6. The team demonstrates separate processes/DB ownership, internal HTTP contract, service auth, independent tests and graceful Catalog outage handling.
 
 ## Alternatives considered
 
-| Alternative | Why not chosen now |
+| Option | Decision |
 | --- | --- |
-| Separate frontend/backend repositories | More coordination and shared-version friction for four people; no deployment need demonstrated |
-| Laravel + Inertia rendering React | Conflicts with approved independent React SPA + REST API boundary |
-| JWT/localStorage authentication | Unnecessary first-party token exposure and token lifecycle complexity for same-site SPA |
-| TMDB requests directly from frontend | Exposes provider credentials and blocks server-owned persistence/caching |
-| Full microservice decomposition immediately | Deployment, auth federation, networking, tests and data consistency complexity without verified rubric details |
-| Cache only in memory and no movie persistence | Doesn't meet the approved persistent cache requirement |
+| Single modular Laravel monolith | Simpler but weak evidence for the 20-mark microservices rubric; rejected as Milestone 1 target |
+| Identity + Catalog + third gateway service | More overhead; current Core can act as the BFF; deferred |
+| Separate repositories | Extra cross-repo coordination for four people; not necessary for independent runtimes |
+| React directly calls Catalog/TMDB | Exposes boundaries/secrets and complicates session+API integration; rejected |
+| Shared DB schema/tables | Tight coupling and confusing ownership; rejected |
+| Full distributed auth/JWT federation | Not needed for public movie reads in Milestone 1; defer |
 
-## Consequences
+## Consequences and limitations
 
-Positive: easier local development with XAMPP, one API contract, simpler CI and owner boundaries, provider secrets remain server-side, work can proceed incrementally. Negative: single backend deployment boundary; a future service extraction will require data ownership migration and service-auth design. Cookie-based auth requires compatible origins/top-level-domain plan. A cache introduces freshness, concurrency, provider outage and summary/detail hydration semantics to test.
++ Clear, demonstrable service boundaries; separate migrations/CI; Catalog can be started or stopped independently; provider credentials only in Catalog.
+- More startup configuration, HTTP errors and integration tests. Local XAMPP must create two databases. Service tokens protect internal routes but network restrictions/TLS are required for deployed systems.
+- Two applications are a genuine decomposition, **not guaranteed** to achieve all 20 rubric marks. Instructor's required service count, integration complexity and deployment demonstration remain unverified.
 
-## Follow-up decision gates
+## Team ownership
 
-- Instructor confirms microservice minimum and milestone timing.
-- Team approves the proposed public/private endpoint and error envelope shapes.
-- Team confirms MySQL vs MariaDB local target and runtime PHP compatibility.
-- Production hosting/domain strategy is decided before a deployed cookie-auth demo.
-- ADR status changes to Accepted only upon actual team approval.
+Core auth/BFF developer; Catalog/TMDB/cache developer; frontend shared UI/auth developer; frontend movie discovery developer. Agree on the public/internal contracts before parallel implementation; integration and testing are shared responsibilities.
 
-## References
-
-[Overview](../architecture/system-overview.md) · [Microservices](../architecture/microservices.md) · [API](../api/contracts.md) · [Database](../database/schema.md)
+See [architecture overview](../architecture/system-overview.md), [microservices](../architecture/microservices.md) and [team plan](../development/team-plan.md).

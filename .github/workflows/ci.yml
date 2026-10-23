@@ -10,16 +10,15 @@ permissions:
   contents: read
 
 jobs:
-  backend-tests:
-    name: Backend Tests
+  core-tests:
+    name: Core API Tests
     runs-on: ubuntu-latest
-
     services:
       mysql:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: vybe_test
+          MYSQL_DATABASE: vybe_core_test
         ports:
           - 3306:3306
         options: >-
@@ -27,11 +26,9 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
-
     defaults:
       run:
         working-directory: backend
-
     env:
       APP_ENV: testing
       APP_DEBUG: true
@@ -39,60 +36,85 @@ jobs:
       DB_CONNECTION: mysql
       DB_HOST: 127.0.0.1
       DB_PORT: 3306
-      DB_DATABASE: vybe_test
+      DB_DATABASE: vybe_core_test
       DB_USERNAME: root
       DB_PASSWORD: root
       CACHE_STORE: array
       SESSION_DRIVER: array
       QUEUE_CONNECTION: sync
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
           extensions: mbstring, pdo_mysql, bcmath, xml, pdo_sqlite
           coverage: none
-
-      - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
-
-      - name: Run MySQL migrations
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Verify Core MySQL migrations
         run: php artisan migrate --force
+      - name: Run Core PHPUnit suite
+        run: php artisan test
 
-      - name: Run Laravel tests
+  catalog-tests:
+    name: Movie Catalog Tests
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: vybe_movies_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    defaults:
+      run:
+        working-directory: services/movie-catalog
+    env:
+      APP_ENV: testing
+      APP_DEBUG: true
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      CATALOG_INTERNAL_TOKEN: catalog-ci-only-test-token
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: vybe_movies_test
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_mysql, bcmath, xml, pdo_sqlite
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Verify Catalog MySQL migrations
+        run: php artisan migrate --force
+      - name: Run Catalog PHPUnit suite
         run: php artisan test
 
   frontend-checks:
     name: Frontend Checks
     runs-on: ubuntu-latest
-
     defaults:
       run:
         working-directory: frontend
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: TypeScript typecheck
-        run: npx tsc -b --noEmit
-
-      - name: Production build
-        run: npm run build
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc -b --noEmit
+      - run: npm run build

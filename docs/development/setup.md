@@ -1,79 +1,95 @@
-# Local development setup — Windows + XAMPP
+# VYBE local setup — Windows, XAMPP, two Laravel APIs
 
-**Status:** Instructions assume scaffold in `feature/project-setup` is merged into `dev`. As audited 2026-10-23, PR #1 is still open, so first verify your branch contents.
+**Status:** Two-service architecture approved. Foundation package includes a Catalog service bootstrap helper; after running it, commit the generated Laravel skeleton and locked dependencies on the same PR. Never commit `.env` files.
 
-## Requirements
+## Prerequisites
 
-- Git, VS Code, Composer, PHP compatible with `backend/composer.lock`, Node.js compatible with `frontend/package-lock.json`, npm, and XAMPP MySQL/MariaDB.
-- Scaffolding: Laravel 13, React 19, Vite 8, TypeScript 6, Oxlint. The lockfile needs a PHP 8.4-compatible patch (audit notes Symfony constraints >=8.4.1). `composer check-platform-reqs` is authoritative.
-- Preferred dev hostnames: frontend `http://localhost:5173`, Laravel `http://localhost:8000`. Don't mix browser `127.0.0.1` and `localhost` when adding cookie/session auth.
+Git, VS Code, Composer, PHP compatible with `composer.lock` (the audited Laravel 13 lock set needs PHP **8.4.1+**, notwithstanding `composer.json` declaring `^8.3`), npm/Node compatible with Vite 8, and XAMPP MySQL/MariaDB. Verify `where.exe php` and `composer check-platform-reqs`; do not bypass Composer checks. The user-facing SPA uses `http://localhost:5173`, Core `http://localhost:8000`, Catalog `http://localhost:8001`.
 
-## 1. Clone and select branch
+## 1. Work from an integration branch
 
 ```powershell
-git clone https://github.com/hsn-bachir/VYBE.git
-cd VYBE
-git fetch origin
 git switch dev
 git pull --ff-only origin dev
+git switch -c chore/microservice-foundation
 ```
 
-Before setup PR #1 is merged, `dev` may not contain `backend/` and `frontend/`. Do **not** assume missing directories indicate a bad clone. Check [PR #1](https://github.com/hsn-bachir/VYBE/pull/1).
-
-## 2. Verify tools
+Unpack the foundation archive into the root. It updates docs and CI and provides a Catalog source overlay. Run the helper **before committing** so the actual Catalog scaffold exists for CI.
 
 ```powershell
-php -v
-where.exe php
-composer --version
-node -v
-npm -v
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-catalog.ps1
 ```
 
-Ensure Composer uses the intended PHP executable; XAMPP's PHP may differ from an independently installed CLI PHP. Check exact lockfile compatibility if install fails, and update the lock with a reviewed dependency PR rather than blindly running `composer update` across the entire project.
+The helper fills missing Laravel framework files from the already-committed `backend/` skeleton; it does **not** copy `.env`, `vendor`, Node dependencies, runtime DBs or logs. It removes starter users migration/model/factory in Catalog. Review its changes with `git diff`, don't run it on an existing populated Catalog app without reviewing.
 
-## 3. Backend dependencies and local config
+## 2. Create two MySQL databases
+
+Start XAMPP MySQL. In phpMyAdmin/SQL terminal:
+
+```sql
+CREATE DATABASE IF NOT EXISTS vybe_core CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS vybe_movies CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Use dedicated DB users with per-database grants when possible. An unpassworded XAMPP `root` is **local disposable development only**.
+
+## 3. Core API (terminal A)
 
 ```powershell
 cd backend
 composer install
 Copy-Item .env.example .env
 php artisan key:generate
+# Edit backend/.env using values below
+php artisan migrate
+php artisan serve --host=localhost --port=8000
 ```
 
-Create MySQL schema in phpMyAdmin or SQL console:
-
-```sql
-CREATE DATABASE vybe CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-Edit **local only** `backend/.env`:
+In `backend/.env`:
 
 ```dotenv
-APP_NAME=VYBE
-APP_ENV=local
+APP_NAME="VYBE Core"
 APP_URL=http://localhost:8000
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=vybe
+DB_DATABASE=vybe_core
 DB_USERNAME=root
 DB_PASSWORD=
+MOVIE_CATALOG_URL=http://localhost:8001
+MOVIE_CATALOG_TOKEN=<same-long-random-secret-as-catalog>
 ```
 
-`root` with no password is a common *local-only* XAMPP default, not a safe shared/deployed account. Verify port, MySQL/MariaDB flavor and credentials on each machine. A dedicated limited-privilege account is preferable for any environment beyond a disposable local setup.
+The Catalog URL/token aren't wired into a Core client until that feature PR is implemented. Do not generate random secrets in tracked `.env.example` or in frontend Vite config.
+
+## 4. Catalog API (terminal B)
 
 ```powershell
+cd services/movie-catalog
+composer install
+Copy-Item .env.example .env
+php artisan key:generate
+# Set DB credentials and CATALOG_INTERNAL_TOKEN in local .env
 php artisan migrate
 php artisan test
-php artisan serve --host=localhost --port=8000
+php artisan serve --host=localhost --port=8001
 ```
 
-The current PHPUnit default is SQLite `:memory:` for test runs; this does **not** imply the PHPUnit suite exercises MySQL. `migrate:fresh` wipes the current database: use only in a dedicated disposable test environment with verified `DB_DATABASE`.
+`services/movie-catalog/.env.example` selects `vybe_movies`, not `vybe_core`. Set a **matching strong value** in Core's `MOVIE_CATALOG_TOKEN` and Catalog's `CATALOG_INTERNAL_TOKEN`. Generate one locally and share it by an approved secure channel, not Git.
 
-## 4. Frontend dependencies and dev server
+### Service boundary smoke test
 
-In a second terminal from root:
+```powershell
+# Without token: intentionally forbidden (403)
+curl.exe -i http://localhost:8001/api/internal/v1/health
+
+# With correct locally configured token: 200
+curl.exe -i -H "X-VYBE-Service-Token: YOUR_LOCAL_TOKEN" http://localhost:8001/api/internal/v1/health
+```
+
+This health probe tests internal auth boundary; it does not yet implement TMDB popular/search/details.
+
+## 5. React (terminal C)
 
 ```powershell
 cd frontend
@@ -81,33 +97,27 @@ npm ci
 npm run dev -- --host localhost
 ```
 
-Browse `http://localhost:5173`. At the audited revision, only the Vite starter is available. React Router, Axios, TanStack Query and Tailwind will be installed in later feature PRs.
+Visit `http://localhost:5173`. Implement Sanctum cookies in Core only; React must not call Catalog directly.
 
-## 5. Planned Sanctum integration configuration
-
-After Sanctum is installed, configure backend `SANCTUM_STATEFUL_DOMAINS` with both `localhost:5173` and `localhost:8000` as appropriate; allow origin `http://localhost:5173` in backend CORS, support credentials and avoid wildcard origins for credentialed CORS. Axios uses `withCredentials` and `withXSRFToken`. Set a valid session cookie domain (normally unset/null for local `localhost`, `.yourdomain.com` on shared production parent domain with HTTPS). `GET /sanctum/csrf-cookie` precedes mutating login/register/logout calls. Consult [backend architecture](../architecture/backend.md). Do not add these configs before the auth feature requires them.
-
-## 6. Quality commands
+## 6. Checks
 
 ```powershell
-# backend
 cd backend
 php artisan test
-vendor/bin/pint --test
-
-# frontend
-cd ../frontend
+cd ../services/movie-catalog
+php artisan test
+cd ../../frontend
 npm run lint
 npx tsc -b --noEmit
 npm run build
 ```
 
-Pint is present but not in scaffold CI. A frontend test script isn't installed yet.
+On CI, Core and Catalog migrations run independently against isolated MySQL databases. PHPUnit's committed `phpunit.xml` may still use SQLite `:memory:`; don't mislabel those tests as MySQL-backed without explicit env verification. **Never run `migrate:fresh` on `vybe_core` or `vybe_movies` with actual data.**
 
 ## Troubleshooting
 
-- **Composer platform error**: compare `php -v`, `where.exe php`, and locked dependencies. CI uses PHP 8.4; local PHP 8.3 may be insufficient even if `composer.json` accepts `^8.3`.
-- **DB connection refused**: start XAMPP database, confirm port/credentials/driver and `php artisan config:clear` after `.env` edits.
-- **CORS/419 after auth introduced**: inspect exact origin, stateful domain ports, credentialed CORS, `XSRF-TOKEN`/`X-XSRF-TOKEN`, cookie domain, session driver; don't disable CSRF.
-- **React API 404**: check `/api/v1` prefix is applied only once and that the routes have actually been implemented.
-- **Port conflict**: stop unrelated process or intentionally change app and documented frontend/backend origin configuration together.
+- Composer platform errors: compare `php -v`, `where.exe php`, and locked dependencies; do not blindly `composer update` or `--ignore-platform-reqs`.
+- Catalog 403: missing/mismatched token; Catalog 503: missing token config; avoid printing secrets in logs.
+- Core 503 when movie façade is implemented: check Catalog process, port, token, MySQL, TMDB availability and bounded HTTP timeout.
+- Browser 419 when Sanctum is implemented: consistently use `localhost`, configure `statefulApi`, CORS credentials and cookies; don't disable CSRF to hide the problem.
+- XAMPP database might be MariaDB; verify JSON behavior against CI MySQL 8.0.

@@ -25,6 +25,15 @@ backend/storage/framework/views/*
 backend/bootstrap/cache/*.php
 !backend/bootstrap/cache/.gitignore
 
+# Movie Catalog Laravel local data
+services/movie-catalog/database/*.sqlite
+services/movie-catalog/storage/logs/*
+services/movie-catalog/storage/framework/cache/data/*
+services/movie-catalog/storage/framework/sessions/*
+services/movie-catalog/storage/framework/views/*
+services/movie-catalog/bootstrap/cache/*.php
+!services/movie-catalog/bootstrap/cache/.gitignore
+
 # Editor and system
 .vscode/*
 !.vscode/extensions.json
