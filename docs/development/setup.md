@@ -97,7 +97,7 @@ npm ci
 npm run dev -- --host localhost
 ```
 
-Visit `http://localhost:5173`. Implement Sanctum cookies in Core only; React must not call Catalog directly.
+Visit `http://localhost:5173`. Authentication uses Sanctum cookies through Core; React never calls Catalog directly.
 
 ## 6. Checks
 
@@ -115,6 +115,44 @@ npm run build
 On CI, Core and Catalog migrations run independently against isolated MySQL databases. PHPUnit's committed `phpunit.xml` may still use SQLite `:memory:`; don't mislabel those tests as MySQL-backed without explicit env verification. **Never run `migrate:fresh` on `vybe_core` or `vybe_movies` with actual data.**
 
 ## Troubleshooting
+
+### Authentication configuration and acceptance
+
+Email verification uses Laravel notifications. `MAIL_MAILER=log` writes the verification message and signed link to `backend/storage/logs/laravel.log` in local development; use Mailpit by setting `MAIL_MAILER=smtp`, `MAIL_HOST=127.0.0.1`, `MAIL_PORT=1025` and its configured sender. Open the link while signed in to the registered account at `localhost`. Set `EMAIL_VERIFICATION_EXPIRE_MINUTES=60`. Production requires a real SMTP provider's host, port, encryption and credentials in environment variables, a deliverable sender address, HTTPS `APP_URL`, secure cookies and a matching frontend origin. Never commit mail credentials.
+
+After registration, verify the pending page shows the email and resend cooldown. Open the signed link, confirm the success page and refresh status. Test an expired/modified link and a link opened under another account; each must leave the account unverified. Unverified accounts can continue to use public pages and log in/out.
+
+The application shell redirects signed-in unverified users to `/verify-email`. Guests can still open public discovery routes. Test direct navigation to a future verified-only route with an unverified session: its Core endpoint must return 403 via Laravel's `verified` middleware. The current scaffold has no private product endpoint or movie route to exercise in a browser. In the verification UI, confirm sign out, focus-based status refresh, and that a success URL alone does not show success without a verified backend status.
+
+Core requires `composer install` and the additive `php artisan migrate` against your Core database. Do not overwrite an existing `.env` or reset data. Configure:
+
+```dotenv
+APP_URL=http://localhost:8000
+FRONTEND_URL=http://localhost:5173
+SANCTUM_STATEFUL_DOMAINS=localhost:5173,localhost:8000
+SESSION_DRIVER=database
+SESSION_DOMAIN=null
+SESSION_COOKIE=vybe_core_session
+SESSION_SECURE_COOKIE=false
+SESSION_HTTP_ONLY=true
+SESSION_SAME_SITE=lax
+```
+
+Set `frontend/.env` from `.env.example` if needed: `VITE_API_URL=http://localhost:8000` (root URL, without `/api/v1`). Run `npm ci`, then `npm run dev -- --host localhost`. Always use `localhost` in both browser origins; do not mix it with `127.0.0.1`. Run `php artisan config:clear` after changing local Core configuration. Configure a generated local APP_KEY if one does not already exist. Never regenerate an existing application's key casually.
+
+Manual browser acceptance (requires both local apps):
+
+1. Open `/register` at widths 360, 768, 1024 and 1440. Check keyboard focus, labels, reveal controls, and disabled Google/GitHub “Coming soon” buttons.
+2. Register with a unique email and a 12+ character password including letters and numbers. Confirm signed-in navigation; refresh and confirm it persists.
+3. Sign out, refresh, and verify signed-out navigation. Sign in again using the same email in uppercase.
+4. Check wrong passwords, duplicate email and mismatched confirmation. Confirm readable errors and no navigation on failure.
+5. Inspect Network: CSRF bootstrap is outside `/api/v1`; requests include credentials/XSRF headers; `/me` returns only documented fields. Removing the XSRF header on an auth POST must return 419. Re-submit normally to recover.
+6. Repeat failed login attempts to see 429; wait for Retry-After. Test offline/server-failure retry feedback and pending disabled submit controls.
+7. Confirm home remains accessible when signed out; signed-in visits to `/login` and `/register` return home.
+
+Checks: `php artisan test`, `php vendor/bin/pint --test`, `npm test`, `npm run lint`, `npx tsc -b --noEmit`, `npm run build`. Tests use SQLite memory by default. Username migration verification and the 17-test backend suite also passed on a disposable MariaDB 10.4 database; exact MySQL 8 verification remains a CI/release check. No browser connection was available during implementation, so the manual visual steps remain pending.
+
+For production, use HTTPS and `SESSION_SECURE_COOKIE=true`, `APP_DEBUG=false`, explicit origin/stateful domains and a suitable shared session domain (SPA and Core must share a parent domain). Use a persistent shared rate-limit cache. Do not use wildcard credentialed CORS.
 
 - Composer platform errors: compare `php -v`, `where.exe php`, and locked dependencies; do not blindly `composer update` or `--ignore-platform-reqs`.
 - Catalog 403: missing/mismatched token; Catalog 503: missing token config; avoid printing secrets in logs.
