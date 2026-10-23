@@ -34,6 +34,8 @@ Map into semantic Tailwind theme/CSS variables, ideally `:root` + a single theme
 
 ## Shared layout contracts
 
+The auth UI uses a shared wordmark component, restrained purple/pink glows, clearer card depth, and brief entrance/status motion that respects reduced-motion preferences. The existing `favicon.svg`, `icons.svg`, and starter raster assets are not an approved VYBE logo; keep the wordmark until the approved SVG/PNG is supplied.
+
 **AppLayout:** responsive header/navigation, branding, discovery/search access, account affordance, main content and footer. Use one reusable spacing/container system on Home, Discover, Details and 404 pages. About/Credits area must include the approved TMDB logo/notice before provider-backed public release.
 
 **AuthLayout:** focused accessible content column/card, VYBE identity, consistent form labels, inline error messages and links between Login/Register. Disabled Google/GitHub options display "Coming soon", visually and semantically disabled without misleading interactions.

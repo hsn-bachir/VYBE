@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" role="img" aria-label="VYBE — 3D ribbon V logo and wordmark" width="938" height="254" viewBox="0 0 938 254" fill="none">
+  <title>VYBE — 3D ribbon V logo and wordmark</title>
+  <desc>VYBE's folded violet and pink ribbon V logo, reconstructed as editable SVG shapes and gradients.</desc>
+
+  <defs>
+    <linearGradient id="leftRibbon" x1="-2%" y1="0%" x2="105%" y2="100%">
+      <stop offset="0%" stop-color="#A873FF"/>
+      <stop offset="26%" stop-color="#8245FF"/>
+      <stop offset="53%" stop-color="#662AF4"/>
+      <stop offset="84%" stop-color="#3421B3"/>
+      <stop offset="100%" stop-color="#130F59"/>
+    </linearGradient>
+    <linearGradient id="frontRibbon" x1="3%" y1="85%" x2="99%" y2="8%">
+      <stop offset="0%" stop-color="#A52EFF"/>
+      <stop offset="25%" stop-color="#AC3DFF"/>
+      <stop offset="47%" stop-color="#ED35CA"/>
+      <stop offset="69%" stop-color="#F22EB3"/>
+      <stop offset="100%" stop-color="#5E0C65"/>
+    </linearGradient>
+    <linearGradient id="frontUnderside" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3E125E" stop-opacity=".55"/>
+      <stop offset="75%" stop-color="#A01AC4" stop-opacity=".02"/>
+    </linearGradient>
+    <linearGradient id="topFlap" x1="0%" y1="80%" x2="99%" y2="14%">
+      <stop offset="0%" stop-color="#BD49FF"/>
+      <stop offset="31%" stop-color="#EB39D8"/>
+      <stop offset="63%" stop-color="#FB2FBA"/>
+      <stop offset="100%" stop-color="#FF62AD"/>
+    </linearGradient>
+    <linearGradient id="topHighlights" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".32"/>
+      <stop offset="13%" stop-color="#FFFFFF" stop-opacity=".04"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="edgeHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".45"/>
+      <stop offset="60%" stop-color="#FFBBF7" stop-opacity=".13"/>
+      <stop offset="100%" stop-color="#C481FF" stop-opacity=".10"/>
+    </linearGradient>
+    <radialGradient id="backdrop" cx="45%" cy="0%" r="95%">
+      <stop offset="0%" stop-color="#20102F"/>
+      <stop offset="49%" stop-color="#0F0C1E"/>
+      <stop offset="100%" stop-color="#0B0D12"/>
+    </radialGradient>
+    <filter id="iconShadow" x="-25%" y="-25%" width="160%" height="165%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#3F0760" flood-opacity="0.22"/>
+    </filter>
+    <filter id="appHalo" x="-65%" y="-65%" width="230%" height="230%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="19"/>
+    </filter>
+  </defs>
+<g transform="translate(29 15) scale(.96)">
+  <g id="vybe-3d-v" filter="url(#iconShadow)">
+    <!-- The left arm of the V, shaded from luminous violet to midnight indigo. -->
+    <path id="left-arm" d="M 14 6 H 77 C 93 6 104 13 113 30 L 160 105 L 106 186 L 9 21 C 5 15 7 6 14 6 Z" fill="url(#leftRibbon)"/>
+    <path id="left-edge-shine" d="M 14 6 H 77 C 93 6 104 13 113 30" fill="none" stroke="url(#edgeHighlight)" stroke-width="1.5" stroke-linecap="round" opacity=".64"/>
+    <!-- The lower ribbon passes in front and curls upward towards the right. -->
+    <path id="lower-ribbon" d="M 106 186 L 171 75 C 181 58 191 50 212 43 L 268 43 L 207 155 C 186 191 163 210 145 214 C 127 217 114 204 106 186 Z" fill="url(#frontRibbon)"/>
+    <path id="lower-subtle-shade" d="M 106 186 L 171 75 C 181 58 191 50 212 43 L 268 43 L 207 155 C 186 191 163 210 145 214 C 127 217 114 204 106 186 Z" fill="url(#frontUnderside)" opacity=".32"/>
+    <!-- Folded-over cinematic ribbon lip, distinct from the lower right arm. -->
+    <path id="folded-tip" d="M 153 115 C 169 85 178 59 191 39 C 208 15 227 6 251 6 H 302 C 310 6 312 11 308 18 L 284 57 C 273 73 263 77 246 77 H 224 C 195 77 175 83 153 115 Z" fill="url(#topFlap)"/>
+    <path id="flap-gloss" d="M 153 115 C 169 85 178 59 191 39 C 208 15 227 6 251 6 H 302 C 310 6 312 11 308 18 L 284 57 C 273 73 263 77 246 77 H 224 C 195 77 175 83 153 115 Z" fill="url(#topHighlights)" opacity=".26"/>
+    <path id="flap-top-specular" d="M 251 6 H 302 C 307 6 309 8 309 12" fill="none" stroke="#FFE8F8" stroke-opacity=".22" stroke-width="1.5" stroke-linecap="round"/>
+    <path id="fold-seam" d="M 153 115 C 175 83 195 77 224 77 H 246" fill="none" stroke="#E954D9" stroke-opacity=".22" stroke-width=".75"/>
+  </g>
+</g><g id="vybe-wordmark" fill="#F8FAFC" transform="translate(414 142) scale(0.04199219 -0.04199219)"><path d="M532 0H924L1436 1490H1105L872 765C829 623 783 463 731 280C677 463 630 623 585 765L344 1490H9Z" transform="translate(0.00 0)"/><path d="M561 0H861V557L1404 1490H1053L808 1043C775 983 743 923 713 863C681 923 649 983 615 1043L362 1490H9L561 557Z" transform="translate(1754.58 0)"/><path d="M111 0H742C1081 0 1264 171 1264 420C1264 632 1124 760 942 777V779C1106 820 1209 935 1209 1107C1209 1336 1029 1490 708 1490H111ZM412 242V639H704C859 639 950 561 950 437C950 313 857 242 699 242ZM412 871V1248H685C820 1248 903 1175 903 1059C903 944 820 871 685 871Z" transform="translate(3477.16 0)"/><path d="M111 0H1180V264H419V624H1123V881H419V1226H1180V1490H111Z" transform="translate(5106.74 0)"/></g><g id="vybe-tagline" fill="#C3A5ED" transform="translate(414 183) scale(0.00732422 -0.00732422)"><path d="M165 0H387V802C387 916 382 1107 378 1263C435 1079 494 892 528 802L837 0H1032L1337 802C1371 895 1433 1087 1486 1268C1483 1102 1478 912 1478 802V0H1705V1490H1367L1047 635C1018 553 971 387 936 254C902 390 855 555 826 635L501 1490H165Z" transform="translate(0.00 0)"/><path d="M786 -20C1172 -20 1457 268 1457 744C1457 1222 1172 1510 786 1510C399 1510 113 1222 113 744C113 268 399 -20 786 -20ZM786 188C530 188 339 384 339 744C339 1105 530 1302 786 1302C1040 1302 1231 1106 1231 744C1231 384 1040 188 786 188Z" transform="translate(2551.67 0)"/><path d="M590 0H869L1401 1490H1154L872 661C835 548 789 395 731 183C672 391 625 548 587 661L297 1490H51Z" transform="translate(4804.33 0)"/><path d="M393 1490H165V0H393Z" transform="translate(6939.00 0)"/><path d="M165 0H1109V196H393V655H1053V850H393V1294H1103V1490H165Z" transform="translate(8179.67 0)"/><path d="M665 -25C1015 -25 1217 159 1217 412C1217 681 978 783 788 832L643 870C529 900 375 953 375 1094C375 1220 489 1312 670 1312C839 1312 960 1234 975 1098H1197C1190 1335 981 1510 675 1510C375 1510 147 1339 147 1081C147 877 291 752 535 687L709 639C869 596 992 545 992 415C992 271 853 175 664 175C492 175 348 251 335 414H106C120 142 330 -25 665 -25Z" transform="translate(10097.33 0)"/><path d="M165 0H393V664H1131V0H1360V1490H1131V860H393V1490H165Z" transform="translate(13543.43 0)"/><path d="M393 1490H165V0H393Z" transform="translate(15751.09 0)"/><path d="M90 1294H555V0H784V1294H1247V1490H90Z" transform="translate(16991.76 0)"/><path d="M650 0C1103 0 1366 281 1366 747C1366 1210 1103 1490 664 1490H165V0ZM393 200V1290H649C974 1290 1142 1097 1142 747C1142 394 974 200 637 200Z" transform="translate(20451.85 0)"/><path d="M393 1490H165V0H393Z" transform="translate(22612.52 0)"/><path d="M165 0H393V620H1025V815H393V1294H1092V1490H165Z" transform="translate(23853.19 0)"/><path d="M165 0H393V620H1025V815H393V1294H1092V1490H165Z" transform="translate(25742.85 0)"/><path d="M165 0H1109V196H393V655H1053V850H393V1294H1103V1490H165Z" transform="translate(27632.52 0)"/><path d="M165 0H393V563H697C701 563 706 563 710 563L1012 0H1271L943 602C1124 670 1215 822 1215 1022C1215 1297 1044 1490 699 1490H165ZM393 758V1295H673C893 1295 984 1190 984 1022C984 855 893 758 675 758Z" transform="translate(29550.19 0)"/><path d="M165 0H1109V196H393V655H1053V850H393V1294H1103V1490H165Z" transform="translate(31559.85 0)"/><path d="M165 0H396V795C396 872 388 1026 379 1213C487 1013 544 910 617 793L1120 0H1384V1490H1153V642C1153 556 1157 417 1168 273C1102 416 1035 529 989 603L428 1490H165Z" transform="translate(33477.52 0)"/><path d="M90 1294H555V0H784V1294H1247V1490H90Z" transform="translate(35709.19 0)"/></g>
+</svg>

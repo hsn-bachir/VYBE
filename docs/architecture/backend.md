@@ -21,6 +21,8 @@ The movie façade validates parameters and translates Catalog failures, but neve
 
 ### Sanctum stateful SPA
 
+Core email/password authentication is now implemented. See [authentication implementation](authentication.md) for route middleware, validation, rate limits, session lifecycle and test coverage. Movie facade functionality remains a separate task.
+
 React runs at `http://localhost:5173` and calls the Core API at `http://localhost:8000`. Browser first calls **`GET /sanctum/csrf-cookie`**, then sends cookie-backed credentialed POSTs and receives normal session cookies. Configure `statefulApi()`, allowed CORS origins with credentials, `SANCTUM_STATEFUL_DOMAINS`, and a common browser hostname. Use `SESSION_DOMAIN` unset for local `localhost`. Login regenerates session; logout invalidates it and regenerates CSRF token. No bearer JWT/localStorage scheme.
 
 ### Core → Catalog HTTP
