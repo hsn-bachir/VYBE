@@ -1,6 +1,6 @@
 # VYBE Milestone 1 — browser-facing and internal API contracts
 
-**Status:** Core auth and the internal Catalog endpoints are implemented and tested. Public Core movie forwarding remains Task 2. Keep Core and Catalog response mappings consistent.
+**Status:** Core auth, public Core movies and internal Catalog endpoints are implemented and tested. Core and Catalog preserve the same normalized movie DTOs.
 
 ## A. Public Core API — `http://localhost:8000/api/v1`
 
@@ -34,6 +34,10 @@ Register body: `{ "username":"movie_fan", "email":"fan@example.com", "password":
 ```
 
 ### Movie discovery (public GET; no user session required)
+
+Implemented by Core's `MovieController` and `MovieCatalogClient`. Pages accept integers 1–500 (default 1); search trims/collapses whitespace and accepts 1–200 characters; IDs accept canonical positive int32 values. These routes have no authentication or email-verification middleware. The SPA retains its established verification flow for signed-in unverified users.
+
+Core validates Catalog envelopes and returns only the documented DTO fields and pagination/stale metadata. No arbitrary Catalog response headers or diagnostic text are proxied. Core's default 12-second request timeout accommodates Catalog provider retries; Core itself does not retry. Configure `MOVIE_CATALOG_URL`, `MOVIE_CATALOG_TOKEN`, `MOVIE_CATALOG_CONNECT_TIMEOUT_SECONDS=2`, `MOVIE_CATALOG_TIMEOUT_SECONDS=12` on the server only. Internal auth failures, unknown 404s, provider throttling, connection failures and malformed responses become `503 UPSTREAM_UNAVAILABLE`; genuine Catalog movie 404 and recognized field validation errors retain 404/422.
 
 | Route | Validation | Behavior |
 | --- | --- | --- |

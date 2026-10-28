@@ -5,12 +5,18 @@ import { LoginPage } from './features/auth/pages/LoginPage'
 import { RegisterPage } from './features/auth/pages/RegisterPage'
 import { GuestOnly, PublicOrVerified } from './features/auth/guards/AuthGuards'
 import { VerificationPage } from './features/auth/pages/VerificationPage'
+import { PopularMoviesPage } from './features/movies/pages/PopularMoviesPage'
+import { DiscoverPage } from './features/movies/pages/DiscoverPage'
+import { MovieDetailsPage } from './features/movies/pages/MovieDetailsPage'
+import { MovieState } from './features/movies/components/MovieState'
 
 export default function App() {
   return <Routes>
     <Route element={<PublicOrVerified />}><Route element={<AppLayout />}>
-      <Route index element={<><p className="eyebrow">Welcome to VYBE</p><h1>A shared love<br />of cinema.</h1><p className="text-muted">Movie discovery is coming in Milestone 1.</p></>} />
-      <Route path="*" element={<><h1>Page not found</h1><Link to="/">Back to home</Link></>} />
+      <Route index element={<PopularMoviesPage />} />
+      <Route path="/discover" element={<DiscoverPage />} />
+      <Route path="/movies/:tmdbId" element={<MovieDetailsPage />} />
+      <Route path="*" element={<MovieState title="This scene doesn’t exist."><Link to="/">Find your way back to the movies</Link></MovieState>} />
     </Route></Route>
     <Route element={<GuestOnly />}><Route element={<AuthLayout />}>
       <Route path="/login" element={<LoginPage />} />
