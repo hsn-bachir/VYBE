@@ -25,7 +25,7 @@ flowchart LR
 
 | Domain | Owner | Public surface | Implementation status |
 | --- | --- | --- | --- |
-| Identity | Core API | `/api/v1/auth/*` | Planned |
+| Identity | Core API | `/api/v1/auth/*` | Email/password SPA authentication implemented |
 | Movie discovery | Catalog API | Core forwards `/api/v1/movies/*` | Planned; catalog scaffold included in foundation starter |
 | Web UI | React SPA | `/`, `/discover`, `/movies/:tmdbId`, `/login`, `/register` | Planned |
 | User-generated reviews, watchlists, social feeds | Future domains | Not part of Milestone 1 | Deferred |

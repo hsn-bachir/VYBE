@@ -1,12 +1,12 @@
 # Milestone 1 database schema and ownership
 
-**Status:** Approved schema. The starter package supplies the **Catalog movies migration**; Core's users schema adjustments are a separate implementation task. The two Laravel apps must never query each other's database.
+**Status:** Approved schema. Core users adjustments are implemented as an additive migration. The two Laravel apps never query each other's database.
 
 ```mermaid
 erDiagram
   CORE_USERS {
     BIGINT id PK
-    VARCHAR name
+    VARCHAR username UK
     VARCHAR email UK
     VARCHAR password "nullable"
     VARCHAR avatar_url "nullable"
@@ -37,10 +37,14 @@ erDiagram
 
 ## Core — `vybe_core.users`
 
+Implemented by the additive `2026_10_23_000001_align_users_with_auth_contract` migration; the original migration history is preserved. It checks existing names and normalized-email collisions before changing schema, and normalizes existing emails. It refuses rollback when null-password accounts exist. No social tables or personal access token tables are introduced.
+
+The additive `2026_10_23_000002_replace_name_with_username` migration preserves existing accounts, derives deterministic lowercase usernames from legacy names, resolves collisions using IDs, adds a unique constraint and removes `name`. It refuses rollback because original names cannot be reconstructed. Back up Core before applying it to shared data.
+
 | Column | Type / constraint |
 | --- | --- |
 | `id` | BIGINT unsigned, PK, auto-increment |
-| `name` | VARCHAR(100) NOT NULL |
+| `username` | VARCHAR(30) NOT NULL UNIQUE; normalized lowercase |
 | `email` | VARCHAR(255) NOT NULL UNIQUE; normalize for registration/login |
 | `password` | VARCHAR(255) NULL; hashes only; required in email/password registration |
 | `avatar_url` | VARCHAR(2048) NULL |

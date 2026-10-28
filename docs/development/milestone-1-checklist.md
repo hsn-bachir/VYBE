@@ -17,13 +17,13 @@
 - [ ] Approve public Core and internal Catalog API response/error contracts.
 - [ ] Set shared local hosts, secure service-secret provisioning, split DBs; document exact XAMPP flavor/PHP version.
 - [ ] Add PR tests for Core service client failing gracefully when Catalog unavailable.
-- [ ] Add shared, centralized design tokens and React Router/Tailwind/Axios/TanStack Query packages.
+- [x] Add shared, centralized design tokens and React Router/Tailwind/Axios/TanStack Query packages.
 
 ## 2. Core API owner
 
-- [ ] Update `vybe_core.users` migration to name(100), nullable password, avatar_url(2048); no Catalog movie table.
-- [ ] Install Sanctum and enable API/stateful SPA/CORS/cookie settings; login/logout session security.
-- [ ] Implement `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` with tests (validation, 401/419/429).
+- [x] Update `vybe_core.users` migration to name(100), nullable password, avatar_url(2048); no Catalog movie table.
+- [x] Install Sanctum and enable API/stateful SPA/CORS/cookie settings; login/logout session security.
+- [x] Implement `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me` with tests (validation, 401/419/429).
 - [ ] Implement public `/movies/*` façade and `MovieCatalogClient` using HTTP fake tests and internal token.
 
 ## 3. Movie Catalog owner
@@ -36,9 +36,14 @@
 
 ## 4. Frontend foundation/auth owner
 
+- [x] Username registration and data-preserving migration; signed email verification, resend and status UI/API. Browser acceptance remains pending.
+- [x] Mandatory verification in account-route guard, Laravel verified-middleware test, and public guest access preserved. Approved logo asset and browser acceptance remain pending.
+
+Authentication layouts, inputs/buttons, tokens and retry states are implemented. Broader movie UI primitives remain pending. Verification: 13 Core tests (83 assertions), 16 frontend API/rendering tests, lint/typecheck/build and Pint passed; disposable MariaDB migrations and real HTTP cookie lifecycle passed. Visual browser acceptance and exact MySQL 8 CI remain pending.
+
 - [ ] `AppLayout`, `AuthLayout`, navigation, buttons, inputs, skeletons, toasts, empty/errors and responsive VYBE tokens.
-- [ ] Login/register forms, Sanctum CSRF init, current-user query, logout/guards, form errors.
-- [ ] Google/GitHub buttons disabled with “Coming soon”; no OAuth implementation.
+- [x] Login/register forms, Sanctum CSRF init, current-user query, logout/guards, form errors.
+- [x] Google/GitHub buttons disabled with “Coming soon”; no OAuth implementation.
 
 ## 5. Frontend movie discovery owner
 

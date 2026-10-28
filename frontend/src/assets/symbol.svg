@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" role="img" aria-label="VYBE — folded ribbon V mark" width="360" height="254" viewBox="0 0 360 254" fill="none">
+  <title>VYBE — folded ribbon V mark</title>
+  <desc>VYBE's folded violet and pink ribbon V logo, reconstructed as editable SVG shapes and gradients.</desc>
+
+  <defs>
+    <linearGradient id="leftRibbon" x1="-2%" y1="0%" x2="105%" y2="100%">
+      <stop offset="0%" stop-color="#A873FF"/>
+      <stop offset="26%" stop-color="#8245FF"/>
+      <stop offset="53%" stop-color="#662AF4"/>
+      <stop offset="84%" stop-color="#3421B3"/>
+      <stop offset="100%" stop-color="#130F59"/>
+    </linearGradient>
+    <linearGradient id="frontRibbon" x1="3%" y1="85%" x2="99%" y2="8%">
+      <stop offset="0%" stop-color="#A52EFF"/>
+      <stop offset="25%" stop-color="#AC3DFF"/>
+      <stop offset="47%" stop-color="#ED35CA"/>
+      <stop offset="69%" stop-color="#F22EB3"/>
+      <stop offset="100%" stop-color="#5E0C65"/>
+    </linearGradient>
+    <linearGradient id="frontUnderside" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3E125E" stop-opacity=".55"/>
+      <stop offset="75%" stop-color="#A01AC4" stop-opacity=".02"/>
+    </linearGradient>
+    <linearGradient id="topFlap" x1="0%" y1="80%" x2="99%" y2="14%">
+      <stop offset="0%" stop-color="#BD49FF"/>
+      <stop offset="31%" stop-color="#EB39D8"/>
+      <stop offset="63%" stop-color="#FB2FBA"/>
+      <stop offset="100%" stop-color="#FF62AD"/>
+    </linearGradient>
+    <linearGradient id="topHighlights" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".32"/>
+      <stop offset="13%" stop-color="#FFFFFF" stop-opacity=".04"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="edgeHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity=".45"/>
+      <stop offset="60%" stop-color="#FFBBF7" stop-opacity=".13"/>
+      <stop offset="100%" stop-color="#C481FF" stop-opacity=".10"/>
+    </linearGradient>
+    <radialGradient id="backdrop" cx="45%" cy="0%" r="95%">
+      <stop offset="0%" stop-color="#20102F"/>
+      <stop offset="49%" stop-color="#0F0C1E"/>
+      <stop offset="100%" stop-color="#0B0D12"/>
+    </radialGradient>
+    <filter id="iconShadow" x="-25%" y="-25%" width="160%" height="165%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#3F0760" flood-opacity="0.22"/>
+    </filter>
+    <filter id="appHalo" x="-65%" y="-65%" width="230%" height="230%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="19"/>
+    </filter>
+  </defs>
+<g transform="translate(22 12)">
+  <g id="vybe-3d-v" filter="url(#iconShadow)">
+    <!-- The left arm of the V, shaded from luminous violet to midnight indigo. -->
+    <path id="left-arm" d="M 14 6 H 77 C 93 6 104 13 113 30 L 160 105 L 106 186 L 9 21 C 5 15 7 6 14 6 Z" fill="url(#leftRibbon)"/>
+    <path id="left-edge-shine" d="M 14 6 H 77 C 93 6 104 13 113 30" fill="none" stroke="url(#edgeHighlight)" stroke-width="1.5" stroke-linecap="round" opacity=".64"/>
+    <!-- The lower ribbon passes in front and curls upward towards the right. -->
+    <path id="lower-ribbon" d="M 106 186 L 171 75 C 181 58 191 50 212 43 L 268 43 L 207 155 C 186 191 163 210 145 214 C 127 217 114 204 106 186 Z" fill="url(#frontRibbon)"/>
+    <path id="lower-subtle-shade" d="M 106 186 L 171 75 C 181 58 191 50 212 43 L 268 43 L 207 155 C 186 191 163 210 145 214 C 127 217 114 204 106 186 Z" fill="url(#frontUnderside)" opacity=".32"/>
+    <!-- Folded-over cinematic ribbon lip, distinct from the lower right arm. -->
+    <path id="folded-tip" d="M 153 115 C 169 85 178 59 191 39 C 208 15 227 6 251 6 H 302 C 310 6 312 11 308 18 L 284 57 C 273 73 263 77 246 77 H 224 C 195 77 175 83 153 115 Z" fill="url(#topFlap)"/>
+    <path id="flap-gloss" d="M 153 115 C 169 85 178 59 191 39 C 208 15 227 6 251 6 H 302 C 310 6 312 11 308 18 L 284 57 C 273 73 263 77 246 77 H 224 C 195 77 175 83 153 115 Z" fill="url(#topHighlights)" opacity=".26"/>
+    <path id="flap-top-specular" d="M 251 6 H 302 C 307 6 309 8 309 12" fill="none" stroke="#FFE8F8" stroke-opacity=".22" stroke-width="1.5" stroke-linecap="round"/>
+    <path id="fold-seam" d="M 153 115 C 175 83 195 77 224 77 H 246" fill="none" stroke="#E954D9" stroke-opacity=".22" stroke-width=".75"/>
+  </g>
+</g>
+</svg>
