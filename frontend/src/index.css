@@ -62,24 +62,24 @@ footer { color: var(--color-muted); border-top: 1px solid var(--color-border); p
 .status button { margin-top: 1rem; }
 .auth-intro { position: relative; isolation: isolate; overflow: hidden; background: radial-gradient(ellipse at 15% 85%, color-mix(in srgb, var(--color-primary) 22%, transparent), transparent 64%), radial-gradient(ellipse at 88% 15%, color-mix(in srgb, var(--color-secondary) 12%, transparent), transparent 52%), var(--color-background); }
 .auth-intro::before { content: ''; position: absolute; z-index: -1; width: min(55vw, 750px); aspect-ratio: 1; border: 1px solid color-mix(in srgb, var(--color-primary) 24%, transparent); border-radius: 50%; right: -32%; bottom: -45%; box-shadow: 0 0 0 90px color-mix(in srgb, var(--color-primary) 3%, transparent), 0 0 0 180px color-mix(in srgb, var(--color-secondary) 2%, transparent); pointer-events: none; }
-.auth-intro-copy { animation: rise-in 440ms ease-out both; }
+.auth-intro-copy { animation: rise-in var(--motion-entrance) var(--motion-ease) both; }
 .auth-panel { background: radial-gradient(ellipse at 80% 0%, color-mix(in srgb, var(--color-primary) 7%, transparent), transparent 55%), var(--color-surface); }
-.auth-card { padding: clamp(1.2rem, 3vw, 2rem); border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent); border-radius: 18px; background: color-mix(in srgb, var(--color-surface) 92%, var(--color-background)); box-shadow: 0 24px 80px rgba(0,0,0,.24); animation: rise-in 380ms ease-out both; }
+.auth-card { padding: clamp(1.2rem, 3vw, 2rem); border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent); border-radius: 18px; background: color-mix(in srgb, var(--color-surface) 92%, var(--color-background)); box-shadow: 0 24px 80px rgba(0,0,0,.24); animation: rise-in var(--motion-entrance) var(--motion-ease) both; }
 .auth-card .eyebrow { color: color-mix(in srgb, var(--color-primary) 80%, var(--color-foreground)); }
-.brand { display: inline-flex; align-items: center; width: fit-content; color: var(--color-foreground); transition: transform 180ms ease, opacity 180ms ease; }
+.brand { display: inline-flex; align-items: center; width: fit-content; color: var(--color-foreground); transition: transform var(--motion-feedback) var(--motion-ease), opacity var(--motion-feedback); }
 .brand:hover { text-decoration: none; transform: translateY(-2px); }
 .vybe-logo img { display: block; width: auto; max-width: 100%; object-fit: contain; }
 .vybe-logo-full { height: clamp(46px, 6vw, 68px); }
 .vybe-logo-symbol { height: 42px; }
-.button { transition: transform 170ms ease, filter 170ms ease, box-shadow 170ms ease; }
+.button { transition: transform var(--motion-feedback) var(--motion-ease), filter var(--motion-feedback), box-shadow var(--motion-feedback); }
 .button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 22px color-mix(in srgb, var(--color-primary) 17%, transparent); }
 .button:active:not(:disabled) { transform: translateY(0); }
-input { transition: border-color 150ms ease, box-shadow 150ms ease; }
+input { transition: border-color var(--motion-feedback), box-shadow var(--motion-feedback); }
 input:hover:not(:disabled) { border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border)); }
 input:focus-visible { outline: 0; border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 28%, transparent); }
 .verification-symbol { display: grid; place-items: center; width: 60px; height: 60px; margin-bottom: 1.4rem; border-radius: 18px; font-size: 1.65rem; font-weight: 700; }
 .pending-symbol { color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
-.success-symbol { color: #0B0D12; background: #34D399; animation: rise-in 440ms ease-out both; }
+.success-symbol { color: #0B0D12; background: #34D399; animation: rise-in var(--motion-entrance) var(--motion-ease) both; }
 .error-symbol { color: var(--color-danger); background: color-mix(in srgb, var(--color-danger) 13%, transparent); }
 .verification-help { margin-top: 1rem; color: var(--color-muted); font-size: .875rem; }
 .verification-footer { margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid var(--color-border); }

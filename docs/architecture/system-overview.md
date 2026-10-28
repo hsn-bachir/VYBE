@@ -1,6 +1,6 @@
 # VYBE — system architecture
 
-**Status:** Team-approved Milestone 1 target (two independent Laravel services); not all components are implemented. The rubric rewards microservices, but the instructor has not specified a minimum topology or deployment demonstration.
+**Status:** Team-approved Milestone 1 target (two independent Laravel services); authentication and movie discovery are implemented; release acceptance remains pending. The rubric rewards microservices, but the instructor has not specified a minimum topology or deployment demonstration.
 
 ## Context
 
@@ -26,8 +26,8 @@ flowchart LR
 | Domain | Owner | Public surface | Implementation status |
 | --- | --- | --- | --- |
 | Identity | Core API | `/api/v1/auth/*` | Email/password SPA authentication implemented |
-| Movie discovery | Catalog API | Core forwards `/api/v1/movies/*` | Planned; catalog scaffold included in foundation starter |
-| Web UI | React SPA | `/`, `/discover`, `/movies/:tmdbId`, `/login`, `/register` | Planned |
+| Movie discovery | Catalog API | Core forwards `/api/v1/movies/*` | Implemented through Core HTTP adapter and Catalog |
+| Web UI | React SPA | `/`, `/discover`, `/movies/:tmdbId`, `/login`, `/register` | Implemented; real-provider release acceptance pending |
 | User-generated reviews, watchlists, social feeds | Future domains | Not part of Milestone 1 | Deferred |
 | Google/GitHub OAuth | Future identity integration | Disabled buttons only | Deferred |
 

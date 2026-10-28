@@ -1,0 +1,24 @@
+/* Shared, purposeful timing. GSAP entrances read --motion-entrance in milliseconds. */
+:root {
+  --motion-feedback: 240ms;
+  --motion-card: 360ms;
+  --motion-navigation: 550ms;
+  --motion-entrance: 900ms;
+  --motion-hero: 1200ms;
+  --motion-scene: 1100ms;
+  --motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --motion-hero-ease: cubic-bezier(.25, .46, .45, .94);
+  --duration-quick: var(--motion-feedback);
+  --duration-fast: var(--motion-card);
+  --duration-slow: var(--motion-entrance);
+  --duration-hero: var(--motion-hero);
+  --duration-scene: var(--motion-scene);
+}
+.nav-indicator { transition: transform var(--motion-navigation) var(--motion-ease), opacity var(--motion-feedback); }
+.content-reveal { animation-duration: var(--motion-entrance); }
+.movie-card, .movie-poster .movie-image { transition-duration: var(--motion-card); }
+.card-reveal { transition-duration: var(--motion-card); }
+.header-search { transition: color var(--motion-feedback), background-color var(--motion-feedback), transform var(--motion-feedback) var(--motion-ease); }
+@media (prefers-reduced-motion: reduce) {
+  .nav-indicator, .header-search { transition: none; }
+}

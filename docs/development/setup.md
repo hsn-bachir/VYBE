@@ -1,6 +1,6 @@
 # VYBE local setup — Windows, XAMPP, two Laravel APIs
 
-**Status:** Core auth and the independent Catalog movie API are implemented. Core movie forwarding and React discovery remain Task 2. Never commit `.env` files.
+**Status:** Core auth and the independent Catalog movie API are implemented. Core movie forwarding and React discovery are implemented. Never commit `.env` files.
 
 ## Prerequisites
 
@@ -60,7 +60,7 @@ MOVIE_CATALOG_URL=http://localhost:8001
 MOVIE_CATALOG_TOKEN=<same-long-random-secret-as-catalog>
 ```
 
-The Catalog URL/token aren't wired into a Core client until that feature PR is implemented. Do not generate random secrets in tracked `.env.example` or in frontend Vite config.
+The Core MovieCatalogClient reads this URL and token from server configuration. Do not generate random secrets in tracked `.env.example` or in frontend Vite config.
 
 ## 4. Catalog API (terminal B)
 
@@ -121,13 +121,33 @@ On CI, Core and Catalog migrations run independently against isolated MySQL data
 
 ## Troubleshooting
 
+### Movie discovery walkthrough
+
+1. In Catalog's existing local `.env`, configure its `vybe_movies` credentials, `CATALOG_INTERNAL_TOKEN` and a valid `TMDB_TOKEN`. Run `php artisan config:clear`, apply existing migrations with `php artisan migrate`, and start `php artisan serve --host=localhost --port=8001` from `services/movie-catalog`.
+2. In Core's existing local `.env`, set `MOVIE_CATALOG_URL=http://localhost:8001` and `MOVIE_CATALOG_TOKEN` to the same service secret. Defaults `MOVIE_CATALOG_CONNECT_TIMEOUT_SECONDS=2` and `MOVIE_CATALOG_TIMEOUT_SECONDS=12` accommodate Catalog's provider attempts. Run `php artisan config:clear` and `php artisan serve --host=localhost --port=8000` from `backend`. This feature introduces no DB migration.
+3. In the frontend use `VITE_API_URL=http://localhost:8000`, run `npm ci` if dependencies are absent, then `npm run dev -- --host localhost`. Use `localhost` consistently for browser/Core/CORS/session configuration.
+4. As a guest, open `/`, follow a movie card, return to discovery, search by title and change pages. Verify browser back/forward restores the query/page. Reload a detail URL. Check missing-poster fallbacks when available. About & credits is expandable in the footer.
+5. Check mobile/tablet/desktop widths, keyboard focus and OS reduced-motion. Sign-in/register/verification/logout retain their existing behavior; an authenticated unverified user still goes to `/verify-email`. The public API itself requires no session.
+6. Stop Catalog and reload a movie request to see controlled 503/retry feedback. Frontend query data is cached for 60 seconds, so a hard reload makes this check explicit. Restart Catalog and retry. During TMDB failure, Catalog can still serve fresh rankings or hydrated stale details under its documented rules.
+
+Public API smoke checks need no internal credential:
+
+```powershell
+curl.exe -i 'http://localhost:8000/api/v1/movies/popular?page=1'
+curl.exe -i 'http://localhost:8000/api/v1/movies/search?query=Arrival&page=1'
+# Use a tmdb_id returned above:
+curl.exe -i 'http://localhost:8000/api/v1/movies/550'
+```
+
+Discovery verification on 2026-10-28: Core 53 tests/258 assertions passed with SQLite and isolated MariaDB 10.4.32; migrations, Pint and Composer platform/validation checks passed. Frontend 45 Vitest tests, lint, TypeScript and build passed. Playwright checked 13 groups including debounce/history, guards, image failures, errors and 360/768/1024/1440 responsive layouts; desktop/mobile screenshots were inspected. A real HTTP React → Core → Catalog run passed with only TMDB faked in a temporary test harness, including stale details and safe uncached-search 503. Real provider credentials, real email delivery and hosted MySQL 8 CI remain unverified. See the [frontend README](../../frontend/README.md) for reusable browser checks.
+
 ### Authentication configuration and acceptance
 
 Email verification uses Laravel notifications. `MAIL_MAILER=log` writes the verification message and signed link to `backend/storage/logs/laravel.log` in local development; use Mailpit by setting `MAIL_MAILER=smtp`, `MAIL_HOST=127.0.0.1`, `MAIL_PORT=1025` and its configured sender. Open the link while signed in to the registered account at `localhost`. Set `EMAIL_VERIFICATION_EXPIRE_MINUTES=60`. Production requires a real SMTP provider's host, port, encryption and credentials in environment variables, a deliverable sender address, HTTPS `APP_URL`, secure cookies and a matching frontend origin. Never commit mail credentials.
 
 After registration, verify the pending page shows the email and resend cooldown. Open the signed link, confirm the success page and refresh status. Test an expired/modified link and a link opened under another account; each must leave the account unverified. Unverified accounts can continue to use public pages and log in/out.
 
-The application shell redirects signed-in unverified users to `/verify-email`. Guests can still open public discovery routes. Test direct navigation to a future verified-only route with an unverified session: its Core endpoint must return 403 via Laravel's `verified` middleware. The current scaffold has no private product endpoint or movie route to exercise in a browser. In the verification UI, confirm sign out, focus-based status refresh, and that a success URL alone does not show success without a verified backend status.
+The application shell redirects signed-in unverified users to `/verify-email`. Guests can still open public discovery routes. Test direct navigation to a future verified-only route with an unverified session: its Core endpoint must return 403 via Laravel's `verified` middleware. Public movie routes can be exercised as a guest; private product endpoints remain out of scope. In the verification UI, confirm sign out, focus-based status refresh, and that a success URL alone does not show success without a verified backend status.
 
 Core requires `composer install` and the additive `php artisan migrate` against your Core database. Do not overwrite an existing `.env` or reset data. Configure:
 
@@ -155,7 +175,7 @@ Manual browser acceptance (requires both local apps):
 6. Repeat failed login attempts to see 429; wait for Retry-After. Test offline/server-failure retry feedback and pending disabled submit controls.
 7. Confirm home remains accessible when signed out; signed-in visits to `/login` and `/register` return home.
 
-Checks: `php artisan test`, `php vendor/bin/pint --test`, `npm test`, `npm run lint`, `npx tsc -b --noEmit`, `npm run build`. Tests use SQLite memory by default. Username migration verification and the 17-test backend suite also passed on a disposable MariaDB 10.4 database; exact MySQL 8 verification remains a CI/release check. No browser connection was available during implementation, so the manual visual steps remain pending.
+Checks: `php artisan test`, `php vendor/bin/pint --test`, `npm test`, `npm run lint`, `npx tsc -b --noEmit`, `npm run build`. Tests use SQLite memory by default. Username migration verification and the 17-test backend suite also passed on a disposable MariaDB 10.4 database; exact MySQL 8 verification remains a CI/release check. Discovery browser acceptance is recorded below; email delivery and the complete verification-link lifecycle still need manual acceptance.
 
 For production, use HTTPS and `SESSION_SECURE_COOKIE=true`, `APP_DEBUG=false`, explicit origin/stateful domains and a suitable shared session domain (SPA and Core must share a parent domain). Use a persistent shared rate-limit cache. Do not use wildcard credentialed CORS.
 

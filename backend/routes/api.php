@@ -2,9 +2,16 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\EmailVerificationController;
+use App\Http\Controllers\Api\V1\MovieController;
 use App\Http\Middleware\PreventAuthCaching;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
+
+Route::prefix('v1/movies')->group(function (): void {
+    Route::get('popular', [MovieController::class, 'popular']);
+    Route::get('search', [MovieController::class, 'search']);
+    Route::get('{tmdb_id}', [MovieController::class, 'show']);
+});
 
 // Auth is always session/CSRF protected, including requests without an Origin header.
 // Avoid running the same cookie/session stack twice for first-party requests.
