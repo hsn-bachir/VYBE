@@ -28,11 +28,13 @@
 
 ## 3. Movie Catalog owner
 
-- [ ] Scaffold Catalog app, remove starter users migration/model, configure own `vybe_movies`, token middleware, protected `/api/internal/v1/health` and tests.
-- [ ] Implement TMDB HTTP client with safe timeouts, error classification and HTTP fakes.
-- [ ] Implement movie normalization, unique `tmdb_id` summary upserts vs full-detail hydration, 7-day configurable persistent metadata freshness.
-- [ ] Implement short-lived TMDB-ranked popular/search caching (15-minute configurable), separate from movie table.
-- [ ] Implement `/api/internal/v1/movies/popular`, `/search`, `/{tmdb_id}` and tests for errors, stale fallback, pagination, 404/503.
+- [x] Scaffold Catalog app, remove starter users migration/model, configure own `vybe_movies`, token middleware, protected `/api/internal/v1/health` and tests.
+- [x] Implement TMDB HTTP client with safe timeouts, error classification and HTTP fakes.
+- [x] Implement movie normalization, unique `tmdb_id` summary upserts vs full-detail hydration, 7-day configurable persistent metadata freshness.
+- [x] Implement short-lived TMDB-ranked popular/search caching (15-minute configurable), separate from movie table.
+- [x] Implement `/api/internal/v1/movies/popular`, `/search`, `/{tmdb_id}` and tests for errors, stale fallback, pagination, 404/503.
+
+Catalog verification (2026-10-28): 68 tests / 270 assertions passed on SQLite and isolated MariaDB 10.4.32; existing migrations passed on the disposable MariaDB instance. Real TMDB credentials, hosted MySQL 8 CI and multiprocess load testing remain unverified. Core forwarding and React movie discovery remain Task 2.
 
 ## 4. Frontend foundation/auth owner
 
