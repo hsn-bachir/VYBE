@@ -36,6 +36,10 @@ The internal service token authenticates a backend service, **not** a user. Do n
 
 ### Failure handling and operational boundaries
 
+Catalog's internal movie endpoints are implemented and reusable by any backend holding the configured shared service token. There are no per-client roles or user sessions. Core-to-Catalog forwarding and React discovery remain Task 2; the sequence above describes that eventual integration, not an already connected browser flow.
+
+Catalog uses its existing `movies` schema and framework database cache. Detail hydration is fresh for seven days; ordered popular/search snapshots expire after fifteen minutes. Concurrent detail refreshes share a cache lock and failed refreshes have a 30-second cooldown. Only previously hydrated details can be served stale; expired rankings return 503 during provider failure. Provider `Retry-After` creates a shared cooldown rather than a long worker sleep. See [Catalog operations](../../services/movie-catalog/README.md) for timeouts and configuration.
+
 - Core handles Catalog timeout/network errors as `503 UPSTREAM_UNAVAILABLE` and logs a traceable, secret-free diagnostic. No PHP class imports across services.
 - Catalog distinguishes TMDB genuine 404 from upstream outages, serves stale movie *details* when a cached copy exists, and never synthesizes TMDB ranking from arbitrary cached movies.
 - Two DB schemas can run on one XAMPP server locally; databases are still separately owned, and services have no cross-DB SQL or FK relations.

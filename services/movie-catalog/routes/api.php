@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Internal\V1\MovieController;
 use Illuminate\Support\Facades\Route;
 
 // `routes/api.php` receives Laravel's `/api` prefix automatically.
@@ -10,6 +11,7 @@ Route::middleware('catalog.internal')->prefix('internal/v1')->group(function ():
         'service' => 'movie-catalog',
     ]));
 
-    // Movie API endpoints are implemented in a later Milestone 1 feature PR:
-    // GET /movies/popular, GET /movies/search, GET /movies/{tmdb_id}
+    Route::get('/movies/popular', [MovieController::class, 'popular']);
+    Route::get('/movies/search', [MovieController::class, 'search']);
+    Route::get('/movies/{tmdb_id}', [MovieController::class, 'show']);
 });

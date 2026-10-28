@@ -1,6 +1,6 @@
 # VYBE local setup — Windows, XAMPP, two Laravel APIs
 
-**Status:** Two-service architecture approved. Foundation package includes a Catalog service bootstrap helper; after running it, commit the generated Laravel skeleton and locked dependencies on the same PR. Never commit `.env` files.
+**Status:** Core auth and the independent Catalog movie API are implemented. Core movie forwarding and React discovery remain Task 2. Never commit `.env` files.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ git pull --ff-only origin dev
 git switch -c chore/microservice-foundation
 ```
 
-Unpack the foundation archive into the root. It updates docs and CI and provides a Catalog source overlay. Run the helper **before committing** so the actual Catalog scaffold exists for CI.
+The Catalog application is already checked in. Do not bootstrap another Laravel app. The historical foundation helper below is only for recovering a missing scaffold, not normal setup:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-catalog.ps1
@@ -38,7 +38,7 @@ Use dedicated DB users with per-database grants when possible. An unpassworded X
 ```powershell
 cd backend
 composer install
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 php artisan key:generate
 # Edit backend/.env using values below
 php artisan migrate
@@ -67,9 +67,9 @@ The Catalog URL/token aren't wired into a Core client until that feature PR is i
 ```powershell
 cd services/movie-catalog
 composer install
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 php artisan key:generate
-# Set DB credentials and CATALOG_INTERNAL_TOKEN in local .env
+# Set Catalog-only DB credentials, CATALOG_INTERNAL_TOKEN and TMDB_TOKEN in local .env
 php artisan migrate
 php artisan test
 php artisan serve --host=localhost --port=8001
@@ -87,7 +87,9 @@ curl.exe -i http://localhost:8001/api/internal/v1/health
 curl.exe -i -H "X-VYBE-Service-Token: YOUR_LOCAL_TOKEN" http://localhost:8001/api/internal/v1/health
 ```
 
-This health probe tests internal auth boundary; it does not yet implement TMDB popular/search/details.
+This health probe tests internal auth only, not TMDB readiness. Catalog now implements popular, search and details. Configure `TMDB_TOKEN` with a TMDB API Read Access Token (server-side bearer authentication). Defaults are `CATALOG_METADATA_TTL_SECONDS=604800`, `CATALOG_RANKING_TTL_SECONDS=900`, `CATALOG_REFRESH_COOLDOWN_SECONDS=30`, `TMDB_CONNECT_TIMEOUT_SECONDS=2`, `TMDB_REQUEST_TIMEOUT_SECONDS=5`. Use `CACHE_STORE=database` for persistent rankings and shared refresh locks. Run `php artisan config:clear` after editing local configuration.
+
+See the [Catalog README](../../services/movie-catalog/README.md) for PowerShell requests for all movie endpoints, exact startup/test configuration, stale-detail behavior and Task 2 handoff. Expired ranking caches have no outage fallback; hydrated details may return `meta.stale: true`. No new migration is required beyond the existing Catalog migrations.
 
 ## 5. React (terminal C)
 
@@ -106,6 +108,9 @@ cd backend
 php artisan test
 cd ../services/movie-catalog
 php artisan test
+php vendor/bin/pint --test
+composer validate --strict
+composer check-platform-reqs
 cd ../../frontend
 npm run lint
 npx tsc -b --noEmit

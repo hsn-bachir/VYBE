@@ -1,6 +1,6 @@
 # Backend architecture — Core and Catalog
 
-**Status:** Approved implementation target; the foundation package adds Catalog scaffold only. Endpoint features still require their own PRs.
+**Status:** Core authentication and the independent Movie Catalog are implemented. Core movie forwarding and React discovery remain Task 2.
 
 ## Core API (`backend/`)
 
@@ -35,13 +35,14 @@ Separate Laravel process on `http://localhost:8001`, connected to **`vybe_movies
 
 ```text
 services/movie-catalog/app/
-  Http/Controllers/Internal/V1/MovieController.php # planned
-  Http/Requests/Movies/{SearchMoviesRequest,ListMoviesRequest}.php # planned
-  Http/Resources/MovieResource.php # planned
+  Http/Controllers/Internal/V1/MovieController.php
+  Http/Requests/Movies/{SearchMoviesRequest,ListMoviesRequest,ShowMovieRequest}.php
+  Http/Resources/{MovieResource,MovieSummaryResource}.php
   Http/Middleware/EnsureInternalCatalogToken.php
   Models/Movie.php
-  Services/MovieService.php # planned
-  Integrations/Tmdb/TmdbClient.php # planned
+  Services/MovieService.php
+  Integrations/Tmdb/{TmdbClient,MovieNormalizer}.php
+  Exceptions/{MovieNotFound,UpstreamUnavailable}.php
 services/movie-catalog/config/catalog.php
 services/movie-catalog/routes/api.php
 ```
@@ -57,6 +58,12 @@ Catalog has **no users migration, no Sanctum browser session handling, and no OA
 - Set strict provider timeouts and bounded retries. Use Laravel HTTP fakes in tests, not live TMDB.
 
 ## Quality requirements
+
+Implemented Catalog policy: English (`en-US`), page 1–500, trimmed/whitespace-collapsed search up to 200 characters, positive int32 TMDB IDs. Ranking snapshots preserve provider order and expire without a stale-list fallback. Summary upserts omit null/absent fields and do not touch detail freshness. Detail refreshes use a nonblocking per-ID cache lock and 30-second failure cooldown; contenders receive hydrated stale details or 503. A genuine detail 404 remains 404 even when an old row exists.
+
+The TMDB client uses bearer auth, 2-second connection/5-second request timeouts and at most two attempts for connection failures or HTTP 500/502/503/504. Provider 429 and `Retry-After` defer calls through the shared Catalog cache. Authentication failures and malformed payloads map to controlled 503; unexpected errors have a safe 500 JSON envelope. No local client rate limiter is added. All provider tests use Laravel HTTP fakes.
+
+Task 2 must implement Core's HTTP adapter; it is not part of this Catalog implementation. Core should allow for two provider attempts (about 10.2 seconds at default settings), bound its own timeout and avoid retry amplification. See the [Catalog README](../../services/movie-catalog/README.md) for configuration and runnable checks.
 
 Separate MySQL migration test jobs for Core and Catalog, plus PHP tests. PHPUnit may still default to SQLite `:memory:`; a MySQL migration job is not proof the entire PHPUnit suite uses MySQL. Add integration coverage deliberately. No dangerous database reset outside disposable test DBs.
 

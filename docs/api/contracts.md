@@ -1,6 +1,6 @@
 # VYBE Milestone 1 — browser-facing and internal API contracts
 
-**Status:** Team-approved architectural boundaries and proposed concrete payloads. Routes remain unimplemented unless verified by code/tests. Keep Core and Catalog response mappings consistent.
+**Status:** Core auth and the internal Catalog endpoints are implemented and tested. Public Core movie forwarding remains Task 2. Keep Core and Catalog response mappings consistent.
 
 ## A. Public Core API — `http://localhost:8000/api/v1`
 
@@ -57,28 +57,34 @@ Example movie values illustrate the **contract only**, not actual TMDB results o
 
 ## B. Internal Movie Catalog API — `http://localhost:8001/api/internal/v1`
 
-Called only by **Core** over backend HTTP. Each internal business request must contain `X-VYBE-Service-Token: <secret>`, verified with constant-time comparison. No session cookies, CSRF bootstrap or user JWT. Protect network reachability in real deployments.
+Called by **Core or another authorized backend** over HTTP. Each internal business request must contain `X-VYBE-Service-Token: <secret>`, verified with constant-time comparison. No session cookies, CSRF bootstrap or user JWT. Protect network reachability in real deployments. The shared token authenticates services collectively; per-client scopes are not implemented.
 
 | Verb | Internal route | Catalog behavior |
 | --- | --- | --- |
 | GET | `/movies/popular?page=1` | Provider-ordered popular list, independent short cache |
 | GET | `/movies/search?query=...&page=1` | Provider-ordered search, independent short cache |
 | GET | `/movies/{tmdb_id}` | Metadata cache and detail hydration |
-| GET | `/health` | Token-protected starter integration probe (implemented by scaffold) |
+| GET | `/health` | Token-protected liveness probe; no DB/TMDB readiness guarantee |
 
 The Catalog returns the same normalized movie DTO shapes as Core; Core validates/map errors, but should not blindly relay arbitrary internal response headers. The separate health probe is **not** an application feature. Laravel's `/up` can provide bare liveness and should expose no secrets.
 
 ## Error contract
 
+Internal Catalog validation: `page` defaults to 1, integer 1–500; search query required, whitespace trimmed/collapsed, case preserved, length at most 200; `tmdb_id` canonical positive integer 1–2147483647. Invalid identifiers return 422 through request validation. Only `en-US` is supported; additional filters/languages are ignored rather than forwarded. Search excludes adult results. List `total_pages` is capped at 500; `total_results` is the provider total. A valid empty search returns `{"data":[],"meta":{"page":1,"total_pages":0,"total_results":0}}`.
+
+The list/detail examples above are also the exact internal envelopes. Ratings are JSON numbers (rounded to two decimal places), vote counts are integers, dates are `YYYY-MM-DD` or null, image paths are safe relative paths or null. Local primary keys, timestamps and provider-only fields are omitted.
+
 | Condition | Status | Shape |
 | --- | --- | --- |
 | Invalid input | 422 | `{ "message":"...", "errors":{"query":["..."]} }` |
 | Invalid login / session | 401 | `{ "message":"Unauthenticated." }` (or approved equivalent) |
-| Catalog bad/missing service token | 403 | Never disclose expected token |
+| Catalog bad/missing service token | 403 | `{ "message":"Forbidden.", "code":"FORBIDDEN" }` |
+| Catalog token configuration absent | 503 | `{ "message":"Service authentication is not configured.", "code":"SERVICE_MISCONFIGURED" }` |
 | Unknown TMDB movie | 404 | `{ "message":"Movie not found", "code":"MOVIE_NOT_FOUND" }` |
 | Catalog/TMDB unavailable | 503 | `{ "message":"Movie service unavailable", "code":"UPSTREAM_UNAVAILABLE" }` |
 | Client/provider throttling | 429 / 503 | Distinguish client vs upstream, do not leak secrets |
 | CSRF mismatch | 419 | Session/CSRF recovery, not silent bypass |
+| Unexpected Catalog error | 500 | `{ "message":"Internal server error", "code":"INTERNAL_ERROR" }` even with debug enabled |
 
 Time out Core → Catalog, fail gracefully if Catalog is down, and avoid infinite retry loops. Provider outages may yield cached **stale details** with `meta.stale: true`; rankings can only be returned if a genuine previously cached ordered response exists. List ordering always follows TMDB.
 
@@ -89,5 +95,9 @@ Time out Core → Catalog, fail gracefully if Catalog is down, and avoid infinit
 - Never refresh detail `metadata_fetched_at` on summary-only search/popular results.
 
 ### Contract testing
+
+Catalog returns 503 for provider authentication/validation failures, 429, malformed payloads, timeouts and server outages unless hydrated stale details exist. A genuine detail 404 is not masked by stale metadata. No Catalog client-facing throttle is configured; 429 remains applicable to Core's existing throttles. Native HTTP connection/500/502/503/504 failures receive at most one retry after 200 ms. Provider `Retry-After` (seconds or HTTP date) defers subsequent provider calls in shared cache; 429 without usable guidance defaults to 30 seconds.
+
+Ranking keys include operation, page, normalized query and the fixed language/adult policy. Snapshots expire after `CATALOG_RANKING_TTL_SECONDS`; this implementation has no stale-ranking fallback. Only complete detail hydration sets `metadata_fetched_at`. Per-ID locks prevent simultaneous detail refreshes: contenders receive stale hydrated details or 503. Failed refreshes have `CATALOG_REFRESH_COOLDOWN_SECONDS=30` cooldown. The cache must be shared across Catalog workers. See [manual API requests and configuration](../../services/movie-catalog/README.md).
 
 Fake Catalog HTTP in Core tests and fake TMDB in Catalog tests. Validate the exact public/internal payloads, 401/403/419/422/404/429/503, query validation, pagination order, and stale behavior before declaring endpoints complete.
