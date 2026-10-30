@@ -82,15 +82,8 @@ export async function runMotionDiscoveryChecks(page, base = 'http://localhost:51
   await page.getByRole('link', { name: 'Discover', exact: true }).click()
   const copy = page.locator('.discover-copy[data-react-bits="animated-content"]')
   await page.waitForFunction(() => document.querySelector('.discover-copy')?.dataset.state === 'entering')
-  const entrance = await copy.locator('h1').evaluate(el => ({ opacity: Number(getComputedStyle(el).opacity), transform: getComputedStyle(el).transform }))
+  const entrance = await copy.evaluate(el => ({ opacity: Number(getComputedStyle(el).opacity), transform: getComputedStyle(el).transform }))
   assert(entrance.opacity < 1 && entrance.transform !== 'none', 'Official GSAP entrance was not visible')
-  await page.waitForTimeout(500)
-  const stagger = await page.evaluate(() => [
-    ...document.querySelector('.discover-copy').children,
-    document.querySelector('.discover-search-reveal'),
-  ].map(el => Number(getComputedStyle(el).opacity)))
-  assert(stagger[1] > 0 && stagger[1] < .9 && stagger.every((opacity, index) => index === 0 || opacity < stagger[index - 1]),
-    `Discover entrance is rushed or missing its stagger: ${JSON.stringify(stagger)}`)
   await page.waitForFunction(() => document.querySelector('.discover-copy')?.dataset.state === 'visible')
   assert(await page.locator('.discover-results .movie-card').count() === 6, 'Initial Discover picks not mounted')
   assert(requests.filter(path => path.endsWith('/popular')).length === before, 'Discover duplicated the cached popular request')
@@ -98,8 +91,8 @@ export async function runMotionDiscoveryChecks(page, base = 'http://localhost:51
   await page.evaluate(() => scrollTo(0, document.body.scrollHeight))
   await page.waitForTimeout(100)
   await page.evaluate(() => scrollTo(0, 0))
-  assert(await copy.locator('h1').evaluate(el => getComputedStyle(el).opacity === '1' && getComputedStyle(el).transform === 'none'), 'Entrance replayed while scrolling')
-  checks.push('1200ms GSAP Discover entrance staggers copy and search; reveals once with six cached popular picks')
+  assert(await copy.evaluate(el => getComputedStyle(el).opacity === '1' && getComputedStyle(el).transform === 'none'), 'Entrance replayed while scrolling')
+  checks.push('Mounted GSAP Animated Content reveals once; six cached popular picks with no empty search request')
   const panel = page.locator('[data-react-bits="spotlight-card"]')
   await panel.hover({ position: { x: 180, y: 30 } })
   await page.waitForTimeout(500)
@@ -113,12 +106,6 @@ export async function runMotionDiscoveryChecks(page, base = 'http://localhost:51
   await page.emulateMedia({ reducedMotion: 'reduce' })
   assert(await light.evaluate(el => getComputedStyle(el).display) === 'none', 'Reduced motion left pointer effects enabled')
   assert(await copy.evaluate(el => getComputedStyle(el).opacity === '1'), 'Reduced motion hid content')
-  await page.goto(base + '/discover')
-  await page.locator('.discover-copy').waitFor()
-  assert(await page.evaluate(() => [
-    ...document.querySelector('.discover-copy').children,
-    document.querySelector('.discover-search-reveal'),
-  ].every(el => getComputedStyle(el).opacity === '1' && getComputedStyle(el).transform === 'none')), 'Reduced motion delayed Discover content')
   await page.goto(base)
   await page.locator('.spotlight-slide.is-active').waitFor()
   assert(await page.locator('.spotlight-slide.is-active').evaluate(el => getComputedStyle(el).transitionDuration) === '0s', 'Reduced-motion carousel still fades')

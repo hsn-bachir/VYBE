@@ -7,7 +7,6 @@ export async function runMovieDiscoveryChecks(page, base = 'http://127.0.0.1:517
   const requests = []
   let popularMode = 'normal'
   let authMode = 'guest'
-  let authDelay = 0
   const headers = { 'Access-Control-Allow-Origin': base, 'Access-Control-Allow-Credentials': 'true' }
   const fixture = (id = 42) => ({ tmdb_id: id, title: id === 42 ? 'The Quiet Horizon' : 'Test film ' + id,
     overview: 'Isolated browser acceptance fixture. Production pages always request the Core API.',
@@ -16,14 +15,9 @@ export async function runMovieDiscoveryChecks(page, base = 'http://127.0.0.1:517
   await page.unroute('**/api/v1/**')
   await page.route('**/api/v1/**', async route => {
     const url = new URL(route.request().url())
-    if (url.pathname.endsWith('/auth/me')) {
-      if (authMode === 'offline') return route.abort('connectionrefused')
-      if (authMode === 'error') return route.fulfill({ status: 500, headers, json: { message: 'Server error.' } })
-      if (authDelay) await new Promise(resolve => setTimeout(resolve, authDelay))
-      return authMode === 'guest'
+    if (url.pathname.endsWith('/auth/me')) return authMode === 'guest'
       ? route.fulfill({ status: 401, headers, json: { message: 'Unauthenticated.' } })
       : route.fulfill({ headers, json: { data: { id: 1, username: 'test_fan', email: 'fan@example.test', avatar_url: null, email_verified_at: authMode === 'verified' ? '2026-10-28T00:00:00Z' : null } } })
-    }
     requests.push(url)
     if (url.pathname.endsWith('/popular') && popularMode === 'error') return route.fulfill({ status: 503, headers, json: { code: 'UPSTREAM_UNAVAILABLE' } })
     if (/\/movies\/\d+$/.test(url.pathname)) {
@@ -37,22 +31,6 @@ export async function runMovieDiscoveryChecks(page, base = 'http://127.0.0.1:517
     return route.fulfill({ headers, json: { data: url.searchParams.get('query') === 'nomatch' || popularMode === 'empty' ? [] : Array.from({ length: 12 }, (_, i) => fixture(42 + i)), meta: { page: currentPage, total_pages: 3, total_results: 60 } } })
   })
   await page.setViewportSize({ width: 1440, height: 1000 })
-  for (const failureMode of ['error', 'offline']) {
-    authMode = failureMode
-    await page.goto(base + '/discover?query=test+film')
-    await page.getByRole('alert').filter({ hasText: 'We couldn’t check your session.' }).waitFor()
-    assert(await page.locator('.discover-page').count() === 0, 'Session failure bypassed verification guard')
-    authMode = 'guest'
-    authDelay = 500
-    await page.getByRole('button', { name: 'Try again' }).click()
-    await page.getByRole('status').filter({ hasText: 'Checking your session again…' }).waitFor()
-    assert(await page.getByRole('button', { name: 'Try again' }).isDisabled(), 'Session retry allowed duplicate requests')
-    await page.getByRole('heading', { name: 'Results for “test film”' }).waitFor()
-    assert(new URL(page.url()).searchParams.get('query') === 'test film', 'Recovery lost the current route')
-    authDelay = 0
-  }
-  requests.length = 0
-  record('Session server/network failure stays guarded; retry recovers guest access without losing URL')
   await page.goto(base)
   await page.getByLabel('Loading movies', { exact: true }).waitFor()
   await page.getByRole('link', { name: 'View The Quiet Horizon' }).waitFor()

@@ -29,17 +29,15 @@ export function DiscoverPage() {
   const onSearch = useCallback((value: string) => setParams(value ? { query: value } : {}), [setParams])
   return <div className="discover-page">
     <section className="discover-intro" aria-labelledby="discover-title">
-      <AnimatedContent className="discover-copy" trigger="mount" duration={1.2} delay={0.08} distance={12} ease="power1.out" stagger={0.12}><p className="eyebrow">Explore the unexpected</p><h1 id="discover-title">Find your next<br /><span>obsession.</span></h1><p>Every great movie starts with curiosity.</p></AnimatedContent>
-      <AnimatedContent className="discover-search-reveal" trigger="mount" duration={1.2} delay={0.44} distance={12} ease="power1.out">
-        <SpotlightCard className="discover-search-panel" spotlightColor="var(--color-primary)" style={{ '--spotlight-card-surface': 'var(--color-surface)', '--spotlight-card-border': 'var(--color-border)', '--spotlight-card-shadow': 'none' } as React.CSSProperties}>
-          <div className="search-panel-caption"><span>THE NEXT FRAME</span><span>Movie search</span></div>
-          <MovieSearch query={query} onSearch={onSearch} busy={search.isFetching} />
-          <p id="search-hint" className="search-hint">Search by movie title · Up to 200 characters</p>
-        </SpotlightCard>
-      </AnimatedContent>
+      <AnimatedContent className="discover-copy"><p className="eyebrow">Explore the unexpected</p><h1 id="discover-title">Find your next<br /><span>obsession.</span></h1><p>Every great movie starts with curiosity.</p></AnimatedContent>
+      <SpotlightCard className="discover-search-panel" spotlightColor="var(--color-primary)" style={{ '--spotlight-card-surface': 'var(--color-surface)', '--spotlight-card-border': 'var(--color-border)', '--spotlight-card-shadow': 'none' } as React.CSSProperties}>
+        <div className="search-panel-caption"><span>THE NEXT FRAME</span><span>Movie search</span></div>
+        <MovieSearch query={query} onSearch={onSearch} busy={search.isFetching} />
+        <p id="search-hint" className="search-hint">Search by movie title · Up to 200 characters</p>
+      </SpotlightCard>
     </section>
     <section ref={results} tabIndex={-1} className="movie-section search-results discover-results" aria-label="Movie search results">
-      <AnimatedContent className="section-heading discover-results-heading" distance={14} duration={1.1} delay={0.16} ease="power1.out">
+      <AnimatedContent className="section-heading discover-results-heading" distance={14}>
         <div>{!query && <p className="eyebrow">Start exploring</p>}<h2 id="results-heading">{query ? <>Results for “{query}”</> : 'Movies worth discovering.'}</h2>{!query && <p className="discovery-caption">A few films from the current popular lineup.</p>}</div>
         {query ? search.data && <p className="text-muted" role="status">{search.data.meta.total_results.toLocaleString()} {search.data.meta.total_results === 1 ? 'film' : 'films'} found</p> : <Link to="/" className="text-link">Explore the lineup ↗</Link>}
       </AnimatedContent>
