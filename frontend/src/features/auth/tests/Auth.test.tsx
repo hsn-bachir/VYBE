@@ -61,6 +61,16 @@ describe('authentication API and rendering', () => {
     await expect(currentUser()).rejects.toMatchObject({ response: { status: 500 } })
   })
 
+  it.each([
+    { isAxiosError: true, code: 'ERR_NETWORK' },
+    { isAxiosError: true, code: 'ECONNABORTED' },
+    failure(503),
+  ])('keeps a failed session check recoverable instead of signing the user out: %j', async error => {
+    vi.mocked(api.get).mockRejectedValueOnce(error)
+    await expect(currentUser()).rejects.toBe(error)
+    expect(await currentUser()).toEqual(user)
+  })
+
   it('bootstraps logout and accepts an already-expired session', async () => {
     vi.mocked(api.post).mockRejectedValue(failure(401))
     await expect(logout()).resolves.toBeUndefined()

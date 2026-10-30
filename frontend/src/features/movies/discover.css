@@ -6,7 +6,8 @@
 .discover-copy h1 { font-size: clamp(3rem, 5.5vw, 5rem); font-weight: 600; line-height: 1.07; margin: 0 0 1.25rem; }
 .discover-copy h1 span { color: color-mix(in srgb, var(--color-primary) 65%, var(--color-foreground)); }
 .discover-copy > p:last-child { font-size: 1rem; color: var(--color-muted); margin: 0; }
-.spotlight-card.discover-search-panel { max-width: 1100px; margin-top: 2rem; padding: 1.5rem 2rem; border-radius: 12px; }
+.discover-search-reveal { padding-top: 2rem; }
+.spotlight-card.discover-search-panel { max-width: 1100px; padding: 1.5rem 2rem; border-radius: 12px; }
 .search-panel-caption { display: flex; justify-content: space-between; gap: 1rem; color: var(--color-muted); font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; }
 .search-panel-caption > span:first-child { color: color-mix(in srgb, var(--color-primary) 45%, var(--color-foreground)); }
 .discover-search-panel .movie-search { margin-top: 1rem; background: color-mix(in srgb, var(--color-background) 70%, transparent); }
@@ -24,7 +25,8 @@
   .discover-intro { padding-top: 1.5rem; }
   .discover-copy h1 { font-size: 3rem; }
   .discover-copy > p:last-child { font-size: .85rem; max-width: 270px; }
-  .spotlight-card.discover-search-panel { padding: 1.1rem; margin-top: 1.75rem; }
+  .discover-search-reveal { padding-top: 1.75rem; }
+  .spotlight-card.discover-search-panel { padding: 1.1rem; }
   .search-panel-caption { font-size: .55rem; }
   .discover-search-panel .movie-search { padding-inline: .65rem; }
   .discover-search-panel .movie-search input { font-size: .75rem; }
