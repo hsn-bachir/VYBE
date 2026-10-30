@@ -121,6 +121,14 @@ On CI, Core and Catalog migrations run independently against isolated MySQL data
 
 ## Troubleshooting
 
+### “We couldn’t check your session”
+
+This is a failed Core session request, not proof that you are signed out. The SPA keeps the current URL and verification guard in place, and offers a retry with pending feedback. Only a genuine `/api/v1/auth/me` 401 is treated as a guest; network errors, timeouts and server failures are not.
+
+Check Core and its database before changing authentication settings. With `SESSION_DRIVER=database`, a stopped MySQL instance can fail the session request even while Core's `/up` probe returns 200. `start.ps1` launches the three application processes; it does **not** start MySQL. Start the existing database installation that owns `vybe_core` and `vybe_movies` first. For a Windows MySQL80 installation, use Services, or run `Start-Service MySQL80` in an administrator PowerShell. For XAMPP, start MySQL in its control panel. Do not initialize a replacement database or reset existing data to fix a stopped service.
+
+After restoring the database, select **Try again**. If the error persists, check Core's local log without sharing credentials or session cookies, and confirm `VITE_API_URL`, `FRONTEND_URL` and Sanctum origins all use the same `localhost` convention. A 401 for a guest is expected; a 500 or connection timeout requires fixing the service connection.
+
 ### Movie discovery walkthrough
 
 1. In Catalog's existing local `.env`, configure its `vybe_movies` credentials, `CATALOG_INTERNAL_TOKEN` and a valid `TMDB_TOKEN`. Run `php artisan config:clear`, apply existing migrations with `php artisan migrate`, and start `php artisan serve --host=localhost --port=8001` from `services/movie-catalog`.
