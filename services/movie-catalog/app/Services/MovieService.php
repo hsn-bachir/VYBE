@@ -13,6 +13,29 @@ class MovieService
 {
     public function __construct(private TmdbClient $client, private MovieNormalizer $normalizer) {}
 
+    /** @param list<int> $ids Validated, bounded TMDB IDs. */
+    public function summaries(array $ids): array
+    {
+        $ids = array_values(array_unique($ids));
+        $stored = Movie::whereIn('tmdb_id', $ids)->get([
+            'tmdb_id', 'title', 'poster_path', 'backdrop_path', 'overview', 'release_date', 'tmdb_rating', 'tmdb_vote_count',
+        ])->keyBy('tmdb_id');
+        $movies = [];
+        $missing = [];
+        foreach ($ids as $id) {
+            if ($movie = $stored->get($id)) {
+                // Model serialization preserves the summary resource's YYYY-MM-DD date contract.
+                $movies[] = $movie->toArray();
+            } else {
+                $missing[] = $id;
+            }
+        }
+
+        return ['movies' => $movies, 'meta' => [
+            'requested_count' => count($ids), 'returned_count' => count($movies), 'missing_tmdb_ids' => $missing,
+        ]];
+    }
+
     public function ranking(int $page, ?string $query = null): array
     {
         $key = 'catalog:ranking:v1:'.hash('sha256', json_encode([$query === null ? 'popular' : 'search', $page, $query, 'en-US', false]));

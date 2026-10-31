@@ -5,6 +5,7 @@ namespace App\Integrations\MovieCatalog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
+use InvalidArgumentException;
 
 class MovieCatalogClient
 {
@@ -20,7 +21,7 @@ class MovieCatalogClient
 
     public function details(int $id): array
     {
-        $body = $this->get((string) $id, [], true);
+        $body = $this->request((string) $id, [], true);
         if (! is_array($body['data'] ?? null) || ! is_bool($body['meta']['stale'] ?? null)) {
             throw new CatalogFailure;
         }
@@ -32,9 +33,72 @@ class MovieCatalogClient
         return ['data' => $movie, 'meta' => ['stale' => $body['meta']['stale']]];
     }
 
+    /** @param list<int> $tmdbIds Up to 50 IDs before deduplication; empty pages need no HTTP. */
+    public function summaries(array $tmdbIds): array
+    {
+        if (! array_is_list($tmdbIds) || count($tmdbIds) > 50) {
+            throw new InvalidArgumentException('Expected a list of at most 50 TMDB IDs.');
+        }
+        foreach ($tmdbIds as $id) {
+            if (! is_int($id) || $id < 1 || $id > 2147483647) {
+                throw new InvalidArgumentException('TMDB IDs must be integers between 1 and 2147483647.');
+            }
+        }
+        $ids = array_values(array_unique($tmdbIds));
+        if ($ids === []) {
+            return ['data' => [], 'meta' => ['requested_count' => 0, 'returned_count' => 0, 'missing_tmdb_ids' => []]];
+        }
+
+        $body = $this->request('summaries', ['tmdb_ids' => $ids], method: 'POST');
+        $meta = $body['meta'] ?? null;
+        if (! is_array($body['data'] ?? null) || ! array_is_list($body['data']) || ! is_array($meta)
+            || ($meta['requested_count'] ?? null) !== count($ids)
+            || ($meta['returned_count'] ?? null) !== count($body['data'])
+            || ! is_array($meta['missing_tmdb_ids'] ?? null) || ! array_is_list($meta['missing_tmdb_ids'])
+            || count($body['data']) + count($meta['missing_tmdb_ids']) !== count($ids)) {
+            throw new CatalogFailure;
+        }
+
+        $requested = array_fill_keys($ids, true);
+        $found = [];
+        $missing = [];
+        foreach ($body['data'] as $row) {
+            if (! is_array($row)) {
+                throw new CatalogFailure;
+            }
+            $movie = $this->movie($row);
+            $id = $movie['tmdb_id'];
+            if (! isset($requested[$id]) || isset($found[$id])) {
+                throw new CatalogFailure;
+            }
+            $found[$id] = $movie;
+        }
+        foreach ($meta['missing_tmdb_ids'] as $id) {
+            if (! is_int($id) || ! isset($requested[$id]) || isset($found[$id]) || isset($missing[$id])) {
+                throw new CatalogFailure;
+            }
+            $missing[$id] = true;
+        }
+
+        // Restore caller order even if an upstream version returns the sets in a different order.
+        $movies = [];
+        $missingIds = [];
+        foreach ($ids as $id) {
+            if (isset($found[$id])) {
+                $movies[] = $found[$id];
+            } else {
+                $missingIds[] = $id;
+            }
+        }
+
+        return ['data' => $movies, 'meta' => [
+            'requested_count' => count($ids), 'returned_count' => count($movies), 'missing_tmdb_ids' => $missingIds,
+        ]];
+    }
+
     private function listing(string $operation, array $params): array
     {
-        $body = $this->get($operation, $params);
+        $body = $this->request($operation, $params);
         $meta = $body['meta'] ?? null;
         if (! is_array($body['data'] ?? null) || ! array_is_list($body['data']) || ! is_array($meta)
             || ($meta['page'] ?? null) !== $params['page']
@@ -53,7 +117,7 @@ class MovieCatalogClient
         return ['data' => $movies, 'meta' => array_intersect_key($meta, array_flip(['page', 'total_pages', 'total_results']))];
     }
 
-    private function get(string $path, array $params, bool $detail = false): array
+    private function request(string $path, array $params, bool $detail = false, string $method = 'GET'): array
     {
         $url = config('movie_catalog.url');
         $token = config('movie_catalog.token');
@@ -66,7 +130,9 @@ class MovieCatalogClient
             $response = Http::acceptJson()->withHeaders(['X-VYBE-Service-Token' => $token])
                 ->connectTimeout(config('movie_catalog.connect_timeout'))
                 ->timeout(config('movie_catalog.timeout'))->withoutRedirecting()
-                ->get(rtrim($url, '/').'/api/internal/v1/movies/'.$path, $params);
+                ->send($method, rtrim($url, '/').'/api/internal/v1/movies/'.$path, [
+                    $method === 'POST' ? 'json' : 'query' => $params,
+                ]);
         } catch (ConnectionException) {
             throw new CatalogFailure;
         }
@@ -74,7 +140,7 @@ class MovieCatalogClient
         if ($detail && $response->status() === 404 && ($body['code'] ?? null) === 'MOVIE_NOT_FOUND') {
             throw new CatalogFailure(404);
         }
-        if ($response->status() === 422 && is_array($body['errors'] ?? null)) {
+        if ($method === 'GET' && $response->status() === 422 && is_array($body['errors'] ?? null)) {
             $errors = [];
             foreach (['page', 'query', 'tmdb_id'] as $field) {
                 if (array_key_exists($field, $body['errors'])) {
