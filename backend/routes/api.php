@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\EmailVerificationController;
+use App\Http\Controllers\Api\V1\LibraryController;
 use App\Http\Controllers\Api\V1\MovieController;
+use App\Http\Middleware\EnsureVerifiedAccount;
 use App\Http\Middleware\PreventAuthCaching;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
@@ -11,7 +13,18 @@ Route::prefix('v1/movies')->group(function (): void {
     Route::get('popular', [MovieController::class, 'popular']);
     Route::get('search', [MovieController::class, 'search']);
     Route::get('{tmdb_id}', [MovieController::class, 'show']);
+    Route::get('{tmdb_id}/experience', [MovieController::class, 'experience']);
 });
+
+Route::prefix('v1/me')->withoutMiddleware(EnsureFrontendRequestsAreStateful::class)
+    ->middleware(['web', PreventAuthCaching::class, 'auth:sanctum', EnsureVerifiedAccount::class])->group(function (): void {
+        foreach (['watchlist', 'watched'] as $library) {
+            Route::get($library, [LibraryController::class, 'index'])->defaults('library', $library)->middleware('throttle:library-read');
+            Route::post($library, [LibraryController::class, 'store'])->defaults('library', $library)->middleware('throttle:library-write');
+            Route::delete($library.'/{tmdb_id}', [LibraryController::class, 'destroy'])->defaults('library', $library)->middleware('throttle:library-write');
+        }
+        Route::get('movies/{tmdb_id}/library-state', [LibraryController::class, 'state'])->middleware('throttle:library-read');
+    });
 
 // Auth is always session/CSRF protected, including requests without an Origin header.
 // Avoid running the same cookie/session stack twice for first-party requests.

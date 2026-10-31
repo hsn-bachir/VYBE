@@ -99,3 +99,7 @@ Before respective slices, review proposed collection collation/name uniqueness, 
 ## 9. M2.1 readiness
 
 M2.1 can reuse the verified Catalog endpoint, Core `MovieCatalogClient::summaries()`, existing summary DTO/auth/session patterns and proposed schema/API/security/UI designs. No implementation blocker remains in M2.0. Before starting the next slice, review the proposed unresolved-ID write policy, first-watch timestamp and API details; obtain normal human review/CI acceptance and deploy matching Catalog support. M2.1 will paginate Core rows, call summaries once per nonempty page and retain unresolved records as placeholders. No watchlist/watched migrations or UI were created here.
+
+## Subsequent M2.1 decisions
+
+This report records the M2.0 checkpoint. The [M2.1 report](m2.1-report.md) supersedes its pending reference-validation and timestamp decisions. Future collection names preserve capitalization and allow duplicate names, including exact matches; collection IDs define identity. No collection CRUD is implemented in M2.1.

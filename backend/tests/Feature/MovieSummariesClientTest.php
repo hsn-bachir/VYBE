@@ -40,7 +40,7 @@ class MovieSummariesClientTest extends TestCase
             $this->assertFalse($request->hasHeader('Cookie'));
             $this->assertFalse($request->hasHeader('Authorization'));
             $this->assertSame(2, $options['connect_timeout']);
-            $this->assertSame(12, $options['timeout']);
+            $this->assertSame(3, $options['timeout']);
             $this->assertFalse($options['allow_redirects']);
 
             return Http::response(['data' => [self::summary(3) + ['internal_id' => 55], self::summary(7)],

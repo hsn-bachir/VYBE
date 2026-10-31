@@ -24,3 +24,14 @@ export interface MovieDetailResponse {
   data: MovieDetails
   meta: { stale: boolean }
 }
+
+export interface MovieTrailer { name: string; key: string; site: 'YouTube'; type: 'Trailer' | 'Teaser'; official: boolean }
+export interface MovieExperienceResponse {
+  data: {
+    tmdb_id: number; tagline: string | null; trailer: MovieTrailer | null
+    directors: { tmdb_id: number; name: string }[]
+    cast: { tmdb_id: number; name: string; character: string | null; profile_path: string | null }[]
+    related: MovieSummary[]
+  }
+  meta: { stale: boolean }
+}

@@ -1,6 +1,6 @@
 # VYBE Milestone 1 — browser-facing and internal API contracts
 
-**Status:** Core auth, public Core movies and internal Catalog endpoints are implemented and tested. Core and Catalog preserve the same normalized movie DTOs.
+**Status:** Core auth, public Core movies and internal Catalog endpoints are implemented and tested. Core and Catalog preserve the same normalized movie DTOs. M2.1 adds the [personal library contracts](milestone-2-contracts.md) and additive [movie experience](movie-experience.md) endpoint without changing these DTOs.
 
 ## A. Public Core API — `http://localhost:8000/api/v1`
 

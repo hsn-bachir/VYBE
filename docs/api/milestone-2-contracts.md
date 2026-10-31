@@ -1,6 +1,6 @@
-# M2 public API contracts — PLANNED, NOT IMPLEMENTED
+# M2 public API contracts — M2.1 implemented; M2.2–M2.5 planned
 
-All paths below start at `/api/v1`. These are implementation proposals for M2.1–M2.5, not routes delivered in M2.0. Existing [M1 contracts](contracts.md) and auth UserResource stay compatible. Examples are synthetic contract fixtures, not TMDB results.
+All paths below start at `/api/v1`. M2.1 routes below are implemented. M2.2–M2.5 remain proposals and are not exposed routes. Existing [M1 contracts](contracts.md) and auth UserResource stay compatible. Examples are synthetic contract fixtures, not TMDB results.
 
 ## Shared rules (apply to every endpoint)
 
@@ -8,7 +8,7 @@ All paths below start at `/api/v1`. These are implementation proposals for M2.1�
 
 Private failures: 401 `{"message":"Unauthenticated."}`; 403 `{"message":"Your email address is not verified."}`; 419 CSRF/session mismatch; 429 throttling with Retry-After. Non-owned collections/reviews return 404 `{"message":"Not found."}`, exactly like absent resources. Validation uses 422 `{"message":"The request is invalid.","errors":{"field":["Field explanation."]}}` (Laravel's summary wording may vary). Conflict uses 409 `{"message":"A review already exists for this movie.","code":"REVIEW_EXISTS"}`. Server errors are sanitized; no raw DB/provider errors. No normal 409 for idempotent membership/rating operations. No user-level 403 for ownership, to avoid enumeration.
 
-IDs in bodies are JSON integers 1–2147483647; route/query IDs are canonical decimal strings (no signs, leading zeros, decimals). Invalid IDs return 422; a valid absent collection/review ID returns 404. Proposed movie-reference policy accepts well-formed IDs without live existence checks; no Catalog 404 is manufactured from a cache miss. Public ratings/review lists for valid but unrecorded movie IDs return empty results. This policy requires review before M2.1.
+IDs in bodies are JSON integers 1–2147483647; route/query IDs are canonical decimal strings (no signs, leading zeros, decimals). Invalid IDs return 422; a valid absent collection/review ID returns 404. M2.1 new memberships require a persisted Catalog reference through the existing batch client. A missing reference returns 422 with an instruction to open movie details; Catalog failure returns 503. Existing memberships return 200 without Catalog, and removals/state never call Catalog. No TMDB 404 is manufactured from a cache miss. Public ratings/review lists for valid but unrecorded movie IDs return empty results. Future rating/review reference validation remains subject to its slice review.
 
 Only documented fields are mutable. Reject unsupported body keys with 422, including `user_id`, timestamps, emails/passwords in profile writes, and privacy flags. Empty PATCH is 422. GETs have no body; DELETEs have no body/query. Query parameters not listed are ignored, following current movie endpoints. Proposed write limits and session behavior are in [security architecture](../architecture/milestone-2.md).
 
@@ -22,9 +22,9 @@ Library listing example (watchlist, watched, collection movies):
 {"data":[{"tmdb_id":550,"created_at":"2026-10-30T12:00:00.000000Z","movie":{"tmdb_id":550,"title":"Fixture movie","poster_path":null,"backdrop_path":null,"overview":null,"release_date":null,"tmdb_rating":8.4,"tmdb_vote_count":1000},"metadata_status":"available"},{"tmdb_id":551,"created_at":"2026-10-29T12:00:00.000000Z","movie":null,"metadata_status":"missing"}],"meta":{"page":1,"per_page":20,"total_pages":1,"total_results":2,"metadata_unavailable":false}}
 ```
 
-Watched rows additionally include `watched_at`. Catalog failure preserves all rows with `metadata_status: "unavailable"`, `movie: null`, and `meta.metadata_unavailable: true`. Stored summaries can be stale; `available` promises presence only. Total counts always count Core records. Writes return relationship objects without fetching metadata. All examples below reuse these defined shapes; they are normative references, not omitted endpoint behavior.
+Watched rows additionally include `watched_at`. Catalog failure preserves all rows with `metadata_status: "unavailable"`, `movie: null`, and `meta.metadata_unavailable: true`. Stored summaries can be stale; `available` promises presence only. Total counts always count Core records. Writes return relationship objects without embedding metadata; only new additions confirm the reference in Catalog. All examples below reuse these defined shapes; they are normative references, not omitted endpoint behavior.
 
-## M2.1 Watchlist and Watched
+## M2.1 Watchlist and Watched — implemented
 
 | Method/path | Access; query/body | Success example | Behavior / consumer / additional errors |
 | --- | --- | --- | --- |
@@ -36,16 +36,20 @@ Watched rows additionally include `watched_at`. Catalog failure preserves all ro
 | DELETE `/me/watched/{tmdb_id}` | P; none | 204 empty | Idempotent, absent → 204; Details/Library. 422 invalid ID. |
 | GET `/me/movies/{tmdb_id}/library-state` | P; none | 200 `{"data":{"tmdb_id":550,"in_watchlist":true,"watched_at":null}}` | Bounded two indexed membership lookups; Details action state without downloading lists. No metadata lookup. 422 invalid ID. |
 
+All seven library routes use the explicit web session/CSRF stack, Sanctum authentication and `EnsureVerifiedAccount` (JSON 403 even without Accept). Reads share 120/minute/user; writes share 60/minute/user. CORS allows DELETE from the configured frontend. Summary requests use a dedicated 3-second timeout (configurable 1–5 seconds) with no retry; discovery retains 12 seconds.
+
+Popular/search/detail and displayed related movies are persisted by Catalog before returning. New additions confirm via one cache-only batch request; no live hydration fan-out occurs during a write. A valid uncached ID can be resolved by opening public details first.
+
 POST add-if-absent operations are effect-idempotent; retries do not update times. Separate unique keys allow coexistence in both lists. All private shared errors apply; no missing-membership 404/409.
 
 ## M2.2 Collections
 
-Collection object example: `{"id":7,"name":"Favorites","description":null,"movie_count":0,"created_at":"2026-10-30T12:00:00.000000Z","updated_at":"2026-10-30T12:00:00.000000Z"}`. Name trims edges, required 1–100 characters; nullable description max 2000. Owner-local case/accent-insensitive name uniqueness; duplicates and rename conflicts return 422 `errors.name`. Empty collection is a normal object with movie_count 0.
+Collection object example: `{"id":7,"name":"Favorites","description":null,"movie_count":0,"created_at":"2026-10-30T12:00:00.000000Z","updated_at":"2026-10-30T12:00:00.000000Z"}`. Name trims edges, required 1–100 characters; nullable description max 2000. Preserve user-entered capitalization. Duplicate names, including exact duplicates and case variants, are allowed within one owner. Collection identity is the database ID; do not add an owner/name unique constraint. Empty collection is a normal object with movie_count 0.
 
 | Method/path | Access; query/body | Success example | Behavior / consumer / additional errors |
 | --- | --- | --- | --- |
 | GET `/me/collections` | P; pagination; optional `contains_tmdb_id=550` | 200 `{"data":[{"id":7,"name":"Favorites","description":null,"movie_count":0,"created_at":"2026-10-30T12:00:00.000000Z","updated_at":"2026-10-30T12:00:00.000000Z","contains_movie":false}],"meta":{"page":1,"per_page":20,"total_pages":1,"total_results":1}}` | Lists all owner's collections, newest first. Optional ID adds contains_movie to each row; does **not** filter to matching collections. Use indexed EXISTS + withCount, no N+1. Library and Save modal. 422 invalid query. |
-| POST `/me/collections` | P; `{"name":"Favorites","description":null}` | 201 `{"data": collection object above}` | Not idempotent: repeated name returns 422; Create modal. |
+| POST `/me/collections` | P; `{"name":"Favorites","description":null}` | 201 `{"data": collection object above}` | Not idempotent: repeated names create distinct collections with distinct IDs; Create modal. |
 | GET `/me/collections/{id}` | P; none | 200 `{"data": collection object above}` | Summary only; separate paginated movie list; collection page. 404 absent/non-owned, 422 malformed ID. |
 | PATCH `/me/collections/{id}` | P; `{"name":"Weekend","description":"Films to revisit"}` (one or both fields) | 200 `{"data":{"id":7,"name":"Weekend","description":"Films to revisit","movie_count":0,"created_at":"2026-10-30T12:00:00.000000Z","updated_at":"2026-10-30T13:00:00.000000Z"}}` | Last committed edit wins; repeating identical values makes no business change; editor. 404 or 422. |
 | DELETE `/me/collections/{id}` | P; none | 204 empty | Cascade memberships only. Subsequent DELETE 404 (effect idempotent); Library. 404/422. |

@@ -2,7 +2,7 @@
 
 VYBE is a dark cinematic movie discovery application and planned social platform built by a four-person Antonine University team.
 
-> **Current work:** M2.0 architecture/contracts and Catalog batch summaries, building on implemented Milestone 1 authentication and movie discovery. **Approved architecture:** React SPA + two independent Laravel backend services. No release or hosted-CI claim.
+> **Current work:** M2.1 Personal Library and cinematic Movie Details, building on implemented M1/M2.0. **Approved architecture:** React SPA + two independent Laravel backend services. Locally verified; no release or hosted-CI claim.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ frontend/                   React + Vite + TypeScript :5173
    v
 backend/                    Core Laravel API :8000, Sanctum SPA, public /api/v1
    |                                 |
-   |                                 +--> vybe_core (users and framework tables)
+   |                                 +--> vybe_core (users, watchlist, watched, framework tables)
    | internal HTTP token
    v
 services/movie-catalog/     Movie Catalog Laravel :8001
@@ -30,11 +30,11 @@ vybe_movies              TMDB API
 
 **Milestone 1 targets:** users schema; Sanctum registration/login/logout/me; TMDB popular/search/detail through Core → Catalog; persistent movie metadata and short-lived ranked caches; responsive VYBE layouts/tokens; tests/CI and TMDB attribution.
 
-**M2.0:** design the later personal-library, ratings, reviews and profile slices; implement only internal Catalog batch summaries and Core client support. Those product features remain unimplemented. OAuth, social feeds, admin and recommendations remain deferred. Google/GitHub UI options are disabled with “Coming soon.”
+**M2.1 implemented:** independent Watchlist/Watched, protected Library, Catalog-confirmed references, outage-safe batch metadata, cinematic Details and on-demand trailers/cast/provider-related movies. Collections, community ratings, reviews, profile editing, OAuth, social feeds, administration and personalized recommendation engines remain deferred. Google/GitHub options remain disabled with “Coming soon.”
 
 ## Current implementation status
 
-The checked-out baseline includes Core session authentication/email verification, Catalog TMDB caching/discovery, Core movie forwarding and React popular/search/details. M2.0 adds cache-only batch summaries plus Core integration; the [foundation report](docs/development/m2-foundation-report.md) records local verification and limitations. Do not confuse the [historical repo audit](docs/development/repository-audit.md) with current source status.
+The checked-out implementation includes Core session authentication/email verification, Catalog TMDB caching/discovery, Core movie forwarding, M2.0 batch summaries, and the M2.1 library/details slice. The [M2.1 engineering report](docs/development/m2.1-report.md) records actual tests, browser checks, migration/configuration steps and limitations. The [foundation report](docs/development/m2-foundation-report.md) and [repository audit](docs/development/repository-audit.md) record earlier checkpoints.
 
 ## Quick start
 
@@ -48,7 +48,7 @@ See [Windows + XAMPP setup](docs/development/setup.md) for required PHP/Node ver
 
 ## Docs and collaboration
 
-M2.0 foundation work is tracked in the [M2 architecture](docs/architecture/milestone-2.md), [M2 checklist](docs/development/milestone-2-checklist.md) and [audit/verification report](docs/development/m2-foundation-report.md). Future M2 features are design-only; only Catalog batch summaries and Core integration are authorized for implementation. The report distinguishes checked-out code from newer branch history and historical scaffold descriptions below.
+M2 work is tracked in the [architecture](docs/architecture/milestone-2.md), [checklist](docs/development/milestone-2-checklist.md) and [M2.1 report](docs/development/m2.1-report.md). M2.2–M2.5 remain design-only. Library and [movie experience contracts](docs/api/movie-experience.md) document the current implementation.
 
 - [System overview](docs/architecture/system-overview.md) · [Core/Catalog responsibilities](docs/architecture/backend.md) · [Microservices](docs/architecture/microservices.md)
 - [API contracts](docs/api/contracts.md) · [DB schema](docs/database/schema.md) · [Frontend architecture](docs/architecture/frontend.md) · [Design system](docs/design/design-system.md)

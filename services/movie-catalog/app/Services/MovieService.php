@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class MovieService
 {
-    public function __construct(private TmdbClient $client, private MovieNormalizer $normalizer) {}
+    public function __construct(private TmdbClient $client, private MovieNormalizer $normalizer, private MovieExperienceService $experience) {}
 
     /** @param list<int> $ids Validated, bounded TMDB IDs. */
     public function summaries(array $ids): array
@@ -89,7 +89,8 @@ class MovieService
                 return [$movie, false];
             }
             try {
-                $values = $this->normalizer->normalize($this->client->details($id), true);
+                $raw = $this->client->details($id);
+                $values = $this->normalizer->normalize($raw, true);
                 if ($values['tmdb_id'] !== $id) {
                     throw new UpstreamUnavailable;
                 }
@@ -101,6 +102,12 @@ class MovieService
             $values['genres'] = json_encode($values['genres'], JSON_THROW_ON_ERROR);
             $values['metadata_fetched_at'] = now();
             Movie::upsert([$values], ['tmdb_id'], array_diff(array_keys($values), ['tmdb_id']));
+
+            try {
+                $this->experience->capture($raw, $id);
+            } catch (UpstreamUnavailable) {
+                // Optional appended content must never invalidate a valid base detail response.
+            }
 
             return [Movie::where('tmdb_id', $id)->firstOrFail(), false];
         } finally {

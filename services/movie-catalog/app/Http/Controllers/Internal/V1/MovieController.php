@@ -9,7 +9,9 @@ use App\Http\Requests\Movies\SearchMoviesRequest;
 use App\Http\Requests\Movies\ShowMovieRequest;
 use App\Http\Resources\MovieResource;
 use App\Http\Resources\MovieSummaryResource;
+use App\Services\MovieExperienceService;
 use App\Services\MovieService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class MovieController extends Controller
@@ -42,5 +44,10 @@ class MovieController extends Controller
         [$movie, $stale] = $this->movies->details((int) $request->validated('tmdb_id'));
 
         return (new MovieResource($movie))->additional(['meta' => ['stale' => $stale]]);
+    }
+
+    public function experience(ShowMovieRequest $request, MovieExperienceService $experience): JsonResponse
+    {
+        return response()->json($experience->get((int) $request->validated('tmdb_id')));
     }
 }

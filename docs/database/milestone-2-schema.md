@@ -1,6 +1,6 @@
-# M2 proposed Core schema
+# M2 Core schema — implemented library and future proposals
 
-**Design only: no M2 migrations exist.** Approved entities are listed below; types, limits, indexes and conflict policies are proposed implementation details. All tables belong to Core's existing `vybe_core`. Catalog's `movies` and cache tables remain unchanged. Start with the actual [existing schema](schema.md), not a replacement users table.
+**M2.1 watchlist_entries and watched_movies are implemented.** Collections, ratings, reviews and bio remain design-only. Implemented migrations: `2026_10_31_000001_create_watchlist_entries_table.php` and `2026_10_31_000002_create_watched_movies_table.php`. Each rollback drops only its own table; roll back only on a disposable database or after a separate data-retention decision. All tables belong to Core's existing `vybe_core`. Catalog's `movies` and cache tables remain unchanged. Start with the actual [existing schema](schema.md), not a replacement users table.
 
 ## Common conventions
 
@@ -22,13 +22,13 @@
 
 No new profile table: one-to-one information fits users. Keep username normalization (trim/lowercase), 3–30 ASCII `[a-z0-9_]`, existing reserved names and unique index. Updates ignore the current authenticated ID when validating uniqueness; catch DB uniqueness races as 422. Email/password are not editable through profile. Member since derives from `created_at`, not another column. Nullable legacy timestamps serialize as null. Existing user FKs remain confined to Core.
 
-## New approved entities; proposed physical definitions
+## Implemented library tables and proposed later entities
 
 | Table | All columns | Keys and additional indexes |
 | --- | --- | --- |
 | watchlist_entries | id; user_id; tmdb_id; created_at; updated_at | UNIQUE(user_id, tmdb_id); INDEX(user_id, created_at, id) |
 | watched_movies | id; user_id; tmdb_id; watched_at TIMESTAMP NOT NULL (no DB default); created_at; updated_at | UNIQUE(user_id, tmdb_id); INDEX(user_id, watched_at, id) |
-| collections | id; user_id; name VARCHAR(100) NOT NULL; description TEXT NULL DEFAULT NULL; created_at; updated_at | UNIQUE(user_id, name); INDEX(user_id, created_at, id) |
+| collections | id; user_id; name VARCHAR(100) NOT NULL; description TEXT NULL DEFAULT NULL; created_at; updated_at | INDEX(user_id, created_at, id) |
 | collection_movies | id; collection_id; tmdb_id; created_at; updated_at | UNIQUE(collection_id, tmdb_id); INDEX(collection_id, created_at, id) |
 | movie_ratings | id; user_id; tmdb_id; rating TINYINT UNSIGNED NOT NULL; created_at; updated_at | UNIQUE(user_id, tmdb_id); INDEX(tmdb_id, rating); CHECK(rating BETWEEN 1 AND 5) |
 | reviews | id; user_id; tmdb_id; body TEXT NOT NULL; contains_spoilers BOOLEAN NOT NULL DEFAULT FALSE; created_at; updated_at | UNIQUE(user_id, tmdb_id); INDEX(tmdb_id, created_at, id) |
@@ -111,15 +111,15 @@ Catalog is deliberately outside this relational ERD: `tmdb_id` is a logical HTTP
 ## Integrity and query decisions
 
 - Use a surrogate `collection_movies.id` for ordinary Eloquent identity and deterministic pagination; composite unique key enforces membership. A composite primary key saves a column but complicates standard Eloquent operations, so is not selected.
-- Collection names: trim outer whitespace, preserve display case, reject blank, max 100 characters. Proposed explicit `utf8mb4_unicode_ci` collation on `name`, making owner-local uniqueness case- and accent-insensitive (`Favorites`/`favorites` conflict). Do not rely on deployment default collation or an application-only check. Internal whitespace remains significant. Confirm this user-visible accent policy with the team before M2.2.
+- M2.2 collection names: trim outer whitespace, preserve user-entered capitalization, reject blank, max 100 characters. Duplicate names (including exact matches, `Favorites`, `favorites`, `FAVORITES`) are allowed within an owner. IDs define identity; no owner/name unique key or case-folded identity. This is an approved future decision, not implemented collection CRUD.
 - Description nullable, max 2000 characters; normalize blank to null. Bio nullable, max 500. Review trim then 1–5000 characters, plain text. Rating must be a JSON integer 1–5; spoiler flag JSON boolean. All IDs are positive integers within the current API range.
 - `watched_at` is the first mark time, server UTC; repeated POST returns the same row without changing it or `updated_at`. Remove then add records a new watch time. Rewatch history/backdating are deferred. Watchlist and Watched may coexist.
 - Lists order watchlist/collection membership by created_at DESC, id DESC; watched by watched_at DESC, id DESC; collections by created_at DESC, id DESC. Reviews order created_at DESC, id DESC, never move on edit. Offset pagination can shift under concurrent writes; no snapshot guarantee.
 - Movie rating aggregates use one grouped query on `(tmdb_id, rating)`; fill zero buckets 1–5, derive count/weighted average. No persistent counters/materialized aggregates or TMDB-score mixing. Upserts replace the current value; aggregates reflect committed values on next read. No cache invalidation infrastructure initially.
 - Profile counts use three owner-scoped COUNT queries (watchlist, watched, reviews) or equivalent subqueries; owner-leading unique indexes support them. Collection counts use `withCount`, not per-row queries. Reviews eager-load only the public author projection, never email. Library pages use one bounded Catalog batch, not an ORM relationship to movies.
-- Unique keys are the concurrency authority. Add-if-absent operations must preserve existing timestamps (insert with uniqueness handling then select); rating PUT uses atomic upsert and stable 200 semantics. Review conflicts return 409; name/username conflicts 422. Do not use check-then-insert alone or broad `insertOrIgnore` that can hide unrelated data errors.
+- Unique keys are the concurrency authority. Add-if-absent operations must preserve existing timestamps (insert with uniqueness handling then select); rating PUT uses atomic upsert and stable 200 semantics. Review conflicts return 409; username conflicts 422. Collection names do not conflict. Do not use check-then-insert alone or broad `insertOrIgnore` that can hide unrelated data errors.
 - Deleting users cascades all their direct records, then collection memberships via collection cascade. No Catalog deletions, cross-service cascades or orphaned collection memberships. No soft deletes in M2. Empty collections are ordinary collection rows with zero children.
 
 ## Deferred work
 
-Each slice owns its additive migration, down-migration policy, Eloquent relationships, constraints and isolated MySQL tests. No new DB or production migration step is needed in M2.0. Review collation, unresolved-reference writes and avatar storage before their slices; retain no speculative social/moderation columns.
+Each slice owns its additive migration, down-migration policy, Eloquent relationships, constraints and isolated MySQL tests. No new DB or production migration step is needed in M2.0. M2.1 validates new references through Catalog; review future reference policies and avatar storage in their slices; retain no speculative social/moderation columns.
