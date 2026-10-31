@@ -67,6 +67,7 @@ Called by **Core or another authorized backend** over HTTP. Each internal busine
 | --- | --- | --- |
 | GET | `/movies/popular?page=1` | Provider-ordered popular list, independent short cache |
 | GET | `/movies/search?query=...&page=1` | Provider-ordered search, independent short cache |
+| POST | `/movies/summaries` | Bounded cache-only batch; see [batch summary contract](catalog-batch-summaries.md) |
 | GET | `/movies/{tmdb_id}` | Metadata cache and detail hydration |
 | GET | `/health` | Token-protected liveness probe; no DB/TMDB readiness guarantee |
 
@@ -105,3 +106,7 @@ Catalog returns 503 for provider authentication/validation failures, 429, malfor
 Ranking keys include operation, page, normalized query and the fixed language/adult policy. Snapshots expire after `CATALOG_RANKING_TTL_SECONDS`; this implementation has no stale-ranking fallback. Only complete detail hydration sets `metadata_fetched_at`. Per-ID locks prevent simultaneous detail refreshes: contenders receive stale hydrated details or 503. Failed refreshes have `CATALOG_REFRESH_COOLDOWN_SECONDS=30` cooldown. The cache must be shared across Catalog workers. See [manual API requests and configuration](../../services/movie-catalog/README.md).
 
 Fake Catalog HTTP in Core tests and fake TMDB in Catalog tests. Validate the exact public/internal payloads, 401/403/419/422/404/429/503, query validation, pagination order, and stale behavior before declaring endpoints complete.
+
+## M2 extension status
+
+The [internal batch contract](catalog-batch-summaries.md) extends Catalog without changing discovery/detail payloads. [Future public M2 contracts](milestone-2-contracts.md) are planned, not implemented. See the [foundation report](../development/m2-foundation-report.md) for actual implementation and test status.

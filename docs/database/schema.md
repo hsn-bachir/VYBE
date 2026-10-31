@@ -85,4 +85,6 @@ The Catalog owns its framework `cache` and `jobs` tables. Its migration **must n
 
 ## Future cross-service associations
 
+M2 design now specifies Core-owned user-generated records with logical TMDB IDs and no cross-database FKs. See the [proposed M2 schema and ERD](milestone-2-schema.md); no M2 migrations are introduced in M2.0.
+
 Future review/watchlist records may reference user ID and TMDB ID as logical external identifiers. There are no cross-database foreign keys in Milestone 1; cross-service integrity needs a future contract decision.

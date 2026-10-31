@@ -2,7 +2,7 @@
 
 VYBE is a dark cinematic movie discovery application and planned social platform built by a four-person Antonine University team.
 
-> **Current milestone:** Milestone 1 → `v0.1.0` (in development; no release claim). **Approved architecture:** React SPA + two independent Laravel backend services. The foundation starter does **not** claim authentication or TMDB pages are implemented.
+> **Current work:** M2.0 architecture/contracts and Catalog batch summaries, building on implemented Milestone 1 authentication and movie discovery. **Approved architecture:** React SPA + two independent Laravel backend services. No release or hosted-CI claim.
 
 ## Architecture
 
@@ -30,11 +30,11 @@ vybe_movies              TMDB API
 
 **Milestone 1 targets:** users schema; Sanctum registration/login/logout/me; TMDB popular/search/detail through Core → Catalog; persistent movie metadata and short-lived ranked caches; responsive VYBE layouts/tokens; tests/CI and TMDB attribution.
 
-**Deferred:** OAuth implementation, reviews, watchlists, social feeds, admin, recommendations and other future capabilities. Google/GitHub UI options may be disabled with “Coming soon.”
+**M2.0:** design the later personal-library, ratings, reviews and profile slices; implement only internal Catalog batch summaries and Core client support. Those product features remain unimplemented. OAuth, social feeds, admin and recommendations remain deferred. Google/GitHub UI options are disabled with “Coming soon.”
 
 ## Current implementation status
 
-Initial Laravel/React scaffold and GitHub Actions have been merged into `dev` through [setup PR #1](https://github.com/hsn-bachir/VYBE/pull/1). The **microservice foundation archive** adds a Catalog scaffold/template, internal token guard and separate CI job **only after applied and merged**. Auth/movie business endpoints and frontend features remain to be built on follow-up branches. Do not confuse [historical repo audit](docs/development/repository-audit.md) with live implementation status.
+The checked-out baseline includes Core session authentication/email verification, Catalog TMDB caching/discovery, Core movie forwarding and React popular/search/details. M2.0 adds cache-only batch summaries plus Core integration; the [foundation report](docs/development/m2-foundation-report.md) records local verification and limitations. Do not confuse the [historical repo audit](docs/development/repository-audit.md) with current source status.
 
 ## Quick start
 
@@ -47,6 +47,8 @@ See [Windows + XAMPP setup](docs/development/setup.md) for required PHP/Node ver
 | Catalog Laravel service | 8001 | `vybe_movies` |
 
 ## Docs and collaboration
+
+M2.0 foundation work is tracked in the [M2 architecture](docs/architecture/milestone-2.md), [M2 checklist](docs/development/milestone-2-checklist.md) and [audit/verification report](docs/development/m2-foundation-report.md). Future M2 features are design-only; only Catalog batch summaries and Core integration are authorized for implementation. The report distinguishes checked-out code from newer branch history and historical scaffold descriptions below.
 
 - [System overview](docs/architecture/system-overview.md) · [Core/Catalog responsibilities](docs/architecture/backend.md) · [Microservices](docs/architecture/microservices.md)
 - [API contracts](docs/api/contracts.md) · [DB schema](docs/database/schema.md) · [Frontend architecture](docs/architecture/frontend.md) · [Design system](docs/design/design-system.md)

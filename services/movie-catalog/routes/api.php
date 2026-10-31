@@ -13,5 +13,6 @@ Route::middleware('catalog.internal')->prefix('internal/v1')->group(function ():
 
     Route::get('/movies/popular', [MovieController::class, 'popular']);
     Route::get('/movies/search', [MovieController::class, 'search']);
+    Route::post('/movies/summaries', [MovieController::class, 'summaries']);
     Route::get('/movies/{tmdb_id}', [MovieController::class, 'show']);
 });

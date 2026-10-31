@@ -1,12 +1,14 @@
 # VYBE — repository-wide engineering instructions
 
 ## Source of truth
+
 - Read the checked-out source and the relevant `docs/` contracts first. Planned architecture is not evidence of implementation.
 - **Active scope: Milestone 1 (`v0.1.0`) only.** Core SPA authentication, VYBE UI foundation, separate Movie Catalog service, movie metadata/search/popular/details, tests, docs, CI.
 - Out of scope: production OAuth, reviews, watchlists, social accounts, social graph, recommendations, administration. OAuth buttons may be disabled and labelled “Coming soon.”
 - Team has **approved two independently runnable Laravel backends** for Milestone 1; instructor has not confirmed whether this fully meets microservices grading expectations. See [ADR 0001](docs/decisions/0001-initial-architecture.md).
 
 ## Architectural boundaries
+
 - `frontend/`: React SPA. Calls **only** Core API (`backend/`), never Catalog directly, TMDB directly, or either database.
 - `backend/`: Core Laravel API/BFF. Owns user accounts, Sanctum stateful SPA sessions, auth endpoints, public `/api/v1/movies/*` proxy/adapter, and `vybe_core` database. It **must not** query `vybe_movies` or call TMDB.
 - `services/movie-catalog/`: independently runnable Laravel Catalog API. Owns `vybe_movies`, movie normalization, TMDB secrets/client, persistent movie metadata and provider-ordered list caching. It **must not** query `vybe_core` or manage browser sessions.
@@ -16,6 +18,7 @@
 - Interservice relationships in later milestones use IDs/contracts, not cross-service foreign keys.
 
 ## Delivery and collaboration
+
 1. Check branch and working-tree state. Work from up-to-date `dev` on a task branch.
 2. Read relevant [architecture](docs/architecture/system-overview.md), [public/internal contracts](docs/api/contracts.md), [database ownership](docs/database/schema.md) and [design system](docs/design/design-system.md).
 3. Make focused, reviewable changes. Update contract/doc/test in the same PR as behavior changes.
@@ -26,10 +29,19 @@
 8. Every PR targets `dev`, passes applicable CI, and receives human review. Releases go `dev` → `main`.
 
 ## Applicable validation
+
 - Core: `cd backend && php artisan test` plus migration verification against a disposable MySQL database.
 - Catalog: `cd services/movie-catalog && php artisan test` plus migration verification against its **own** disposable MySQL database.
 - Frontend: `cd frontend && npm run lint && npx tsc -b --noEmit && npm run build`.
 - Provider HTTP must be faked in automated tests. Verify 401/403/419/422/429, internal-service failure, cache freshness and stale fallbacks as relevant.
 
 ## Final response requirements
+
 Report changed files, checks actually run and results, affected API/DB contracts, configuration or migration steps, assumptions and unresolved risks.
+
+M1 is implemented.
+M2 is the active milestone.
+Core owns user-generated movie data.
+Catalog owns movie metadata.
+M2 features are implemented through vertical slices.
+The approved M2 documentation is the reference.
