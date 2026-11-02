@@ -1,0 +1,40 @@
+.community-ratings { margin-bottom: 4.5rem; scroll-margin-top: calc(var(--header-height, 96px) + 1.5rem); }
+.community-rating-panel { border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); overflow: hidden; }
+.community-rating-summary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 2rem; padding: clamp(1.25rem, 3vw, 2.5rem); }
+.community-ratings h3 { font-size: .8rem; letter-spacing: .03em; font-weight: 600; margin: 0 0 1rem; }
+.community-score > p { color: var(--color-muted); font-size: .8rem; }
+.community-score .community-score-number { font-size: clamp(2rem, 4vw, 3rem); line-height: 1.2; color: var(--color-foreground); margin: 0 0 .7rem; font-weight: 650; letter-spacing: -.04em; }
+.community-score-number > span { color: var(--color-primary); font-size: .6em; vertical-align: .1em; }
+.community-score-number small { font-size: 1rem; letter-spacing: 0; font-weight: 400; color: var(--color-muted); }
+.community-score .rating-empty { color: var(--color-foreground); font-size: 1.15rem; margin-block: 1rem; }
+.rating-scale-note { max-width: 35ch; margin-top: 1.1rem; line-height: 1.7; }
+.rating-distribution ul { display: grid; gap: .75rem; list-style: none; padding: 0; margin: 0; }
+.rating-distribution li { display: grid; grid-template-columns: 2rem minmax(0, 1fr) minmax(5.5rem, auto); align-items: center; gap: .75rem; font-size: .8rem; }
+.rating-level { white-space: nowrap; }
+.rating-level > span { color: var(--color-muted); font-size: .7rem; }
+.rating-track { display: block; height: 7px; overflow: hidden; border-radius: 10px; background: var(--color-background); }
+.rating-track > span { display: block; height: 100%; border-radius: inherit; background: var(--color-primary); transition: width var(--motion-feedback) var(--motion-ease); }
+.rating-bucket-count { text-align: right; font-variant-numeric: tabular-nums; }
+.rating-bucket-count small { color: var(--color-muted); font-size: .7rem; }
+.rating-statistics-error { grid-column: 1 / -1; color: var(--color-muted); }
+.personal-rating-panel { border-top: 1px solid var(--color-border); padding: 1.5rem clamp(1.25rem, 3vw, 2.5rem); }
+.personal-rating-panel > p { font-size: .8rem; color: var(--color-muted); margin-top: -.4rem; }
+.peek-rating { margin: 1.5rem 0 .5rem; padding: 0; border: 0; min-width: 0; }
+.peek-stars { display: flex; gap: .25rem; width: fit-content; }
+.peek-option { position: relative; display: grid; place-items: center; width: 44px; height: 48px; cursor: pointer; }
+.peek-option input { position: absolute; opacity: 0; width: 1px; height: 1px; min-height: 0; padding: 0; }
+.peek-glyph { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; transition: transform var(--motion-feedback) var(--motion-ease); }
+.peek-option svg { width: 32px; height: 32px; stroke: var(--color-muted); stroke-width: 1.5; fill: transparent; transition: fill var(--motion-feedback), stroke var(--motion-feedback); }
+.peek-option.is-lit svg { fill: var(--color-primary); stroke: var(--color-primary); }
+.peek-option.is-previewed .peek-glyph { transform: translateY(-3px); }
+.peek-option.is-previewed.is-target .peek-glyph { transform: translateY(-3px) scale(1.08); }
+.peek-option input:focus-visible + .peek-glyph { outline: 2px solid var(--color-foreground); outline-offset: 2px; }
+.peek-rating:disabled .peek-option { cursor: wait; opacity: .6; }
+.peek-tip { min-height: 1.3rem; font-size: .75rem; color: var(--color-muted); margin-top: .5rem; }
+.peek-confirmed { animation: rating-confirmed var(--motion-feedback) var(--motion-ease); }
+@keyframes rating-confirmed { 50% { transform: scale(1.12); } }
+.personal-rating-actions .button { font-size: .75rem; min-height: 44px; }
+.rating-feedback { font-size: .8rem; color: var(--color-muted); }
+.rating-feedback:not(:empty) { margin-top: .75rem; }
+@media (max-width: 599px) { .community-rating-summary { grid-template-columns: 1fr; gap: 1.75rem; } .community-ratings { margin-bottom: 3rem; } .rating-distribution li { gap: .5rem; } }
+@media (prefers-reduced-motion: reduce) { .peek-glyph, .peek-option svg, .rating-track > span { transition: none; } .peek-confirmed { animation: none; } .peek-option.is-previewed .peek-glyph, .peek-option.is-previewed.is-target .peek-glyph { transform: none; } }
