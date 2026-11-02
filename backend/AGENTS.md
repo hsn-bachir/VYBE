@@ -2,7 +2,7 @@
 
 Read [root AGENTS.md](../AGENTS.md), [Core API architecture](../docs/architecture/backend.md), [API contracts](../docs/api/contracts.md).
 
-- This service owns only `vybe_core`: users, Core-owned personal library data and Laravel's framework tables. The `movies` table does **not** belong here. M2.1 adds Watchlist/Watched only; other M2 product slices remain deferred.
+- This service owns only `vybe_core`: users, Core-owned personal library data and Laravel's framework tables. The `movies` table does **not** belong here. M2.1 adds Watchlist/Watched; M2.2 adds private collections and collection memberships. Ratings, reviews and profile editing remain deferred.
 - Own Sanctum first-party SPA login/register/logout/me; regenerate session on login, invalidate on logout, and protect CSRF with credentialed CORS.
 - Own `/api/v1/movies/popular`, `/search`, and `/{tmdb_id}` **public** façade routes; call the Catalog service using the Laravel HTTP client and typed normalization. Do not directly call TMDB or import the Catalog's PHP classes.
 - Never accept a user-provided Catalog URL or internal token. Read base URL/token from server config/env. Supply the internal token only in server-to-server requests and never echo it in logs/responses.

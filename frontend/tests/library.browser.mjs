@@ -59,6 +59,20 @@ export async function runLibraryChecks(page, base = 'http://127.0.0.1:5181', scr
   await page.getByRole('button', { name: 'Watch Trailer', exact: false }).waitFor()
   assert(mediaRequests === 0 && await page.locator('iframe').count() === 0, 'Player loaded before consent')
   const play = page.getByRole('button', { name: 'Watch Trailer', exact: false })
+  await play.hover()
+  assert(await play.evaluate(el => getComputedStyle(el).transform !== 'none' && getComputedStyle(el, '::after').content === 'none'), 'Trailer button should use the shared subtle button hover without a shine effect')
+  const cast = page.getByRole('list', { name: 'Cast, scroll for more' })
+  await page.getByRole('button', { name: 'Next cast members', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.cast-strip').scrollLeft > 20)
+  await page.getByRole('button', { name: 'Previous cast members', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.cast-strip').scrollLeft <= 2)
+  assert(await cast.locator('li').count() === 12, 'Cast members lost while scrolling')
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.getByRole('button', { name: 'Next cast members', exact: true }).focus()
+  await page.keyboard.press('Enter')
+  assert(await cast.evaluate(el => el.scrollLeft > 20), 'Reduced-motion keyboard cast navigation failed')
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  checks.push('Shared subtle trailer hover without shine; cast previous/next, keyboard and reduced-motion navigation')
   await play.focus(); await page.keyboard.press('Enter')
   await page.locator('dialog[open] iframe').waitFor()
   assert(await page.locator('dialog iframe').getAttribute('src') === 'https://www.youtube-nocookie.com/embed/official123?autoplay=1&rel=0', 'Unsafe iframe URL')
@@ -85,6 +99,7 @@ export async function runLibraryChecks(page, base = 'http://127.0.0.1:5181', scr
     await page.evaluate(async () => { await Promise.all([...document.querySelectorAll('.movie-image')].map(img => img.decode().catch(() => {}))) })
     await page.evaluate(() => window.scrollTo(0, 0))
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Detail overflow at ${width}`)
+    if (screenshots) await page.locator('.film-cast').screenshot({ path: `${screenshots}/cast-${width}.png` })
     if (screenshots) await page.screenshot({ path: `${screenshots}/details-${width}.png`, fullPage: true })
   }
   await page.getByRole('link', { name: 'Library', exact: true }).click()
@@ -127,7 +142,8 @@ export async function runLibraryChecks(page, base = 'http://127.0.0.1:5181', scr
   checks.push('Failed save has no success animation; pagination, missing metadata, preserved outage rows and removal')
   owner = 8
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
-  await page.getByRole('link', { name: 'Sign in', exact: true }).waitFor()
+  // A protected route may reach Login before the layout's logout navigation runs.
+  await page.getByRole('link', { name: 'Sign in', exact: true }).or(page.getByRole('button', { name: 'Sign in', exact: true })).first().waitFor()
   auth = 'verified'
   await page.goto(`${base}/library/watchlist`)
   await page.getByRole('heading', { name: 'Your next great film starts here.' }).waitFor()

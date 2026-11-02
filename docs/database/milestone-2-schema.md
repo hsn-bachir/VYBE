@@ -1,6 +1,6 @@
-# M2 Core schema — implemented library and future proposals
+# M2 Core schema — implemented library/collections and future proposals
 
-**M2.1 watchlist_entries and watched_movies are implemented.** Collections, ratings, reviews and bio remain design-only. Implemented migrations: `2026_10_31_000001_create_watchlist_entries_table.php` and `2026_10_31_000002_create_watched_movies_table.php`. Each rollback drops only its own table; roll back only on a disposable database or after a separate data-retention decision. All tables belong to Core's existing `vybe_core`. Catalog's `movies` and cache tables remain unchanged. Start with the actual [existing schema](schema.md), not a replacement users table.
+**M2.1 watchlist_entries/watched_movies and M2.2 collections/collection_movies are implemented.** Ratings, reviews and bio remain design-only. Core migrations: `2026_10_31_000001_create_watchlist_entries_table.php`, `2026_10_31_000002_create_watched_movies_table.php`, `2026_11_01_000001_create_collections_table.php`, `2026_11_01_000002_create_collection_movies_table.php`. Each rollback drops only its own table, memberships before collections; roll back only on a disposable database or after a separate data-retention decision. All tables belong to Core's existing `vybe_core`. Catalog's `movies` and cache tables remain unchanged. Start with the actual [existing schema](schema.md), not a replacement users table.
 
 ## Common conventions
 
@@ -111,7 +111,7 @@ Catalog is deliberately outside this relational ERD: `tmdb_id` is a logical HTTP
 ## Integrity and query decisions
 
 - Use a surrogate `collection_movies.id` for ordinary Eloquent identity and deterministic pagination; composite unique key enforces membership. A composite primary key saves a column but complicates standard Eloquent operations, so is not selected.
-- M2.2 collection names: trim outer whitespace, preserve user-entered capitalization, reject blank, max 100 characters. Duplicate names (including exact matches, `Favorites`, `favorites`, `FAVORITES`) are allowed within an owner. IDs define identity; no owner/name unique key or case-folded identity. This is an approved future decision, not implemented collection CRUD.
+- Implemented M2.2 collection names: trim outer whitespace, preserve user-entered capitalization, reject blank, max 100 characters. Duplicate names (including exact matches, `Favorites`, `favorites`, `FAVORITES`) are allowed within an owner. IDs define identity; no owner/name unique key or case-folded identity. `Collection` belongs to User and has many `CollectionMovie` rows; User has many collections. Explicit fillable lists exclude owner/container IDs, which come from relationships.
 - Description nullable, max 2000 characters; normalize blank to null. Bio nullable, max 500. Review trim then 1–5000 characters, plain text. Rating must be a JSON integer 1–5; spoiler flag JSON boolean. All IDs are positive integers within the current API range.
 - `watched_at` is the first mark time, server UTC; repeated POST returns the same row without changing it or `updated_at`. Remove then add records a new watch time. Rewatch history/backdating are deferred. Watchlist and Watched may coexist.
 - Lists order watchlist/collection membership by created_at DESC, id DESC; watched by watched_at DESC, id DESC; collections by created_at DESC, id DESC. Reviews order created_at DESC, id DESC, never move on edit. Offset pagination can shift under concurrent writes; no snapshot guarantee.
@@ -119,6 +119,8 @@ Catalog is deliberately outside this relational ERD: `tmdb_id` is a logical HTTP
 - Profile counts use three owner-scoped COUNT queries (watchlist, watched, reviews) or equivalent subqueries; owner-leading unique indexes support them. Collection counts use `withCount`, not per-row queries. Reviews eager-load only the public author projection, never email. Library pages use one bounded Catalog batch, not an ORM relationship to movies.
 - Unique keys are the concurrency authority. Add-if-absent operations must preserve existing timestamps (insert with uniqueness handling then select); rating PUT uses atomic upsert and stable 200 semantics. Review conflicts return 409; username conflicts 422. Collection names do not conflict. Do not use check-then-insert alone or broad `insertOrIgnore` that can hide unrelated data errors.
 - Deleting users cascades all their direct records, then collection memberships via collection cascade. No Catalog deletions, cross-service cascades or orphaned collection memberships. No soft deletes in M2. Empty collections are ordinary collection rows with zero children.
+
+M2.2 addition confirms the Catalog reference before taking a short Core transaction. It then re-resolves the owner-scoped collection with `lockForUpdate` and calls `firstOrCreate`; the membership unique index remains authoritative. A deletion during confirmation returns 404; the locked parent prevents a deletion between the final check and insert. Updates and removals also lock the owned parent. No network call runs while holding the lock. Counts use `withCount`; optional membership annotation uses an indexed `withExists` projection. See [M2.2 verification](../development/m2.2-report.md).
 
 ## Deferred work
 

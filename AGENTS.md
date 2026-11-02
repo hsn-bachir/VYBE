@@ -3,8 +3,8 @@
 ## Source of truth
 
 - Read the checked-out source and the relevant `docs/` contracts first. Planned architecture is not evidence of implementation.
-- **Active implementation scope: Milestone 2.1.** Preserve implemented M1/M2.0; add Core Watchlist/Watched, library-state, Catalog-confirmed movie references, batch-enriched Library, cinematic Details with Catalog-owned trailers/cast/directors and bounded provider-related movies, tests and docs.
-- Later M2 slices remain design-only: collections, community ratings, reviews, profile editing. Production OAuth, social accounts/graph, recommendation engines and administration remain out of scope. OAuth buttons may be disabled and labelled “Coming soon.”
+- **Active implementation scope: Milestone 2.2.** Preserve implemented M1/M2.0/M2.1. Add private custom collections, independent multi-collection movie memberships, Library organization and Movie Details saving, with tests and docs.
+- Later M2 slices remain design-only: community ratings, reviews, profile editing. Production OAuth, social accounts/graph, recommendation engines and administration remain out of scope. OAuth buttons may be disabled and labelled “Coming soon.”
 - Team has **approved two independently runnable Laravel backends** for Milestone 1; instructor has not confirmed whether this fully meets microservices grading expectations. See [ADR 0001](docs/decisions/0001-initial-architecture.md).
 
 ## Architectural boundaries

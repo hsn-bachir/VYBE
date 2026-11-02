@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/hooks/useAuth'
 import { libraryError } from '../api/libraryApi'
 import { useLibraryState, useMembership } from '../hooks/useLibrary'
 import type { LibraryKind } from '../types/library.types'
+import { SaveCollectionAction } from '../../collections/components/SaveCollectionAction'
 
 function MembershipAction({ userId, id, kind, active }: { userId: number; id: number; kind: LibraryKind; active: boolean }) {
   const mutation = useMembership(userId, kind, id)
@@ -22,17 +23,20 @@ function MembershipAction({ userId, id, kind, active }: { userId: number; id: nu
   </div>
 }
 
-export function LibraryActions({ id }: { id: number }) {
+export function LibraryActions({ id, title = `TMDB ${id}` }: { id: number; title?: string }) {
   const auth = useAuth()
   const location = useLocation()
   const userId = auth.data?.email_verified_at ? auth.data.id : 0
   const state = useLibraryState(userId, id)
   if (!auth.data) return <p className="library-signin"><Link className="button" to="/login" state={{ from: location.pathname }}>Sign in to save this movie</Link></p>
   if (!userId) return <Link className="button" to="/verify-email">Verify email to save movies</Link>
-  if (state.isPending) return <p className="library-state-loading" role="status">Checking your library…</p>
-  if (state.isError) return <div className="library-state-error" role="alert"><p>{libraryError(state.error)}</p><Button onClick={() => void state.refetch()} disabled={state.isFetching}>Retry library state</Button></div>
+  if (state.isPending || state.isError) return <div className="library-actions">
+    {state.isPending ? <p className="library-state-loading" role="status">Checking your library…</p> : <div className="library-state-error" role="alert"><p>{libraryError(state.error)}</p><Button onClick={() => void state.refetch()} disabled={state.isFetching}>Retry library state</Button></div>}
+    <SaveCollectionAction key={`${userId}:${id}:collections`} owner={userId} movie={id} title={title} />
+  </div>
   return <div className="library-actions" aria-label="Your movie library">
     <MembershipAction key={`${userId}:${id}:watchlist`} userId={userId} id={id} kind="watchlist" active={state.data.in_watchlist} />
     <MembershipAction key={`${userId}:${id}:watched`} userId={userId} id={id} kind="watched" active={state.data.watched_at !== null} />
+    <SaveCollectionAction key={`${userId}:${id}:collections`} owner={userId} movie={id} title={title} />
   </div>
 }

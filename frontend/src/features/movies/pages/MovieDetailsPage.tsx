@@ -6,7 +6,8 @@ import { Button } from '../../../components/ui/Button'
 import AnimatedContent from '../../../components/react-bits/AnimatedContent'
 import { LibraryActions } from '../../library/components/LibraryActions'
 import { movieError } from '../api/moviesApi'
-import { movieImageUrl, releaseYear } from '../api/images'
+import { releaseYear } from '../api/images'
+import { MovieCast } from '../components/MovieCast'
 import { MovieImage } from '../components/MovieImage'
 import { MovieGrid } from '../components/MovieGrid'
 import { MovieRating } from '../components/MovieRating'
@@ -35,7 +36,7 @@ function CinematicDetails({ movie, stale, back }: { movie: MovieDetails; stale: 
           <div className="cinematic-meta">{releaseYear(movie.release_date) && <span>{releaseYear(movie.release_date)}</span>}{movie.runtime !== null && <span>{movie.runtime} min</span>}<span className="cinematic-rating"><span>TMDB</span> <MovieRating rating={movie.tmdb_rating} votes={movie.tmdb_vote_count} /></span></div>
           {movie.genres.length > 0 && <ul className="genre-list" aria-label="Genres">{movie.genres.map(genre => <li key={genre.id}>{genre.name}</li>)}</ul>}
           {trailer && <Button className="trailer-cta" onClick={() => setPlaying(true)}><span aria-hidden="true">▶</span> Watch {trailer.type === 'Teaser' ? 'Teaser' : 'Trailer'}</Button>}
-          <LibraryActions id={movie.tmdb_id} />
+          <LibraryActions id={movie.tmdb_id} title={movie.title} />
         </div>
       </div>
     </section>
@@ -59,9 +60,7 @@ function CinematicDetails({ movie, stale, back }: { movie: MovieDetails; stale: 
           : trailer ? <div className="trailer-preview"><div className="trailer-still" aria-hidden="true"><MovieImage path={movie.backdrop_path ?? movie.poster_path} title={movie.title} variant="backdrop" /></div><div className="trailer-preview-copy"><p className="eyebrow">{trailer.official ? 'Official ' : ''}{trailer.type} · YouTube</p><h3>{trailer.name}</h3><Button className="trailer-cta" onClick={() => setPlaying(true)} aria-label={`Play ${movie.title} ${trailer.type.toLowerCase()}`}><span aria-hidden="true">▶</span> Play {trailer.type.toLowerCase()}</Button><p>YouTube loads only when you press play.</p></div></div>
             : <div className="trailer-placeholder"><span className="eyebrow">Off screen, for now</span><p>No trailer is available for this movie.</p></div>}
     </section>
-    {!!data?.cast.length && <section className="film-cast" aria-labelledby="cast-heading"><div className="section-heading"><div><p className="eyebrow">The faces of the story</p><h2 id="cast-heading">Cast<span className="accent-period">.</span></h2></div><span className="text-muted">Scroll to explore →</span></div>
-      <ul className="cast-strip" tabIndex={0} aria-label="Cast, scroll for more">{data.cast.map(person => <li key={person.tmdb_id}><div className="cast-portrait">{movieImageUrl(person.profile_path) ? <img src={movieImageUrl(person.profile_path)} alt="" loading="lazy" width="160" height="200" onError={event => { event.currentTarget.style.display = 'none' }} /> : null}<span aria-hidden="true">{person.name.slice(0, 1)}</span></div><h3>{person.name}</h3>{person.character && <p>{person.character}</p>}</li>)}</ul>
-    </section>}
+    {data && <MovieCast cast={data.cast} />}
     {!!data?.related.length && <section className="film-related" aria-labelledby="related-heading"><div className="section-heading"><div><p className="eyebrow">Keep the story going</p><h2 id="related-heading">More to discover<span className="accent-period">.</span></h2></div></div><p className="related-credit">Related films from TMDB</p><MovieGrid movies={data.related} /></section>}
     {playing && trailer && <Suspense fallback={<p role="status">Opening trailer…</p>}><TrailerDialog trailer={trailer} title={movie.title} onClose={() => setPlaying(false)} /></Suspense>}
   </article>

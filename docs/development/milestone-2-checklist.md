@@ -31,11 +31,13 @@ Only checked items have been delivered; future feature contracts are proposals, 
 
 ## M2.2 Custom Collections
 
-- [ ] Backend: collections/memberships migrations, duplicate permitted case-preserving names with ID identity, CRUD/counts, paginated membership annotation/list/add/remove.
-- [ ] Frontend: private collection pages/editor and paginated multi-save modal with per-operation outcomes.
-- [ ] Tests: duplicate names and preserved capitalization, empty collections, multi-membership, cascading deletion, wrong-owner 404, modal partial failure/invalidation/focus.
-- [ ] Security: owner scope before all access, no user_id trust or public sharing; CSRF/verified/limits.
-- [ ] DoD: full private vertical slice, no separate Favorites/Saved feature, docs/CI/review.
+- [x] Backend: collections/memberships migrations, duplicate permitted case-preserving names with ID identity, CRUD/counts, paginated membership annotation/list/add/remove.
+- [x] Frontend: private collection pages/editor and paginated multi-save modal with per-operation outcomes.
+- [x] Tests: duplicate names and preserved capitalization, empty collections, multi-membership, cascading deletion, wrong-owner 404, modal partial failure/invalidation/focus; SQLite/MySQL, concurrent adds, migration rollback/reapply, browser fixture and real-service journeys.
+- [x] Security: owner scope before all access, no user_id trust or public sharing; CSRF/verified/shared limits, safe errors, account-isolated caches.
+- [x] Local DoD: full private vertical slice, no separate Favorites/Saved feature, responsive/keyboard/reduced-motion verification, actual Catalog outage, final diff and synchronized documentation. See [M2.2 report](m2.2-report.md).
+- [ ] Hosted CI and human PR review; no Git delivery action or release was performed.
+- Deployment: run the two `2026_11_01_*` Core migrations before the new Core/frontend consumer. No Catalog change, new configuration or dependency is required.
 - Dependencies: M2.0; reuse M2.1 library composition; follow the approved duplicate-name decision and review modal UX.
 
 ## M2.3 Movie Ratings

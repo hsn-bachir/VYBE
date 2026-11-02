@@ -10,6 +10,8 @@ import { PopularMoviesPage } from './features/movies/pages/PopularMoviesPage'
 import { DiscoverPage } from './features/movies/pages/DiscoverPage'
 import { MovieState } from './features/movies/components/MovieState'
 const LibraryPage = lazy(() => import('./features/library/pages/LibraryPage'))
+const CollectionsPage = lazy(() => import('./features/collections/pages/CollectionsPage'))
+const CollectionDetailsPage = lazy(() => import('./features/collections/pages/CollectionDetailsPage'))
 const MovieDetailsPage = lazy(() => import('./features/movies/pages/MovieDetailsPage').then(module => ({ default: module.MovieDetailsPage })))
 
 export default function App() {
@@ -22,6 +24,8 @@ export default function App() {
         <Route path="/library" element={<Navigate to="/library/watchlist" replace />} />
         <Route path="/library/watchlist" element={<Suspense fallback={<p role="status">Opening your library…</p>}><LibraryPage key="watchlist" kind="watchlist" /></Suspense>} />
         <Route path="/library/watched" element={<Suspense fallback={<p role="status">Opening your library…</p>}><LibraryPage key="watched" kind="watched" /></Suspense>} />
+        <Route path="/library/collections" element={<Suspense fallback={<p role="status">Opening collections…</p>}><CollectionsPage /></Suspense>} />
+        <Route path="/library/collections/:id" element={<Suspense fallback={<p role="status">Opening collection…</p>}><CollectionDetailsPage /></Suspense>} />
       </Route>
       <Route path="*" element={<MovieState title="This scene doesn’t exist."><Link to="/">Find your way back to the movies</Link></MovieState>} />
     </Route></Route>

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
-import { Link, NavLink, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { LibraryHeader } from '../components/LibraryHeader'
 import { Button } from '../../../components/ui/Button'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { MovieCard } from '../../movies/components/MovieCard'
@@ -36,8 +37,7 @@ export default function LibraryPage({ kind }: { kind: LibraryKind }) {
   useLibraryAccessError(result.error, userId)
   const title = kind === 'watchlist' ? 'Watchlist' : 'Watched'
   return <section className="personal-library">
-    <div className="library-heading"><p className="eyebrow">Your own corner of cinema</p><h1>My library<span className="accent-period">.</span></h1><p>The stories ahead. The films that stay with you.</p></div>
-    <nav className="library-tabs" aria-label="Personal library"><NavLink to="/library/watchlist">Watchlist</NavLink><NavLink to="/library/watched">Watched</NavLink></nav>
+    <LibraryHeader />
     <div className="section-heading"><h2 ref={heading} tabIndex={-1}>{title}</h2>{result.data && <p>{result.data.meta.total_results} {result.data.meta.total_results === 1 ? 'film' : 'films'}</p>}</div>
     {!validPage ? <MovieState title="That page is out of frame."><Link to={`/library/${kind}`}>Go to the first page</Link></MovieState>
       : result.isPending ? <MovieGridSkeleton count={6} />

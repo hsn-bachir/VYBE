@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CollectionController;
 use App\Http\Controllers\Api\V1\EmailVerificationController;
 use App\Http\Controllers\Api\V1\LibraryController;
 use App\Http\Controllers\Api\V1\MovieController;
@@ -24,6 +25,14 @@ Route::prefix('v1/me')->withoutMiddleware(EnsureFrontendRequestsAreStateful::cla
             Route::delete($library.'/{tmdb_id}', [LibraryController::class, 'destroy'])->defaults('library', $library)->middleware('throttle:library-write');
         }
         Route::get('movies/{tmdb_id}/library-state', [LibraryController::class, 'state'])->middleware('throttle:library-read');
+        Route::get('collections', [CollectionController::class, 'index'])->middleware('throttle:library-read');
+        Route::post('collections', [CollectionController::class, 'store'])->middleware('throttle:library-write');
+        Route::get('collections/{id}', [CollectionController::class, 'show'])->middleware('throttle:library-read');
+        Route::patch('collections/{id}', [CollectionController::class, 'update'])->middleware('throttle:library-write');
+        Route::delete('collections/{id}', [CollectionController::class, 'destroy'])->middleware('throttle:library-write');
+        Route::get('collections/{id}/movies', [CollectionController::class, 'movies'])->middleware('throttle:library-read');
+        Route::post('collections/{id}/movies', [CollectionController::class, 'add'])->middleware('throttle:library-write');
+        Route::delete('collections/{id}/movies/{tmdb_id}', [CollectionController::class, 'remove'])->middleware('throttle:library-write');
     });
 
 // Auth is always session/CSRF protected, including requests without an Origin header.

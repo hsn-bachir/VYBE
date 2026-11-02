@@ -1,6 +1,6 @@
 # Milestone 2 foundation
 
-Status: M2 ownership and scope approved by the project owner on 2026-10-30. Detailed schema, future API and UI choices below are proposals for vertical-slice review. M2.0 delivered the batch-summary boundary. M2.1 is now implemented locally; see the [M2.1 report](../development/m2.1-report.md). Later slices remain proposals.
+Status: M2 ownership and scope approved by the project owner on 2026-10-30. M2.0 delivered the batch-summary boundary. M2.1 and M2.2 are implemented locally; see the [M2.1 report](../development/m2.1-report.md) and [M2.2 report](../development/m2.2-report.md). M2.3–M2.5 remain proposals, and M2.6 release acceptance remains pending.
 
 ## Boundaries and sequence
 
@@ -15,7 +15,7 @@ Use existing Core controllers, domain FormRequests, services, Eloquent models an
 1. Query and paginate the owner's Core rows, default 20, maximum 50.
 2. Pass the page's distinct TMDB IDs to `MovieCatalogClient::summaries()` once. Skip HTTP for an empty page.
 3. Map returned summaries by `tmdb_id`, then attach them to the original Core rows in Core order. Preserve every saved row, including unresolved IDs.
-4. A Catalog cache miss becomes `movie: null`, `metadata_status: "missing"`. A whole Catalog failure becomes `movie: null`, `metadata_status: "unavailable"` for each row and `meta.metadata_unavailable: true`; Core relationships remain readable. This graceful degradation is implemented by Core LibraryService, outside the transport client.
+4. A Catalog cache miss becomes `movie: null`, `metadata_status: "missing"`. A whole Catalog failure becomes `movie: null`, `metadata_status: "unavailable"` for each row and `meta.metadata_unavailable: true`; Core relationships remain readable. This graceful degradation is implemented by shared Core LibraryMetadata, consumed by LibraryService and CollectionService, outside the transport client.
 
 Batch lookup is cache-only: stale and summary-only metadata is useful and returned without promising freshness. It never hydrates missing IDs. Future bounded hydration needs a separate reviewed contract; library views must not fan out through detail requests.
 
@@ -33,6 +33,8 @@ M2.1 new additions confirm persisted movie identity via one batch request. Synta
 - No avatar upload implementation currently exists. The proposed local Core storage approach and remaining security choices are in the profile contract; no arbitrary remote URL fetch.
 
 ## Scope and decisions
+
+M2.2 implements private collection CRUD and independent multi-collection memberships. CollectionService resolves every object through `User::collections()`. Counts and optional membership flags use SQL projections; movie pages reuse the existing batch client. New additions confirm metadata outside a short transaction, then lock/re-resolve the parent before insertion to handle deletion races safely. No Catalog schema, endpoint, client policy or service topology changed. Favorites remains an ordinary name; exact duplicate names and case variants are allowed.
 
 Approved: two services, Core ownership of user-generated data, TMDB references, no cross-DB keys, independent ratings/reviews, private collections, separate Profile/Library, bounded batch integration. M2.1 decisions: first-mark timestamps, duplicate 200 without timestamp changes, bounded pagination and Catalog confirmation of new references. M2.2 names preserve capitalization and permit duplicates, using IDs as identity. Avatar storage and other later details remain proposed. See [ADR 0002](../decisions/0002-m2-core-data-and-batch-summaries.md).
 

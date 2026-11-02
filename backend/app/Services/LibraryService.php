@@ -2,16 +2,13 @@
 
 namespace App\Services;
 
-use App\Integrations\MovieCatalog\CatalogFailure;
-use App\Integrations\MovieCatalog\MovieCatalogClient;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Validation\ValidationException;
 
 class LibraryService
 {
-    public function __construct(private MovieCatalogClient $catalog) {}
+    public function __construct(private LibraryMetadata $metadata) {}
 
     private function entries(User $user, string $library): HasMany
     {
@@ -25,25 +22,8 @@ class LibraryService
     {
         $rows = $this->entries($user, $library)->orderByDesc($library === 'watched' ? 'watched_at' : 'created_at')
             ->orderByDesc('id')->paginate($perPage, ['*'], 'page', $page);
-        $movies = [];
-        $unavailable = false;
-        if ($rows->isNotEmpty()) {
-            try {
-                $batch = $this->catalog->summaries($rows->getCollection()->pluck('tmdb_id')->all());
-                $movies = array_column($batch['data'], null, 'tmdb_id');
-            } catch (CatalogFailure) {
-                $unavailable = true;
-            }
-        }
-        foreach ($rows as $row) {
-            $row->setAttribute('movie', $movies[$row->tmdb_id] ?? null);
-            $row->setAttribute('metadata_status', $unavailable ? 'unavailable' : (isset($movies[$row->tmdb_id]) ? 'available' : 'missing'));
-        }
 
-        return ['entries' => $rows->getCollection(), 'meta' => [
-            'page' => $page, 'per_page' => $perPage, 'total_pages' => (int) ceil($rows->total() / $perPage),
-            'total_results' => $rows->total(), 'metadata_unavailable' => $unavailable,
-        ]];
+        return $this->metadata->enrich($rows);
     }
 
     public function add(User $user, string $library, int $id): Model
@@ -52,10 +32,7 @@ class LibraryService
         if ($entry = $this->entries($user, $library)->where('tmdb_id', $id)->first()) {
             return $entry;
         }
-        $batch = $this->catalog->summaries([$id]);
-        if ($batch['data'] === []) {
-            throw ValidationException::withMessages(['tmdb_id' => ['This movie is not currently available in VYBE. Open its details and try again.']]);
-        }
+        $this->metadata->confirm($id);
 
         // Eloquent createOrFirst handles a unique-key race without updating the existing timestamps.
         return $this->entries($user, $library)->firstOrCreate(['tmdb_id' => $id],

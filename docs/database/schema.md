@@ -1,6 +1,6 @@
 # Milestone 1 database schema and ownership
 
-**Status:** Approved schema. Core users adjustments are implemented as an additive migration. The two Laravel apps never query each other's database. M2.1 adds Core watchlist_entries and watched_movies; see the [M2 schema](milestone-2-schema.md) for implemented migrations and constraints.
+**Status:** Approved schema. Core users adjustments are implemented as an additive migration. The two Laravel apps never query each other's database. M2.1 adds Core watchlist_entries/watched_movies; M2.2 adds collections/collection_movies. See the [M2 schema](milestone-2-schema.md) for implemented migrations and constraints.
 
 ```mermaid
 erDiagram

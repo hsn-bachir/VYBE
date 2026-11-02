@@ -1,6 +1,6 @@
-# M2 public API contracts — M2.1 implemented; M2.2–M2.5 planned
+# M2 public API contracts — M2.1/M2.2 implemented; M2.3–M2.5 planned
 
-All paths below start at `/api/v1`. M2.1 routes below are implemented. M2.2–M2.5 remain proposals and are not exposed routes. Existing [M1 contracts](contracts.md) and auth UserResource stay compatible. Examples are synthetic contract fixtures, not TMDB results.
+All paths below start at `/api/v1`. M2.1 and M2.2 routes below are implemented. M2.3–M2.5 remain proposals and are not exposed routes. Existing [M1 contracts](contracts.md) and auth UserResource stay compatible. Examples are synthetic contract fixtures, not TMDB results.
 
 ## Shared rules (apply to every endpoint)
 
@@ -42,7 +42,7 @@ Popular/search/detail and displayed related movies are persisted by Catalog befo
 
 POST add-if-absent operations are effect-idempotent; retries do not update times. Separate unique keys allow coexistence in both lists. All private shared errors apply; no missing-membership 404/409.
 
-## M2.2 Collections
+## M2.2 Collections — implemented
 
 Collection object example: `{"id":7,"name":"Favorites","description":null,"movie_count":0,"created_at":"2026-10-30T12:00:00.000000Z","updated_at":"2026-10-30T12:00:00.000000Z"}`. Name trims edges, required 1–100 characters; nullable description max 2000. Preserve user-entered capitalization. Duplicate names, including exact duplicates and case variants, are allowed within one owner. Collection identity is the database ID; do not add an owner/name unique constraint. Empty collection is a normal object with movie_count 0.
 
@@ -58,6 +58,10 @@ Collection object example: `{"id":7,"name":"Favorites","description":null,"movie
 | DELETE `/me/collections/{id}/movies/{tmdb_id}` | P; none | 204 empty | Owned collection required, missing membership → 204. 404 collection, 422 malformed IDs. Modal/detail. |
 
 Save modal fetches `/me/collections?contains_tmdb_id=...` page by page; do not request each collection separately for membership or load unbounded IDs. Each selection sends only its add/remove operation. Track per-item pending/error state; a failure must not claim all choices saved. No bulk replace endpoint or global transaction across modal selections. Concurrent collection deletion is protected by the local FK/transaction and maps to 404. Deletion never changes watched/watchlist/ratings/reviews.
+
+All eight endpoints reuse the explicit web/CSRF, Sanctum, verification and no-store stack. They share M2.1's 120 reads/minute/user and 60 writes/minute/user limits. PATCH is included in credentialed CORS. Debug mode does not expose traces for collection 404/419/429/unexpected 500 responses; Retry-After is retained. Owned and absent collections return the same `{"message":"Not found."}` response.
+
+Collection lists use created_at DESC, id DESC; count/EXISTS annotations are SQL projections, not separate per-row queries. Movie lists use the same order on memberships, with one Catalog batch per nonempty page. Collection movie rows also include `collection_id`. Membership timestamps never change on duplicates; collection metadata timestamps change only for collection edits, not movie operations. New references use the extracted shared `LibraryMetadata::confirm()`; page enrichment uses `LibraryMetadata::enrich()`, also consumed by Watchlist/Watched. Missing references return 422, new saves during Catalog failure return 503, and duplicate saves/removals stay Core-only.
 
 ## M2.3 Ratings
 
