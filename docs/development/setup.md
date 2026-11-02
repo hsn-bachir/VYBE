@@ -123,6 +123,8 @@ On CI, Core and Catalog migrations run independently against isolated MySQL data
 
 ### Library, Save or Create Collection fails
 
+M2.3 ratings likewise require `2026_11_03_000001_create_movie_ratings_table.php` in the normal Core database. Run the existing additive `php artisan migrate` before starting the new Core/frontend; isolated test migrations do not prepare the normal app. PUT must be allowed in cached CORS configuration. MySQL must enforce CHECK constraints (verified MySQL 8.0.43); no new environment variable, dependency or Catalog migration is required.
+
 Tests use disposable databases; passing tests does not migrate your normal local `vybe_core` database. In `backend/`, run `php artisan migrate:status`. If the `2026_10_31_*` or `2026_11_01_*` migrations are pending, apply the existing additive migrations with `php artisan migrate`. Do not use `migrate:fresh` or reset existing data. Missing tables cause HTTP 500 responses, which older frontend feedback described as “Unable to connect.”
 
 Keep all three normal development processes running: Core on `localhost:8000`, Catalog on `localhost:8001`, and Vite on `localhost:5173`. Temporary browser-test servers are separate and do not start the normal app. Use the same `localhost` hostname throughout and refresh the browser after starting services. HTTP 500 feedback now distinguishes a server failure from a network connection failure; inspect local server logs without exposing their contents to users.

@@ -1,4 +1,4 @@
-# M2 frontend integration — M2.1/M2.2 implemented, later slices planned
+# M2 frontend integration — M2.1–M2.3 implemented, later slices planned
 
 M2.0 changed no React code. M2.1 adds `features/library` and cinematic movie details. Build future features under `src/features/<feature>/api`, `hooks`, `types`, `components`, `pages`, with tests beside their feature; create directories only as needed. Reuse `src/lib/api/client.ts`, `useAuth`, `RequireAuth`, `AppLayout`, semantic design tokens, shared Button/Input, `MovieCard`, `MovieGrid`, `MovieImage` and `MovieState`. Existing movie DTOs and public detail query remain unchanged.
 
@@ -24,9 +24,16 @@ M2.0 changed no React code. M2.1 adds `features/library` and cinematic movie det
 - All writes bootstrap CSRF and check the current owner before dispatch. Completion checks owner identity before cache writes or UI callbacks; auth changes retain existing cancel/clear behavior. 401/403 reuse the library access handler. Writes never retry automatically. Tests include account changes during bootstrap/completion and browser logout/login isolation.
 - No dependency was added. Native checkboxes were chosen over Spring Check; the compact SVG collection icon avoids Folder Float's physics runtime. Existing feedback is reused. Decorative motion honors reduced motion. See [report](../development/m2.2-report.md) for source evaluation and actual checks.
 
+## Implemented M2.3
+
+- Lazy `features/ratings/components/CommunityRatingSection` sits after Cast and before related movies in Details. Public community score/count and a five-row accessible CSS histogram remain distinct from the hero's TMDB score. Empty averages display “No community ratings yet.” Cached statistics remain visible with retry feedback when refresh fails.
+- Numeric-ID query keys: `['movies','ratings',tmdbId]` for guest-readable aggregates; `['me',userId,'rating',tmdbId]` for verified personal state; `['me',userId,'rating-write',tmdbId]` for pending writes. Reads use AbortSignal, 30-second staleTime, no retry/focus polling. Existing auth cancellation/clearing covers these keys. Private reads only mount after verified authentication. 401/403 clear the affected owner's private data and refresh auth.
+- Mutation scope serializes a user/movie and pending state disables conflicting controls. PUT/DELETE bootstrap CSRF and check account identity before dispatch. Callbacks check identity before and after cancellation; confirmed responses set only the matching personal key and invalidate that key plus matching public statistics. No discovery, movie metadata or library/collection invalidation. Writes do not retry automatically; failure preserves confirmed state with explicit retry guidance.
+- `components/react-bits/PeekRating.tsx` is an attributed adaptation of the official controlled preview/lift interaction. Native five-radio semantics, inline star SVG, restrained 3px lift/1.08 scale and CSS replace pointer capture and Hugeicons dependencies. Local preview never changes checked server state or aggregates; a new mutation revision discards old previews. Confirmation pop follows server success only. Removal is an explicit DELETE button; no zero-star clearing. Keyboard arrows use native radio behavior, labels expose values, focus is visible and reduced motion removes lift/pop/bar transitions. Guests are directed to the existing login flow, unverified users to verification. No dependency added.
+
 ## Later slice plan (not implemented)
 
-The remainder describes future profile, rating and review integration, alongside established library/collection conventions. M2.3–M2.5 remain proposals.
+The remainder describes future profile and review integration alongside established library, collection and rating conventions. M2.4–M2.5 remain proposals.
 
 ## Pages and state
 

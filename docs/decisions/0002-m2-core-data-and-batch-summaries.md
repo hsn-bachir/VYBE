@@ -25,3 +25,7 @@ The original proposal review is resolved for this slice: new watchlist/watched a
 ## M2.2 follow-up (2026-11-01)
 
 Private collections and memberships are implemented with the approved duplicate-name policy. Both tables remain Core-owned, with cascades only through Core users/collections. The existing reference/batch logic is extracted into shared LibraryMetadata and reused by CollectionService. Parent-row locking after Catalog confirmation handles concurrent deletion without holding a database transaction across HTTP. No Catalog or architectural topology changes are required. See the [M2.2 report](../development/m2.2-report.md).
+
+## M2.3 follow-up (2026-11-03)
+
+Independent Core ratings reuse LibraryMetadata confirmation only for a new personal rating. Atomic upsert under the owner/movie unique key provides last-database-writer semantics; existing updates and deletion remain available without Catalog. Public statistics derive all buckets, total and rounded weighted average from one grouped query. No persistent aggregate, Catalog score mutation, review coupling or infrastructure change. See the [M2.3 report](../development/m2.3-report.md).
