@@ -32,7 +32,7 @@ export function AppLayout() {
     return () => window.removeEventListener('scroll', track)
   }, [location.pathname, location.search, location.state, navigation])
   useEffect(() => {
-    document.title = location.pathname === '/' ? 'VYBE — For the love of cinema' : location.pathname === '/discover' ? 'Discover — VYBE' : 'Movie — VYBE'
+    document.title = location.pathname === '/' ? 'VYBE — For the love of cinema' : location.pathname === '/discover' ? 'Discover — VYBE' : location.pathname.startsWith('/library') ? 'My library — VYBE' : 'Movie — VYBE'
   }, [location.pathname])
   useEffect(() => {
     const update = () => setScrolled(window.scrollY > 24)
@@ -52,7 +52,7 @@ export function AppLayout() {
     }
   }}>
     <a className="skip-link" href="#main-content">Skip to content</a>
-    <header className={`app-header ${scrolled ? 'is-scrolled' : ''}`}><VybeLogo /><MovieNavigation /><Link className="header-search" to="/discover" aria-label="Find a movie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg></Link><nav className="account-nav" aria-label="Account navigation">
+    <header className={`app-header ${scrolled ? 'is-scrolled' : ''}`}><VybeLogo /><MovieNavigation showLibrary={!!auth.data?.email_verified_at} /><Link className="header-search" to="/discover" aria-label="Find a movie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg></Link><nav className="account-nav" aria-label="Account navigation">
       {auth.isPending ? <span role="status">Checking session…</span> : auth.data ? <><span className="account-name">@{auth.data.username}</span><Button disabled={logout.isPending} onClick={() => logout.mutate(undefined, { onSuccess: () => navigate('/', { replace: true }) })}>{logout.isPending ? 'Signing out…' : 'Sign out'}</Button></> : <><Link to="/login">Sign in</Link><Link className="button" to="/register">Join VYBE</Link></>}
     </nav></header>
     {logout.error && <p role="alert" className="form-error">{errorDetails(logout.error).message}</p>}

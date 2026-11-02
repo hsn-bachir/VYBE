@@ -1,6 +1,32 @@
-# M2 frontend integration — planned only
+# M2 frontend integration — M2.1/M2.2 implemented, later slices planned
 
-M2.0 changes no React code. Build future features under `src/features/<feature>/api`, `hooks`, `types`, `components`, `pages`, with tests beside their feature; create directories only as needed. Reuse `src/lib/api/client.ts`, `useAuth`, `RequireAuth`, `AppLayout`, semantic design tokens, shared Button/Input, `MovieCard`, `MovieGrid`, `MovieImage` and `MovieState`. Existing movie DTOs and public detail query remain unchanged.
+M2.0 changed no React code. M2.1 adds `features/library` and cinematic movie details. Build future features under `src/features/<feature>/api`, `hooks`, `types`, `components`, `pages`, with tests beside their feature; create directories only as needed. Reuse `src/lib/api/client.ts`, `useAuth`, `RequireAuth`, `AppLayout`, semantic design tokens, shared Button/Input, `MovieCard`, `MovieGrid`, `MovieImage` and `MovieState`. Existing movie DTOs and public detail query remain unchanged.
+
+## Implemented M2.1
+
+- Details refinement: `MovieCast` presents a horizontally scrollable portrait/card row with named previous/next controls, disabled boundary states, native keyboard/touch scrolling and instant navigation for reduced motion. No autoplay or animation dependency. Trailer buttons use the shared subtle VYBE hover lift, without a shine effect. Shared error feedback distinguishes HTTP 5xx failures from an unreachable connection without displaying raw backend messages.
+
+- Lazy routes: /library redirects to /library/watchlist; watchlist and watched use RequireAuth inside AppLayout. Details and the native trailer dialog are lazy-loaded. Existing public/verification guards remain intact.
+- Shared components: Button, MovieCard (optional controls outside its anchor), MovieImage, MovieGrid, skeletons, MoviePagination, MovieState, useAuth and the existing Axios client. Library has no independent authentication store.
+- Actual numeric-ID keys: `['library', userId, kind, page]` with fixed per_page 20, and `['library', userId, 'state', tmdbId]`. Private queries use 30-second staleTime, no automatic retries, no focus refetch, and forward AbortSignal. Media key: `['movies', 'experience', tmdbIdString]`; existing discovery/detail keys remain compatible.
+- Successful writes update only the affected state field from the confirmed result, invalidate the matching user's list pages and movie state, and leave the other list/discovery caches intact. No optimistic success or automatic write replay. CSRF is bootstrapped before each write and the current account is rechecked before dispatch. Login/logout cancels and clears existing non-auth queries; late mutation callbacks check owner identity.
+- 401/403 reads and writes recheck auth and remove inaccessible private data. 419, 422, 429, 503 and network errors have safe contextual feedback. Catalog list failure returns removable placeholders and true totals. Full Core failures show retry; empty libraries have discovery links. Pagination is in the URL.
+- Details contain a responsive backdrop/poster hero, visible TMDB score, independent save/watched controls, story/director/facts, trailer preview, twelve-person cast strip and up to six related cards. Only authoritative API fields render. YouTube loads on explicit play, with Escape/close, focus restoration and external playback fallback.
+- Motion: existing vendored React Bits AnimatedContent for story reveal; a small server-confirmed bookmark pulse and hover/focus trailer highlight use CSS and existing tokens. Reduced motion disables decorative effects. Compact library feedback has a dismiss button; errors persist. No new dependencies. See the [React Bits evaluation](../development/m2.1-report.md#d-react-bits-evaluation).
+
+## Implemented M2.2
+
+- `features/collections/{api,hooks,types,components,pages,tests}` adds lazy protected `/library/collections` and `/library/collections/:id` routes. Shared LibraryHeader now renders Watchlist, Watched and Collections without changing the existing page layout. Existing MovieCard/MoviePagination/MovieState/Button/Input, auth guards and Axios remain in use.
+- Collections overview shows real counts, descriptions, ID-distinguished duplicate names, edit/delete actions and a compact inline SVG collection icon. Edit/Delete buttons share equal-width columns. No metadata calls or fake cover images are used for collection cards. Details reuse the existing movie grid and removable missing/unavailable placeholders.
+- CollectionForm is reused for create/edit and inline create-and-save. Native dialogs contain focus, support Escape, restore the trigger, and block closing during create/edit/delete writes. Delete copy states the precise scope. The Save dialog is lazy, has bounded Previous/Next paging, per-row pending/error states and server-confirmed checkboxes. Creation and membership are separate operations: a failed second operation retains the collection and offers retry. Reopening refetches persisted state.
+- All IDs remain numeric, matching M2.1. Fixed per_page=20 keys: `['library', owner, 'collections', {page, contains_tmdb_id: movieIdOrNull}]`, `['library', owner, 'collection', id]`, and `['library', owner, 'collection', id, 'movies', page]`. Private reads forward AbortSignal, staleTime=30 seconds, retry=false, no focus refetch. The modal forces a mount refetch.
+- Successful CRUD invalidates all owner collection-list variants, including Save pages; edit updates/invalidates the affected detail; delete removes affected detail/movie caches. Membership writes cancel pending list reads, update confirmed flags in matching movie-annotation pages, then invalidate collection lists/counts and the affected collection detail/movies. Watchlist/Watched/discovery/media keys are untouched.
+- All writes bootstrap CSRF and check the current owner before dispatch. Completion checks owner identity before cache writes or UI callbacks; auth changes retain existing cancel/clear behavior. 401/403 reuse the library access handler. Writes never retry automatically. Tests include account changes during bootstrap/completion and browser logout/login isolation.
+- No dependency was added. Native checkboxes were chosen over Spring Check; the compact SVG collection icon avoids Folder Float's physics runtime. Existing feedback is reused. Decorative motion honors reduced motion. See [report](../development/m2.2-report.md) for source evaluation and actual checks.
+
+## Later slice plan (not implemented)
+
+The remainder describes future profile, rating and review integration, alongside established library/collection conventions. M2.3–M2.5 remain proposals.
 
 ## Pages and state
 
@@ -13,16 +39,16 @@ M2.0 changes no React code. Build future features under `src/features/<feature>/
 - Review bodies/descriptions/bios render as escaped plain text. Spoilers are concealed until an explicit accessible reveal action. Reset reveal state on review ID/updated_at change; spoiler hiding is not data privacy. Show edit/delete only for matching auth user IDs; server remains authoritative.
 - Profile GET returns the existing auth UserResource under `data.user`. Read identity from `authKey = ['auth','me']`; on profile success update that key with `data.user`, not a second global user store. Profile query caches only page response/details; no localStorage identity or tokens. Counts come from Core.
 
-## Query key and invalidation proposal
+## Future query key and invalidation proposal
 
-Keep existing keys `['movies','popular',page]`, `['movies','search',normalizedQuery,page]`, `['movies','detail',tmdbIdString]` and popular-feed. Standardize new keys below (IDs represented consistently as strings); user-scoped keys prevent identity crossover. Include every query parameter in keys and forward AbortSignal to Axios. Private queries enabled only after verified auth resolves.
+Keep existing keys `['movies','popular',page]`, `['movies','search',normalizedQuery,page]`, `['movies','detail',tmdbIdString]` and popular-feed. Standardize new keys below (future IDs represented consistently as strings; implemented library keys use numbers); user-scoped keys prevent identity crossover. Include every query parameter in keys and forward AbortSignal to Axios. Private queries enabled only after verified auth resolves.
 
 | Data | Key |
 | --- | --- |
-| Watchlist / watched page | `['me', userId, 'watchlist' or 'watched', {page, per_page}]` |
-| Movie library state | `['me', userId, 'library-state', tmdbId]` |
-| Collections/modal page | `['me', userId, 'collections', {page, per_page, contains_tmdb_id}]` |
-| Collection detail / movies | `['me', userId, 'collection', id]` / `['me', userId, 'collection', id, 'movies', {page, per_page}]` |
+| Watchlist / watched page (implemented) | `['library', userIdNumber, kind, pageNumber]` (per_page fixed at 20) |
+| Movie library state (implemented) | `['library', userIdNumber, 'state', tmdbIdNumber]` |
+| Collections/modal page (implemented, numeric IDs) | `['library', userId, 'collections', {page, contains_tmdb_id}]`; fixed per_page=20, absent annotation=null |
+| Collection detail / movies (implemented, numeric IDs) | `['library', userId, 'collection', id]` / `['library', userId, 'collection', id, 'movies', page]` |
 | Own rating / review | `['me', userId, 'rating' or 'review', tmdbId]` |
 | Profile | `['me', userId, 'profile']` |
 | Public statistics | `['movies', 'ratings', tmdbId]` |
@@ -30,8 +56,8 @@ Keep existing keys `['movies','popular',page]`, `['movies','search',normalizedQu
 
 | Successful mutation | Invalidate/update |
 | --- | --- |
-| Watchlist add/remove | All user's watchlist pages, affected library-state, profile count |
-| Watched add/remove | All user's watched pages, affected library-state, profile count; no implicit watchlist mutation |
+| Watchlist add/remove | All user's watchlist pages, affected library-state; profile count only when M2.5 exists |
+| Watched add/remove | All user's watched pages, affected library-state; future profile count; no implicit watchlist mutation |
 | Collection create/rename/delete | All collections queries (including every modal ID/page); detail/movie queries for affected collection; remove deleted detail caches |
 | Collection membership | All collections queries/counts/membership flags and affected collection detail/movie pages |
 | Rating PUT/delete | Own rating singleton and public rating statistics; leave TMDB detail cache alone |

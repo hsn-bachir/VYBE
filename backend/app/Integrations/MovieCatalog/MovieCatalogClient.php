@@ -33,6 +33,62 @@ class MovieCatalogClient
         return ['data' => $movie, 'meta' => ['stale' => $body['meta']['stale']]];
     }
 
+    public function experience(int $id): array
+    {
+        $body = $this->request($id.'/experience', [], true);
+        $data = $body['data'] ?? null;
+        if (! is_array($data) || ($data['tmdb_id'] ?? null) !== $id || ! is_bool($body['meta']['stale'] ?? null)) {
+            throw new CatalogFailure;
+        }
+        $rules = [
+            'tagline' => ['present', 'nullable', 'string', 'max:500'],
+            'trailer' => ['present', 'nullable', 'array'],
+            'directors' => ['present', 'array', 'max:4'], 'cast' => ['present', 'array', 'max:12'],
+            'related' => ['present', 'array', 'max:6'],
+        ];
+        if (Validator::make($data, $rules)->fails()) {
+            throw new CatalogFailure;
+        }
+        $trailer = $data['trailer'];
+        if ($trailer !== null) {
+            if (Validator::make($trailer, ['name' => ['required', 'string', 'max:255'],
+                'site' => ['required', 'in:YouTube'], 'key' => ['required', 'string', 'regex:/^[A-Za-z0-9_-]{11}$/D'],
+                'type' => ['required', 'in:Trailer,Teaser']])->fails() || ! is_bool($trailer['official'] ?? null)) {
+                throw new CatalogFailure;
+            }
+            $trailer = array_intersect_key($trailer, array_flip(['name', 'site', 'key', 'type', 'official']));
+        }
+        $result = ['tmdb_id' => $id, 'tagline' => $data['tagline'], 'trailer' => $trailer];
+        foreach (['directors', 'cast', 'related'] as $field) {
+            if (! array_is_list($data[$field])) {
+                throw new CatalogFailure;
+            }
+            $result[$field] = [];
+            foreach ($data[$field] as $row) {
+                if (! is_array($row)) {
+                    throw new CatalogFailure;
+                }
+                if ($field === 'related') {
+                    $result[$field][] = $this->movie($row);
+
+                    continue;
+                }
+                $personRules = ['name' => ['required', 'string', 'max:255']];
+                if ($field === 'cast') {
+                    $personRules += ['character' => ['present', 'nullable', 'string', 'max:255'],
+                        'profile_path' => ['present', 'nullable', 'string', 'max:255', 'regex:~^/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$~D']];
+                }
+                if (! is_int($row['tmdb_id'] ?? null) || $row['tmdb_id'] < 1 || $row['tmdb_id'] > 2147483647
+                    || Validator::make($row, $personRules)->fails()) {
+                    throw new CatalogFailure;
+                }
+                $result[$field][] = array_intersect_key($row, ['tmdb_id' => true] + $personRules);
+            }
+        }
+
+        return ['data' => $result, 'meta' => ['stale' => $body['meta']['stale']]];
+    }
+
     /** @param list<int> $tmdbIds Up to 50 IDs before deduplication; empty pages need no HTTP. */
     public function summaries(array $tmdbIds): array
     {
@@ -129,7 +185,7 @@ class MovieCatalogClient
         try {
             $response = Http::acceptJson()->withHeaders(['X-VYBE-Service-Token' => $token])
                 ->connectTimeout(config('movie_catalog.connect_timeout'))
-                ->timeout(config('movie_catalog.timeout'))->withoutRedirecting()
+                ->timeout($path === 'summaries' ? config('movie_catalog.summary_timeout') : config('movie_catalog.timeout'))->withoutRedirecting()
                 ->send($method, rtrim($url, '/').'/api/internal/v1/movies/'.$path, [
                     $method === 'POST' ? 'json' : 'query' => $params,
                 ]);

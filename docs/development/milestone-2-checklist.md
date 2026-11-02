@@ -17,23 +17,28 @@ Only checked items have been delivered; future feature contracts are proposals, 
 - [ ] PR review and hosted CI acceptance (not run or claimed by local verification).
 - Dependencies: current M1 Catalog + Core discovery client; local test runtime. Review proposed details before consuming them in later slices.
 
-## M2.1 Watchlist & Watched
+## M2.1 Personal Library and Cinematic Details
 
-- [ ] Backend: two additive migrations, unique/FK/index constraints, models, owner-scoped services/requests/resources, paginated lists/add/remove and library-state singleton; compose summaries once/page.
-- [ ] Frontend: verified Library routes, Details actions, missing/outage placeholders; reuse cards/query/auth stack.
-- [ ] Tests: duplicate/concurrent add, idempotent delete, independent lists, unchanged repeat watched time, cascades, pagination/query counts, batch outage and partial metadata; React invalidation/accessibility/interactions.
-- [ ] Security: session/CSRF/verified, cross-user isolation, input allowlists, bounded pagination and throttling.
-- [ ] DoD: tested vertical slice, docs match, no collection side effects, CI/human review.
-- Dependencies: M2.0 batch deployed; review unresolved-ID write policy and timestamp/API proposals; disposable MySQL migrations.
+- [x] Core migrations, owner-scoped models/services/requests/resources, unique keys/FKs/cascades/indexes, seven library routes and bounded batch composition.
+- [x] Catalog-confirmed new additions; duplicate 200 with preserved timestamps, removal/state without Catalog; missing/outage rows and totals preserved.
+- [x] Sanctum, verified email, CSRF without Origin, JSON errors without Accept, private no-store, DELETE CORS, read/write throttles.
+- [x] Catalog/Core experience endpoint, appended TMDB retrieval, safe trailer selection, bounded cast/directors/related, shared cache/lock/cooldown and stale fallback; base detail compatibility.
+- [x] Cinematic details, on-demand native trailer dialog, independent real actions, protected Library, shared cards/pagination and deliberate loading/empty/error/outage states.
+- [x] SQLite and independent disposable MySQL suites; frontend tests/lint/type/build; responsive browser fixture acceptance and real two-service login/persistence/outage checks. See [report](m2.1-report.md) for counts, commands and limits.
+- [x] Local diff/security review and synchronized docs; no collection CRUD, no new runtime dependencies, no Git delivery actions.
+- [ ] Hosted CI and human PR review (not claimed by local checks).
+- Deploy Catalog support, run the two additive Core migrations, then deploy Core/frontend. Optional Core summary timeout defaults to 3 seconds; discovery remains 12.
 
 ## M2.2 Custom Collections
 
-- [ ] Backend: collections/memberships migrations, owner-local name uniqueness, CRUD/counts, paginated membership annotation/list/add/remove.
-- [ ] Frontend: private collection pages/editor and paginated multi-save modal with per-operation outcomes.
-- [ ] Tests: case/accent collisions and races, empty collections, multi-membership, cascading deletion, wrong-owner 404, modal partial failure/invalidation/focus.
-- [ ] Security: owner scope before all access, no user_id trust or public sharing; CSRF/verified/limits.
-- [ ] DoD: full private vertical slice, no separate Favorites/Saved feature, docs/CI/review.
-- Dependencies: M2.0; reuse M2.1 library composition; review collation and modal UX.
+- [x] Backend: collections/memberships migrations, duplicate permitted case-preserving names with ID identity, CRUD/counts, paginated membership annotation/list/add/remove.
+- [x] Frontend: private collection pages/editor and paginated multi-save modal with per-operation outcomes.
+- [x] Tests: duplicate names and preserved capitalization, empty collections, multi-membership, cascading deletion, wrong-owner 404, modal partial failure/invalidation/focus; SQLite/MySQL, concurrent adds, migration rollback/reapply, browser fixture and real-service journeys.
+- [x] Security: owner scope before all access, no user_id trust or public sharing; CSRF/verified/shared limits, safe errors, account-isolated caches.
+- [x] Local DoD: full private vertical slice, no separate Favorites/Saved feature, responsive/keyboard/reduced-motion verification, actual Catalog outage, final diff and synchronized documentation. See [M2.2 report](m2.2-report.md).
+- [ ] Hosted CI and human PR review; no Git delivery action or release was performed.
+- Deployment: run the two `2026_11_01_*` Core migrations before the new Core/frontend consumer. No Catalog change, new configuration or dependency is required.
+- Dependencies: M2.0; reuse M2.1 library composition; follow the approved duplicate-name decision and review modal UX.
 
 ## M2.3 Movie Ratings
 

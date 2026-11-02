@@ -121,6 +121,12 @@ On CI, Core and Catalog migrations run independently against isolated MySQL data
 
 ## Troubleshooting
 
+### Library, Save or Create Collection fails
+
+Tests use disposable databases; passing tests does not migrate your normal local `vybe_core` database. In `backend/`, run `php artisan migrate:status`. If the `2026_10_31_*` or `2026_11_01_*` migrations are pending, apply the existing additive migrations with `php artisan migrate`. Do not use `migrate:fresh` or reset existing data. Missing tables cause HTTP 500 responses, which older frontend feedback described as “Unable to connect.”
+
+Keep all three normal development processes running: Core on `localhost:8000`, Catalog on `localhost:8001`, and Vite on `localhost:5173`. Temporary browser-test servers are separate and do not start the normal app. Use the same `localhost` hostname throughout and refresh the browser after starting services. HTTP 500 feedback now distinguishes a server failure from a network connection failure; inspect local server logs without exposing their contents to users.
+
 ### “We couldn’t check your session”
 
 This is a failed Core session request, not proof that you are signed out. The SPA keeps the current URL and verification guard in place, and offers a retry with pending feedback. Only a genuine `/api/v1/auth/me` 401 is treated as a guest; network errors, timeouts and server failures are not.

@@ -1,5 +1,5 @@
 import { infiniteQueryOptions, queryOptions, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { movieDetails, popularMovies, searchMovies } from '../api/moviesApi'
+import { movieDetails, movieExperience, popularMovies, searchMovies } from '../api/moviesApi'
 import type { MovieListResponse, MovieSummary } from '../types/movie.types'
 
 export const normalizeQuery = (query: string) => query.trim().replace(/\s+/gu, ' ')
@@ -20,6 +20,11 @@ export const detailOptions = (id: string) => queryOptions({
 export const usePopularMovies = (page: number | null) => useQuery({ ...popularOptions(page ?? 1), enabled: page !== null })
 export const useMovieSearch = (query: string, page: number | null) => useQuery({ ...searchOptions(query, page ?? 1), enabled: page !== null && searchOptions(query, page ?? 1).enabled })
 export const useMovieDetails = (id: string) => useQuery(detailOptions(id))
+export const experienceOptions = (id: string) => queryOptions({
+  ...movieQuery, queryKey: ['movies', 'experience', id], queryFn: ({ signal }) => movieExperience(id, signal), enabled: validMovieId(id),
+})
+// Details normally warm Catalog's media cache before this query starts.
+export const useMovieExperience = (id: string, enabled: boolean) => useQuery({ ...experienceOptions(id), enabled: enabled && validMovieId(id) })
 
 export const popularFeedOptions = () => infiniteQueryOptions({
   ...movieQuery, queryKey: ['movies', 'popular-feed'], initialPageParam: 1,

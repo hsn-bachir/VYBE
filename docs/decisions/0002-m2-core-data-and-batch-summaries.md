@@ -16,4 +16,12 @@ Core user ownership supports local transactions and cascades. HTTP batches keep 
 
 Rejected for M2: separate user-content services, copied movie metadata, cross-DB joins/FKs, one detail request per library movie, generic Saved/Favorites tables, public collection/profile features, coupled review/rating rows, persistent aggregate infrastructure.
 
-Proposals still requiring slice review: case/accent-insensitive collection names; server-first watched timestamps; accepting unresolved valid IDs; pagination/limits/throttles; Core-local avatar upload storage. See [architecture](../architecture/milestone-2.md), [schema](../database/milestone-2-schema.md) and [public contracts](../api/milestone-2-contracts.md). No later feature implementation is authorized by this ADR.
+Historical M2.0 proposals included collection-name uniqueness and unresolved-reference writes; the M2.1 follow-up below supersedes these. Core-local avatar upload storage still requires its slice review. See [architecture](../architecture/milestone-2.md), [schema](../database/milestone-2-schema.md) and [public contracts](../api/milestone-2-contracts.md). No later feature implementation is authorized by this ADR.
+
+## M2.1 follow-up (2026-10-31)
+
+The original proposal review is resolved for this slice: new watchlist/watched additions require Catalog persistence confirmation; unresolved references return 422, outages 503, while duplicates/removal/state remain Core-only. Watched timestamps preserve first mark. For future M2.2, names preserve capitalization and may repeat even exactly; IDs define collection identity. This supersedes the earlier name-uniqueness proposal. See the [M2.1 report](../development/m2.1-report.md).
+
+## M2.2 follow-up (2026-11-01)
+
+Private collections and memberships are implemented with the approved duplicate-name policy. Both tables remain Core-owned, with cascades only through Core users/collections. The existing reference/batch logic is extracted into shared LibraryMetadata and reused by CollectionService. Parent-row locking after Catalog confirmation handles concurrent deletion without holding a database transaction across HTTP. No Catalog or architectural topology changes are required. See the [M2.2 report](../development/m2.2-report.md).

@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { api } from '../../../lib/api/client'
-import type { MovieDetailResponse, MovieListResponse } from '../types/movie.types'
+import type { MovieDetailResponse, MovieListResponse, MovieExperienceResponse } from '../types/movie.types'
 
 export async function popularMovies(page: number, signal?: AbortSignal) {
   return (await api.get<MovieListResponse>('/api/v1/movies/popular', { params: { page }, signal })).data
@@ -10,6 +10,9 @@ export async function searchMovies(query: string, page: number, signal?: AbortSi
 }
 export async function movieDetails(id: string, signal?: AbortSignal) {
   return (await api.get<MovieDetailResponse>(`/api/v1/movies/${id}`, { signal })).data
+}
+export async function movieExperience(id: string, signal?: AbortSignal) {
+  return (await api.get<MovieExperienceResponse>(`/api/v1/movies/${id}/experience`, { signal })).data
 }
 export function movieError(error: unknown) {
   const status = axios.isAxiosError(error) ? error.response?.status : undefined
