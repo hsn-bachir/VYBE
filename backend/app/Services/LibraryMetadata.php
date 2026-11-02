@@ -7,7 +7,7 @@ use App\Integrations\MovieCatalog\MovieCatalogClient;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\ValidationException;
 
-/** Shared Catalog boundary for Core-owned movie memberships. */
+/** Shared Catalog boundary for Core-owned movie references and library metadata. */
 class LibraryMetadata
 {
     public function __construct(private MovieCatalogClient $catalog) {}

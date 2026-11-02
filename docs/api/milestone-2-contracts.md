@@ -1,6 +1,6 @@
-# M2 public API contracts — M2.1/M2.2 implemented; M2.3–M2.5 planned
+# M2 public API contracts — M2.1–M2.3 implemented; M2.4–M2.5 planned
 
-All paths below start at `/api/v1`. M2.1 and M2.2 routes below are implemented. M2.3–M2.5 remain proposals and are not exposed routes. Existing [M1 contracts](contracts.md) and auth UserResource stay compatible. Examples are synthetic contract fixtures, not TMDB results.
+All paths below start at `/api/v1`. M2.1–M2.3 routes below are implemented. M2.4–M2.5 remain proposals and are not exposed routes. Existing [M1 contracts](contracts.md) and auth UserResource stay compatible. Examples are synthetic contract fixtures, not TMDB results.
 
 ## Shared rules (apply to every endpoint)
 
@@ -8,9 +8,9 @@ All paths below start at `/api/v1`. M2.1 and M2.2 routes below are implemented. 
 
 Private failures: 401 `{"message":"Unauthenticated."}`; 403 `{"message":"Your email address is not verified."}`; 419 CSRF/session mismatch; 429 throttling with Retry-After. Non-owned collections/reviews return 404 `{"message":"Not found."}`, exactly like absent resources. Validation uses 422 `{"message":"The request is invalid.","errors":{"field":["Field explanation."]}}` (Laravel's summary wording may vary). Conflict uses 409 `{"message":"A review already exists for this movie.","code":"REVIEW_EXISTS"}`. Server errors are sanitized; no raw DB/provider errors. No normal 409 for idempotent membership/rating operations. No user-level 403 for ownership, to avoid enumeration.
 
-IDs in bodies are JSON integers 1–2147483647; route/query IDs are canonical decimal strings (no signs, leading zeros, decimals). Invalid IDs return 422; a valid absent collection/review ID returns 404. M2.1 new memberships require a persisted Catalog reference through the existing batch client. A missing reference returns 422 with an instruction to open movie details; Catalog failure returns 503. Existing memberships return 200 without Catalog, and removals/state never call Catalog. No TMDB 404 is manufactured from a cache miss. Public ratings/review lists for valid but unrecorded movie IDs return empty results. Future rating/review reference validation remains subject to its slice review.
+IDs in bodies are JSON integers 1–2147483647; route/query IDs are canonical decimal strings (no signs, leading zeros, decimals). Invalid IDs return 422; a valid absent collection/review ID returns 404. M2.1 new memberships require a persisted Catalog reference through the existing batch client. A missing reference returns 422 with an instruction to open movie details; Catalog failure returns 503. Existing memberships return 200 without Catalog, and removals/state never call Catalog. No TMDB 404 is manufactured from a cache miss. Public ratings/review lists for valid but unrecorded movie IDs return empty results. M2.3 new ratings reuse the same reference confirmation; existing-rating updates/read/removal do not require Catalog. Future review reference validation remains subject to its slice review.
 
-Only documented fields are mutable. Reject unsupported body keys with 422, including `user_id`, timestamps, emails/passwords in profile writes, and privacy flags. Empty PATCH is 422. GETs have no body; DELETEs have no body/query. Query parameters not listed are ignored, following current movie endpoints. Proposed write limits and session behavior are in [security architecture](../architecture/milestone-2.md).
+Only documented fields are mutable. Reject unsupported body keys with 422, including `user_id`, timestamps, emails/passwords in profile writes, and privacy flags. Empty PATCH is 422. GETs have no body; DELETEs have no body/query. Query parameters not listed are ignored following current movie endpoints, except rating endpoints which reject all query fields. Write limits and session behavior are in [security architecture](../architecture/milestone-2.md).
 
 ### Pagination and response examples
 
@@ -63,9 +63,15 @@ All eight endpoints reuse the explicit web/CSRF, Sanctum, verification and no-st
 
 Collection lists use created_at DESC, id DESC; count/EXISTS annotations are SQL projections, not separate per-row queries. Movie lists use the same order on memberships, with one Catalog batch per nonempty page. Collection movie rows also include `collection_id`. Membership timestamps never change on duplicates; collection metadata timestamps change only for collection edits, not movie operations. New references use the extracted shared `LibraryMetadata::confirm()`; page enrichment uses `LibraryMetadata::enrich()`, also consumed by Watchlist/Watched. Missing references return 422, new saves during Catalog failure return 503, and duplicate saves/removals stay Core-only.
 
-## M2.3 Ratings
+## M2.3 Ratings — implemented
 
 No dependency on a review. Rating JSON integer 1–5, no half stars. Statistics are VYBE-only, distinct from `tmdb_rating` (0–10).
+
+PUT accepts only a JSON body containing `rating`; numeric strings, floats (including `5.0`), booleans, null, arrays/objects and unsupported fields are 422. All four routes reject query fields and validate canonical route IDs 1–2147483647. GET/DELETE accept no mutable fields. Private reads share library-read (120/min/user); writes share library-write (60/min/user), with the existing Sanctum/verified/web-CSRF/no-store stack. PUT is included in credentialed CORS. Public reads are guest-readable and bounded by community-read (120/min/IP). Success and error responses prevent storage with no-store; unexpected 500/419/429 responses are sanitized and Retry-After is preserved.
+
+`RatingService` performs one grouped query on `(tmdb_id, rating)` for statistics, fills all five object keys, and derives the total and weighted average from those counts. Rounding is PHP half-up to two decimal places, serialized as a JSON number (no fixed trailing zero requirement); the UI formats two places. Statistics never call Catalog, including unrecorded valid IDs. There is no aggregate cache or persistent counter.
+
+For a new user/movie rating only, shared `LibraryMetadata::confirm()` checks Catalog persistence. Cache miss → 422 unresolved reference, not a TMDB 404; Catalog failure → 503. Existing ratings remain readable/editable/removable without Catalog. Writes atomically upsert under the unique owner/movie key in a short local transaction (three deadlock attempts, no HTTP within it). Last database writer wins; the row ID/created_at persist and updated_at may advance even for the same value. DELETE is owner-scoped and effect-idempotent. No library or review coupling. See [M2.3 report](../development/m2.3-report.md).
 
 | Method/path | Access; query/body | Success example | Behavior / consumer / additional errors |
 | --- | --- | --- | --- |

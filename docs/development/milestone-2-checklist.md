@@ -42,11 +42,13 @@ Only checked items have been delivered; future feature contracts are proposals, 
 
 ## M2.3 Movie Ratings
 
-- [ ] Backend: rating migration/constraint, independent singleton get/PUT/delete, one grouped aggregate query with all five bins.
-- [ ] Frontend: own rating controls and explicitly labelled VYBE histogram alongside TMDB rating.
-- [ ] Tests: 1–5 integer validation, concurrent replace, zero statistics, aggregate update/delete, rating without review, UI/query invalidation.
-- [ ] Security: own rows only, verified writes, public aggregate privacy, CSRF/rate limits.
-- [ ] DoD: slice passes, no persistent aggregate infrastructure, docs/CI/review.
+- [x] Backend: rating migration/constraint, independent singleton get/PUT/delete, one grouped aggregate query with all five bins.
+- [x] Frontend: controlled Peek Rating adaptation, personal save/change/remove and explicitly labelled VYBE histogram alongside TMDB rating.
+- [x] Tests: strict JSON 1–5, SQLite/MySQL constraints, concurrent create/update, rollback/reapply, empty/aggregate behavior, independent memberships, UI/query/account isolation, browser fixtures and real two-service/database journey/outage.
+- [x] Security: own rows only, verified writes, guest-readable aggregates, CSRF including no Origin, PUT CORS, read/write limits and sanitized errors.
+- [x] Local DoD: full vertical slice, no persistent aggregate infrastructure, synchronized documentation; see [M2.3 report](m2.3-report.md).
+- [ ] Hosted CI and human PR review; no Git delivery or release performed.
+- Deployment: apply the single `2026_11_03_000001_create_movie_ratings_table.php` Core migration before Core/frontend, with enforced CHECK support (tested MySQL 8.0.43). No Catalog change or new configuration/dependency. Refresh cached CORS config to allow PUT if used.
 - Dependencies: M2.0 contracts, review DB CHECK enforcement and rounding.
 
 ## M2.4 Reviews & Spoilers

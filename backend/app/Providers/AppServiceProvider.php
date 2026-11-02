@@ -36,5 +36,6 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('verification-link', fn (Request $request) => Limit::perMinute(20)->by('verification-link:'.$request->ip()));
         RateLimiter::for('library-read', fn (Request $request) => Limit::perMinute(120)->by('library-read:'.$request->user()->getKey()));
         RateLimiter::for('library-write', fn (Request $request) => Limit::perMinute(60)->by('library-write:'.$request->user()->getKey()));
+        RateLimiter::for('community-read', fn (Request $request) => Limit::perMinute(120)->by('community-read:'.$request->ip()));
     }
 }

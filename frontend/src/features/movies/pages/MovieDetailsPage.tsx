@@ -19,6 +19,7 @@ import '../details.css'
 import '../../library/library.css'
 
 const TrailerDialog = lazy(() => import('../components/TrailerDialog'))
+const CommunityRatingSection = lazy(() => import('../../ratings/components/CommunityRatingSection'))
 
 function CinematicDetails({ movie, stale, back }: { movie: MovieDetails; stale: boolean; back: string }) {
   const experience = useMovieExperience(String(movie.tmdb_id), true)
@@ -61,6 +62,7 @@ function CinematicDetails({ movie, stale, back }: { movie: MovieDetails; stale: 
             : <div className="trailer-placeholder"><span className="eyebrow">Off screen, for now</span><p>No trailer is available for this movie.</p></div>}
     </section>
     {data && <MovieCast cast={data.cast} />}
+    <Suspense fallback={<p role="status">Loading community ratings…</p>}><CommunityRatingSection movie={movie.tmdb_id} /></Suspense>
     {!!data?.related.length && <section className="film-related" aria-labelledby="related-heading"><div className="section-heading"><div><p className="eyebrow">Keep the story going</p><h2 id="related-heading">More to discover<span className="accent-period">.</span></h2></div></div><p className="related-credit">Related films from TMDB</p><MovieGrid movies={data.related} /></section>}
     {playing && trailer && <Suspense fallback={<p role="status">Opening trailer…</p>}><TrailerDialog trailer={trailer} title={movie.title} onClose={() => setPlaying(false)} /></Suspense>}
   </article>
