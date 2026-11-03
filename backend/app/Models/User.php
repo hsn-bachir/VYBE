@@ -40,6 +40,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(MovieRating::class);
     }
 
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
     protected function username(): Attribute
     {
         return Attribute::make(set: fn (string $value) => Str::lower($value));

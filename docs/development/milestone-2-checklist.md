@@ -53,11 +53,13 @@ Only checked items have been delivered; future feature contracts are proposals, 
 
 ## M2.4 Reviews & Spoilers
 
-- [ ] Backend: review migration/unique key, public bounded listing, own singleton/create/edit/delete; public author projection.
-- [ ] Frontend: plain-text composer/list, explicit spoiler reveal, own edit/delete, no rating dependency.
-- [ ] Tests: duplicate 409/races, movie/owner mismatch 404, stable ordering after edit, boundaries, public guest reads, author privacy, XSS escaping and reveal/reset.
-- [ ] Security: verified writes, CSRF/limits, no HTML injection or email leakage.
-- [ ] DoD: full slice with no moderation/replies/likes/reporting, docs/CI/review.
+- [x] Backend: review migration/unique key, public bounded listing, own singleton/create/edit/delete; public author projection.
+- [x] Frontend: plain-text composer/list, explicit spoiler reveal/hide, own edit/delete, retained drafts and explicit 409 recovery, no rating dependency.
+- [x] Tests: duplicate 409/concurrent workers, movie/owner mismatch 404, stable ordering after edit, Unicode boundaries, author privacy, escaped markup/reveal/reset, account isolation, browser and real-service persistence/outage checks.
+- [x] Security: verified writes, actual CSRF including no Origin, shared limits, sanitized errors, no HTML injection or email leakage.
+- [x] Local DoD: full vertical slice, responsive/keyboard/reduced-motion verification, isolated SQLite/MySQL suites and migration rollback/reapply, synchronized docs and final diff. See [M2.4 report](m2.4-report.md).
+- [ ] Hosted CI and human PR review; no Git delivery or release performed.
+- Deployment: apply `2026_11_03_000002_create_reviews_table.php` additively in Core before new Core/frontend. No Catalog migration, new dependency or configuration.
 - Dependencies: M2.0; can ship independently of ratings; M2.5 identity changes invalidate authors.
 
 ## M2.5 User Profiles

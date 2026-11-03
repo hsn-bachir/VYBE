@@ -1,6 +1,6 @@
-# M2 public API contracts — M2.1–M2.3 implemented; M2.4–M2.5 planned
+# M2 public API contracts — M2.1–M2.4 implemented; M2.5 planned
 
-All paths below start at `/api/v1`. M2.1–M2.3 routes below are implemented. M2.4–M2.5 remain proposals and are not exposed routes. Existing [M1 contracts](contracts.md) and auth UserResource stay compatible. Examples are synthetic contract fixtures, not TMDB results.
+All paths below start at `/api/v1`. M2.1–M2.4 routes below are implemented. M2.5 remains proposed and is not exposed. Existing [M1 contracts](contracts.md) and auth UserResource stay compatible. Examples are synthetic contract fixtures, not TMDB results.
 
 ## Shared rules (apply to every endpoint)
 
@@ -8,9 +8,9 @@ All paths below start at `/api/v1`. M2.1–M2.3 routes below are implemented. M2
 
 Private failures: 401 `{"message":"Unauthenticated."}`; 403 `{"message":"Your email address is not verified."}`; 419 CSRF/session mismatch; 429 throttling with Retry-After. Non-owned collections/reviews return 404 `{"message":"Not found."}`, exactly like absent resources. Validation uses 422 `{"message":"The request is invalid.","errors":{"field":["Field explanation."]}}` (Laravel's summary wording may vary). Conflict uses 409 `{"message":"A review already exists for this movie.","code":"REVIEW_EXISTS"}`. Server errors are sanitized; no raw DB/provider errors. No normal 409 for idempotent membership/rating operations. No user-level 403 for ownership, to avoid enumeration.
 
-IDs in bodies are JSON integers 1–2147483647; route/query IDs are canonical decimal strings (no signs, leading zeros, decimals). Invalid IDs return 422; a valid absent collection/review ID returns 404. M2.1 new memberships require a persisted Catalog reference through the existing batch client. A missing reference returns 422 with an instruction to open movie details; Catalog failure returns 503. Existing memberships return 200 without Catalog, and removals/state never call Catalog. No TMDB 404 is manufactured from a cache miss. Public ratings/review lists for valid but unrecorded movie IDs return empty results. M2.3 new ratings reuse the same reference confirmation; existing-rating updates/read/removal do not require Catalog. Future review reference validation remains subject to its slice review.
+IDs in bodies are JSON integers 1–2147483647; route/query IDs are canonical decimal strings (no signs, leading zeros, decimals). Invalid IDs return 422; a valid absent collection/review ID returns 404. M2.1 new memberships require a persisted Catalog reference through the existing batch client. A missing reference returns 422 with an instruction to open movie details; Catalog failure returns 503. Existing memberships return 200 without Catalog, and removals/state never call Catalog. No TMDB 404 is manufactured from a cache miss. Public ratings/review lists for valid but unrecorded movie IDs return empty results. M2.3 new ratings reuse the same reference confirmation; existing-rating updates/read/removal do not require Catalog. M2.4 confirms only new review references through the same LibraryMetadata mechanism; duplicate creation conflicts before Catalog, and review reads/edits/deletes are Core-only.
 
-Only documented fields are mutable. Reject unsupported body keys with 422, including `user_id`, timestamps, emails/passwords in profile writes, and privacy flags. Empty PATCH is 422. GETs have no body; DELETEs have no body/query. Query parameters not listed are ignored following current movie endpoints, except rating endpoints which reject all query fields. Write limits and session behavior are in [security architecture](../architecture/milestone-2.md).
+Only documented fields are mutable. Reject unsupported body keys with 422, including `user_id`, timestamps, emails/passwords in profile writes, and privacy flags. Empty PATCH is 422. GETs have no body; DELETEs have no body/query. Query parameters not listed are ignored following current movie endpoints, except rating endpoints which reject all query fields and review endpoints which accept only pagination on the public list, rejecting every other query field. Write limits and session behavior are in [security architecture](../architecture/milestone-2.md).
 
 ### Pagination and response examples
 
@@ -82,7 +82,7 @@ For a new user/movie rating only, shared `LibraryMetadata::confirm()` checks Cat
 
 Compute all buckets in one grouped DB query and derive count/average from the same result. No persistent aggregate or cache initially. Concurrent PUTs use last committed value. Private shared errors apply; no duplicate conflict/404 for this singleton.
 
-## M2.4 Reviews
+## M2.4 Reviews — implemented
 
 Review shape (public and owner's write response):
 
@@ -98,9 +98,17 @@ Review shape (public and owner's write response):
 | PATCH `/movies/{tmdb_id}/reviews/{review_id}` | P; `{"body":"Updated thoughts.","contains_spoilers":false}` (one or both fields) | 200 `{"data": review object with updated body/flag/updated_at}` | Owner and movie must match; last committed edit wins. 404 absent/non-owned/wrong movie; 422 invalid fields/IDs. |
 | DELETE `/movies/{tmdb_id}/reviews/{review_id}` | P; none | 204 empty | Same ownership/movie checks; subsequent delete 404, no rating deletion. 404/422. |
 
-Trim body, require 1–5000 characters after trimming. `contains_spoilers` optional on create (default false), strict JSON boolean when supplied; omitted on PATCH preserves value. Render plain text with escaped output, never HTML/Markdown execution. Spoiler text is delivered publicly but hidden in UI until explicit reveal; edits/new review IDs reset reveal state. No author email, public profile route, replies, likes, reporting or moderation state.
+Trim Unicode edge whitespace and require 1–5000 Unicode code points after trimming. `contains_spoilers` optional on create (default false), strict JSON boolean when supplied; omitted on PATCH preserves value. Render plain text with escaped output, never HTML/Markdown execution. Spoiler text is delivered publicly but hidden in UI until explicit reveal; edits/new review IDs reset reveal state. No author email, public profile route, replies, likes, reporting or moderation state.
 
-## M2.5 Profile
+POST/PATCH accept JSON only. Reject unsupported fields including rating, user_id, tmdb_id in the body, timestamps and moderation fields; ownership and movie identity come from session/route. PATCH must contain at least body or contains_spoilers. Empty strings/null/whitespace-only body are invalid; clearing the spoiler flag with false is valid. Route IDs use canonical 1–2147483647 validation. Public pagination defaults to 20, max 50, page max 10000; unknown query keys are 422. Own GET and DELETE accept no query/body.
+
+Private endpoints use the existing explicit web/session/CSRF stack, Sanctum, EnsureVerifiedAccount and PreventAuthCaching. Shared library-read is 120/minute/user; library-write is 60/minute/user. Public reviews share community-read (120/minute/IP) with ratings. All review responses prevent caching; 404/419/429/unexpected 500 errors are sanitized, including in debug mode. Retry-After is preserved. Existing configured CORS already permits POST/PATCH/DELETE; no new configuration.
+
+Creation checks for an existing owner/movie review before the shared LibraryMetadata confirmation. Existing rows always conflict with the exact documented 409, even during a Catalog outage. A persisted reference creates 201; unresolved cache-only lookup yields 422 with instructions to open Details, never a fabricated TMDB 404; Catalog unavailable yields safe 503. SQL uniqueness handles simultaneous creates with the same 409. No duplicate overwrites body, flag, ID or timestamps. Review reads, PATCH and DELETE never depend on Catalog. Public listing of a valid unknown movie returns the ordinary empty envelope. Deleting an already absent review returns 404. A review is independent of rating, Watchlist, Watched and Collections.
+
+The public page uses three bounded SQL queries when nonempty (count, rows, eager public authors), no Catalog HTTP and no per-row author query. Spoiler bodies are present in API JSON: UI concealment is a reading preference, not access control. React omits concealed body text from the DOM/accessibility tree and resets reveal state on ID/movie/content changes, including edits within one timestamp second.
+
+## M2.5 Profile — proposed
 
 Keep `/auth/me` and its exact five-field UserResource. Profile wraps that same resource rather than redefining identity:
 

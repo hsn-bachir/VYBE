@@ -25,12 +25,15 @@ export async function runLibraryChecks(page, base = 'http://127.0.0.1:5181', scr
     requests.push({ path, method })
     if (path.endsWith('/auth/me')) return auth === 'guest' ? reply({ message: 'Unauthenticated.' }, 401) : reply({ data: user() })
     if (path.endsWith('/auth/logout')) { auth = 'guest'; return route.fulfill({ status: 204, headers }) }
+    if (method === 'GET' && /\/movies\/\d+\/reviews$/.test(path)) return reply({ data: [], meta: { page: 1, per_page: 20, total_pages: 0, total_results: 0 } })
+    if (method === 'GET' && /\/movies\/\d+\/ratings$/.test(path)) return reply({ data: { tmdb_id: Number(path.split('/').at(-2)), average_rating: null, total_ratings: 0, distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 } } })
     if (path.endsWith('/experience')) return reply({ data: { tmdb_id: 550, tagline: 'Some stories bring us home.', trailer: trailerAvailable ? { key: 'official123', site: 'YouTube', type: 'Trailer', official: true, name: 'Official trailer' } : null,
       directors: [{ tmdb_id: 30, name: 'Test Director' }], cast: Array.from({ length: 12 }, (_, i) => ({ tmdb_id: i + 1, name: `Test Actor ${i + 1}`, character: `Character ${i + 1}`, profile_path: null })), related: [551, 552, 553, 554, 555, 556].map(movie) }, meta: { stale: false } })
     if (/\/movies\/\d+$/.test(path)) return reply({ data: { ...movie(Number(path.split('/').at(-1))), runtime: 125, original_title: null, original_language: 'en', genres: [{ id: 18, name: 'Drama' }, { id: 878, name: 'Science Fiction' }] }, meta: { stale: false } })
     if (/\/movies\/(popular|search)$/.test(path)) return reply({ data: [movie(550)], meta: { page: 1, total_pages: 1, total_results: 1 } })
     if (auth === 'guest') return reply({ message: 'Unauthenticated.' }, 401)
     if (auth !== 'verified') return reply({ message: 'Unverified.' }, 403)
+    if (method === 'GET' && /\/me\/(?:reviews|ratings)\/\d+$/.test(path)) return reply({ data: null })
     if (path.endsWith('/library-state')) {
       const id = Number(path.split('/').at(-2))
       return reply({ data: { tmdb_id: id, in_watchlist: lists().watchlist.has(id), watched_at: lists().watched.get(id)?.watched_at ?? null } })
