@@ -1,6 +1,6 @@
-# M2 Core schema — M2.1–M2.4 implemented; profile extension proposed
+# M2 Core schema — M2.1–M2.5 implemented
 
-**M2.1 library, M2.2 collections, M2.3 movie_ratings and M2.4 reviews are implemented.** Bio remains design-only for M2.5. Core migrations: `2026_10_31_000001_create_watchlist_entries_table.php`, `2026_10_31_000002_create_watched_movies_table.php`, `2026_11_01_000001_create_collections_table.php`, `2026_11_01_000002_create_collection_movies_table.php`, `2026_11_03_000001_create_movie_ratings_table.php`, `2026_11_03_000002_create_reviews_table.php`. Each rollback drops only its own table, memberships before collections; roll back only on a disposable database or after a separate data-retention decision. All tables belong to Core's existing `vybe_core`. Catalog's `movies` and cache tables remain unchanged. Start with the actual [existing schema](schema.md), not a replacement users table.
+**M2.1 library, M2.2 collections, M2.3 movie_ratings and M2.4 reviews are implemented.** M2.5 adds nullable users.bio and managed avatar references in the existing avatar_url field. Core migrations: `2026_10_31_000001_create_watchlist_entries_table.php`, `2026_10_31_000002_create_watched_movies_table.php`, `2026_11_01_000001_create_collections_table.php`, `2026_11_01_000002_create_collection_movies_table.php`, `2026_11_03_000001_create_movie_ratings_table.php`, `2026_11_03_000002_create_reviews_table.php`, `2026_11_03_000003_add_bio_to_users_table.php`. Each rollback drops only its own table, memberships before collections; roll back only on a disposable database or after a separate data-retention decision. All tables belong to Core's existing `vybe_core`. Catalog's `movies` and cache tables remain unchanged. Start with the actual [existing schema](schema.md), not a replacement users table.
 
 M2.3 uses BIGINT UNSIGNED IDs, TINYINT UNSIGNED rating, cascade user FK, UNIQUE(user_id, tmdb_id), INDEX(tmdb_id, rating), and named CHECK constraints for rating 1–5 and TMDB ID 1–2147483647 on MySQL. MySQL 8.0.16+ CHECK enforcement is required; verified on 8.0.43. SQLite declares checks/FK with CREATE TABLE, then the same two indexes; it additionally checks the stored rating's integer type. Both engines passed range/unique/cascade tests and migration rollback/reapply. MariaDB was not run for this slice; validate CHECK enforcement on a deployment using it. Strict JSON integer validation is enforced separately from database numeric coercion. No Catalog, review or library FK exists. User::movieRatings() and MovieRating::user() implement the relationship; the fillable allowlist is tmdb_id/rating, with ownership supplied by the session/service.
 
@@ -8,7 +8,7 @@ M2.3 uses BIGINT UNSIGNED IDs, TINYINT UNSIGNED rating, cascade user FK, UNIQUE(
 
 `id` means `BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY`. Every `user_id` is `BIGINT UNSIGNED NOT NULL REFERENCES users(id) ON DELETE CASCADE`; `collection_id` similarly references `collections(id) ON DELETE CASCADE`. No cross-database keys. `tmdb_id` is `BIGINT UNSIGNED NOT NULL`, validated to 1–2147483647 to match current API limits; no default, no FK. All new non-null business fields require explicit values except stated defaults. `created_at`/`updated_at` use Laravel nullable TIMESTAMP columns, no DB default; Eloquent supplies UTC values on writes. APIs emit UTC ISO-8601 strings, dates remain `YYYY-MM-DD`.
 
-## Existing users and proposed extension
+## Existing users and implemented profile extension
 
 | Column | Type, nullability, default and constraints | State |
 | --- | --- | --- |
@@ -20,7 +20,7 @@ M2.3 uses BIGINT UNSIGNED IDs, TINYINT UNSIGNED rating, cascade user FK, UNIQUE(
 | email_verified_at | TIMESTAMP NULL, default NULL | Existing |
 | remember_token | VARCHAR(100) NULL, default NULL | Existing |
 | created_at, updated_at | TIMESTAMP NULL, default NULL | Existing |
-| bio | VARCHAR(500) NULL, default NULL | Proposed addition in M2.5 |
+| bio | VARCHAR(500) NULL, default NULL | Implemented M2.5 addition |
 
 No new profile table: one-to-one information fits users. Keep username normalization (trim/lowercase), 3–30 ASCII `[a-z0-9_]`, existing reserved names and unique index. Updates ignore the current authenticated ID when validating uniqueness; catch DB uniqueness races as 422. Email/password are not editable through profile. Member since derives from `created_at`, not another column. Nullable legacy timestamps serialize as null. Existing user FKs remain confined to Core.
 
@@ -53,7 +53,7 @@ erDiagram
         varchar email UK
         varchar password "nullable existing"
         varchar avatar_url "nullable existing"
-        varchar bio "nullable proposed"
+        varchar bio "nullable M2.5"
         timestamp email_verified_at "nullable existing"
         varchar remember_token "nullable existing"
         timestamp created_at
@@ -126,7 +126,7 @@ M2.2 addition confirms the Catalog reference before taking a short Core transact
 
 ## Deferred work
 
-Each slice owns its additive migration, down-migration policy, Eloquent relationships, constraints and isolated MySQL tests. No new DB or production migration step is needed in M2.0. M2.1 validates new references through Catalog; M2.4 uses the same reference confirmation for new reviews only; review avatar storage in M2.5; retain no speculative social/moderation columns.
+Each slice owns its additive migration, down-migration policy, Eloquent relationships, constraints and isolated MySQL tests. No new DB or production migration step is needed in M2.0. M2.1 validates new references through Catalog; M2.4 uses the same reference confirmation for new reviews only; M2.5 avatar storage is Core-owned and documented below; retain no speculative social/moderation columns.
 
 ## M2.4 implementation details
 
@@ -135,3 +135,11 @@ Each slice owns its additive migration, down-migration policy, Eloquent relation
 Body validation trims Unicode edge whitespace and accepts 1–5000 Unicode code points; TEXT with the existing utf8mb4 connection holds this bounded content. Stored text is not interpreted as markup. JSON boolean validation is strict; the database default and service creation default are false. Laravel timestamps retain existing precision and UTC serialization; no history/version column is added. Edits preserve id/created_at and do not reorder the list.
 
 Duplicate checks precede Catalog confirmation, but the unique key is authoritative for races. A uniqueness exception maps to 409 REVIEW_EXISTS, never replacement. PATCH/DELETE lock only the owner/movie/id row in a short Core transaction; no network call occurs under a lock. The nonempty public list executes count, page and eager author queries (three total), with only public author columns. Empty pages do not perform an author query or Catalog request. SQLite and isolated MySQL tests verify constraints/cascades and rollback/reapply; two concurrent MySQL workers produced one row and 201/409. See the [M2.4 report](../development/m2.4-report.md).
+
+## M2.5 implementation
+
+`2026_11_03_000003_add_bio_to_users_table.php` adds nullable VARCHAR(500) bio, with no backfill or replacement users table; down removes only bio. Existing users/activity survive rollback/reapply on disposable SQLite/MySQL. Unicode character bounds and plain-text/blank-to-null normalization are enforced at the API; MySQL also enforces its VARCHAR bound, while SQLite does not enforce VARCHAR length directly. User's mass-assignment allowlist remains username/email/password: validated ProfileService assigns bio explicitly.
+
+No new avatar column or binary data. New avatar_url values are relative managed references `/avatars/{user_id}/{32-lowercase-hex}.webp`; User's accessor emits the configured APP_URL plus this path for both existing UserResource and review authors. No development hostname is stored. Safe legacy absolute HTTP(S) URLs remain renderable but are never fetched/deleted by Core; invalid schemes are represented as null. Cleanup accepts only an exact managed reference matching the authenticated owner's directory. Username/profile/avatar writes lock the current user row, preserving unrelated fields. Shared UsernameRules is reused by registration and profile updates; DB uniqueness races become username 422 errors.
+
+Profile counts use the existing owner-leading indexes through one loadCount query with three subqueries (watchedMovies, watchlistEntries, reviews), after a fresh user read. No relationship rows, ratings, Catalog metadata or persistent counters are loaded. Member since derives from nullable created_at. ProfileResource wraps the unchanged five-field UserResource.

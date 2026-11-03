@@ -5,6 +5,7 @@ import { authKey } from '../../auth/hooks/useAuth'
 import type { User } from '../../auth/types/auth.types'
 import { changeMembership, libraryPage, libraryState } from '../api/libraryApi'
 import type { LibraryKind, LibraryState } from '../types/library.types'
+import { profileKey } from '../../profile/hooks/profileKeys'
 
 export const libraryKeys = {
   owner: (userId: number) => ['library', userId] as const,
@@ -55,6 +56,7 @@ export function useMembership(userId: number, kind: LibraryKind, id: number, onC
       await Promise.all([
         client.invalidateQueries({ queryKey: libraryKeys.list(userId, kind) }),
         client.invalidateQueries({ queryKey: libraryKeys.state(userId, id) }),
+        client.invalidateQueries({ queryKey: profileKey(userId) }),
       ])
     },
     onError: error => {
