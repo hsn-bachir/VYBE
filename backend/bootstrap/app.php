@@ -22,6 +22,20 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(fn (Request $request, Throwable $e) => $request->is('api/v1/movies/*', 'api/v1/me/*') || $request->expectsJson());
         $exceptions->respond(function (Response $response, Throwable $e, Request $request) {
+            if ($request->is('api/v1/me/reviews/*', 'api/v1/movies/*/reviews', 'api/v1/movies/*/reviews/*')) {
+                $response->headers->set('Cache-Control', 'no-store, private');
+                if ($response->getStatusCode() === 404) {
+                    return response()->json(['message' => 'Not found.'], 404)->header('Cache-Control', 'no-store, private');
+                }
+                if (in_array($response->getStatusCode(), [419, 429], true)) {
+                    return response()->json(['message' => $response->getStatusCode() === 419 ? 'CSRF token mismatch.' : 'Too many requests.'],
+                        $response->getStatusCode(), $response->headers->all());
+                }
+                if ($response->getStatusCode() >= 500 && ! $e instanceof CatalogFailure) {
+                    return response()->json(['message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR'], 500)
+                        ->header('Cache-Control', 'no-store, private');
+                }
+            }
             $ratingRoute = $request->is('api/v1/me/ratings/*', 'api/v1/movies/*/ratings');
             if ($ratingRoute) {
                 $response->headers->set('Cache-Control', $request->is('api/v1/me/*') ? 'no-store, private' : 'no-store');

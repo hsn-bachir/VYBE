@@ -1,4 +1,4 @@
-# M2 frontend integration — M2.1–M2.3 implemented, later slices planned
+# M2 frontend integration — M2.1–M2.4 implemented, profile planned
 
 M2.0 changed no React code. M2.1 adds `features/library` and cinematic movie details. Build future features under `src/features/<feature>/api`, `hooks`, `types`, `components`, `pages`, with tests beside their feature; create directories only as needed. Reuse `src/lib/api/client.ts`, `useAuth`, `RequireAuth`, `AppLayout`, semantic design tokens, shared Button/Input, `MovieCard`, `MovieGrid`, `MovieImage` and `MovieState`. Existing movie DTOs and public detail query remain unchanged.
 
@@ -31,13 +31,23 @@ M2.0 changed no React code. M2.1 adds `features/library` and cinematic movie det
 - Mutation scope serializes a user/movie and pending state disables conflicting controls. PUT/DELETE bootstrap CSRF and check account identity before dispatch. Callbacks check identity before and after cancellation; confirmed responses set only the matching personal key and invalidate that key plus matching public statistics. No discovery, movie metadata or library/collection invalidation. Writes do not retry automatically; failure preserves confirmed state with explicit retry guidance.
 - `components/react-bits/PeekRating.tsx` is an attributed adaptation of the official controlled preview/lift interaction. Native five-radio semantics, inline star SVG, restrained 3px lift/1.08 scale and CSS replace pointer capture and Hugeicons dependencies. Local preview never changes checked server state or aggregates; a new mutation revision discards old previews. Confirmation pop follows server success only. Removal is an explicit DELETE button; no zero-star clearing. Keyboard arrows use native radio behavior, labels expose values, focus is visible and reduced motion removes lift/pop/bar transitions. Guests are directed to the existing login flow, unverified users to verification. No dependency added.
 
+## Implemented M2.4
+
+- Lazy `features/reviews/components/CommunityReviewsSection` follows Community Ratings and precedes related movies in Details. Public reads remain independent of authentication/private failures. Guest and unverified accounts get the existing sign-in/verification paths; verified users get their own review without scanning public pages. Reviews do not require a rating.
+- Numeric keys: public prefix `['movies','reviews',tmdbId]`, page `['movies','reviews',tmdbId,page,perPage]`; own `['me',userId,'review',tmdbId]`; write `['me',userId,'review-write',tmdbId]`. Page size 20, AbortSignal, 30-second staleTime, no read retry/focus polling. Public pages and own state alone are invalidated after writes; discovery, metadata, rating and library caches are untouched. Creation/deletion return to page one; editing preserves ordering/page.
+- Mutations serialize per owner/movie, bootstrap CSRF, disable conflicting operations and check current account before dispatch and before/after cancellation/cache callbacks. Existing auth-change cancellation/clearing applies. No write retries/optimistic success. 401/403 remove affected private queries and refresh auth. 404/409 refetch own/public state; a POST conflict never turns into an automatic PATCH.
+- ReviewEditor counts Unicode code points after edge trim, accepts 1–5000, preserves body/spoiler flag after failure and exposes field errors. Failed creation/409 keeps a separate draft; opening an existing review requires an explicit action. IDs, created/updated dates and author identity come from the server.
+- ReviewCard renders escaped plain text, safe avatar URL or initials, edited/owner labels and accessible Read more for long text. Concealed spoilers have no body text in DOM/accessibility output; Reveal/Hide remains keyboard operable and per instance. Body subcomponent identity includes movie/id/updated_at/body/flag so same-second edits also conceal again. The reveal-only CSS blur never hides already-mounted spoilers.
+- Shared `components/ui/Dialog` extracts the existing CollectionDialog behavior. Native modal, labelled heading, explicit Tab wrapping, pending focus containment/Escape protection and trigger/logical focus restoration serve review deletion and preserve Collections. Permanent deletion copy explains that ratings and library memberships remain unchanged. Failed deletion leaves the dialog open; a disappeared trigger falls back to the management button.
+- VYBE tokens, compact cards, visible focus/status/errors, restrained editor/reveal CSS and reduced-motion overrides; no new dependency or React Bits component. Browser fixtures and real-service persistence/outage checks are recorded in the [M2.4 report](../development/m2.4-report.md).
+
 ## Later slice plan (not implemented)
 
-The remainder describes future profile and review integration alongside established library, collection and rating conventions. M2.4–M2.5 remain proposals.
+Only M2.5 profile editing remains proposed. The following shared conventions include implemented movie organization, ratings and reviews; `/profile` and profile count invalidation do not exist yet.
 
 ## Pages and state
 
-- `/library` redirects to `/library/watchlist`; `/library/watchlist`, `/library/watched`, `/library/collections`, `/library/collections/:id` and `/profile` use RequireAuth. Server authentication/verification/ownership still enforce every request.
+- `/library` redirects to `/library/watchlist`; `/library/watchlist`, `/library/watched`, `/library/collections`, `/library/collections/:id` use RequireAuth; the proposed `/profile` route will reuse it. Server authentication/verification/ownership still enforce every request.
 - Movie Details remains public with public VYBE rating statistics and paginated reviews. Add watchlist/watched/save/rate/review controls only in their vertical slices. Guests sign in; unverified accounts use existing verification flow. Never block public metadata on a failed private-state request.
 - Use library-state singleton for watchlist/watched action state; own rating/review singleton APIs for editors. Collection modal uses paginated collections with `contains_tmdb_id`, a single query per page returning all check states. Each selection tracks its own request outcome; failed changes stay visible with retry. No unbounded fetch-all or per-collection membership calls.
 - Library responses already combine Core relationship fields and Catalog summaries. Render available `movie` through existing cards. Missing/unavailable metadata retains a card-sized placeholder with TMDB ID and removal action; do not fabricate title/poster or silently drop saved entries. Distinguish a Catalog outage banner from individual missing records and from a Core list-fetch error.
@@ -48,7 +58,7 @@ The remainder describes future profile and review integration alongside establis
 
 ## Future query key and invalidation proposal
 
-Keep existing keys `['movies','popular',page]`, `['movies','search',normalizedQuery,page]`, `['movies','detail',tmdbIdString]` and popular-feed. Standardize new keys below (future IDs represented consistently as strings; implemented library keys use numbers); user-scoped keys prevent identity crossover. Include every query parameter in keys and forward AbortSignal to Axios. Private queries enabled only after verified auth resolves.
+Keep existing keys `['movies','popular',page]`, `['movies','search',normalizedQuery,page]`, `['movies','detail',tmdbIdString]` and popular-feed. Use numeric IDs for implemented M2 feature keys below; retain existing string movie-detail IDs. Proposed profile keys should follow these conventions; user-scoped keys prevent identity crossover. Include every query parameter in keys and forward AbortSignal to Axios. Private queries enabled only after verified auth resolves.
 
 | Data | Key |
 | --- | --- |
@@ -59,7 +69,7 @@ Keep existing keys `['movies','popular',page]`, `['movies','search',normalizedQu
 | Own rating / review | `['me', userId, 'rating' or 'review', tmdbId]` |
 | Profile | `['me', userId, 'profile']` |
 | Public statistics | `['movies', 'ratings', tmdbId]` |
-| Public reviews | `['movies', 'reviews', tmdbId, {page, per_page}]` |
+| Public reviews | `['movies', 'reviews', tmdbId, page, perPage]` (implemented, numeric IDs) |
 
 | Successful mutation | Invalidate/update |
 | --- | --- |
@@ -68,7 +78,7 @@ Keep existing keys `['movies','popular',page]`, `['movies','search',normalizedQu
 | Collection create/rename/delete | All collections queries (including every modal ID/page); detail/movie queries for affected collection; remove deleted detail caches |
 | Collection membership | All collections queries/counts/membership flags and affected collection detail/movie pages |
 | Rating PUT/delete | Own rating singleton and public rating statistics; leave TMDB detail cache alone |
-| Review create/edit/delete | Own review singleton, public reviews for movie, profile review count |
+| Review create/edit/delete | Own review singleton, public reviews for movie; profile review count only when M2.5 exists |
 | Profile/username/avatar | Set existing authKey from returned UserResource; refresh profile and public review queries so displayed author identity updates |
 
 Existing login/logout hooks cancel in-flight queries and remove non-auth queries; preserve this behavior for all private keys. On 401 clear private state and recheck auth; use context-specific signed-out messaging (shared auth error helper currently says “Invalid email or password”). On 403 refresh verification state and show existing verification UI; on 419 bootstrap again only for explicit resubmission. 404 private collection goes to a safe not-found view, 409 review reloads own-review state, 422 maps inline fields, 429 observes Retry-After. Do not add a blind global retry interceptor.

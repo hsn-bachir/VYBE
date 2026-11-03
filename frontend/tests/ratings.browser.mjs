@@ -23,6 +23,7 @@ export async function runRatingsChecks(page, base, screenshots) {
     if (path.endsWith('/auth/me')) return auth ? reply({ data: auth }) : reply({}, 401)
     if (path.endsWith('/auth/login')) { auth = user(request.postDataJSON().email.startsWith('other') ? 8 : 7); return reply({ data: auth }) }
     if (path.endsWith('/auth/logout')) { auth = null; return empty() }
+    if (method === 'GET' && /\/movies\/\d+\/reviews$/.test(path)) return reply({ data: [], meta: { page: 1, per_page: 20, total_pages: 0, total_results: 0 } })
     if (path.endsWith('/email/verification-status')) return reply({ data: { verified: false, email: auth?.email } })
     if (path === '/api/v1/movies/550/ratings') return statsFailure ? reply({}, 500) : reply({ data: statistics() })
     if (path.endsWith('/experience')) return reply({ data: { tmdb_id: 550, tagline: null, trailer: { key: 'official123', site: 'YouTube', type: 'Trailer', official: true, name: 'Fixture trailer' }, directors: [], cast: [], related: [] }, meta: { stale: false } })
@@ -30,6 +31,7 @@ export async function runRatingsChecks(page, base, screenshots) {
     if (/\/movies\/(popular|search)$/.test(path)) return reply({ data: [movie], meta: { page: 1, total_pages: 1, total_results: 1 } })
     if (!auth) return reply({}, 401)
     if (!auth.email_verified_at) return reply({}, 403)
+    if (method === 'GET' && /\/me\/reviews\/\d+$/.test(path)) return reply({ data: null })
     if (path.endsWith('/library-state')) return reply({ data: { tmdb_id: 550, in_watchlist: true, watched_at: '2026-11-01T00:00:00Z' } })
     if (path === '/api/v1/me/collections') return reply({ data: [{ id: 1, name: 'Favorites', description: null, movie_count: 1, contains_movie: true, created_at: '2026-11-01T00:00:00Z', updated_at: null }], meta: { page: 1, per_page: 20, total_pages: 1, total_results: 1 } })
     if (path === '/api/v1/me/ratings/550') {

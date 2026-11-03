@@ -21,12 +21,15 @@ export async function runCollectionsChecks(page, base = 'http://127.0.0.1:5182',
     requests.push({ path, method, query: url.search })
     if (path.endsWith('/auth/me')) return auth === 'guest' ? reply({ message: 'Unauthenticated.' }, 401) : reply({ data: { id: owner, username: `fixture_${owner}`, email: 'fan@example.test', avatar_url: null, email_verified_at: auth === 'verified' ? '2026-11-01T00:00:00Z' : null } })
     if (path.endsWith('/auth/logout')) { auth = 'guest'; return empty() }
+    if (method === 'GET' && /\/movies\/\d+\/reviews$/.test(path)) return reply({ data: [], meta: { page: 1, per_page: 20, total_pages: 0, total_results: 0 } })
+    if (method === 'GET' && /\/movies\/\d+\/ratings$/.test(path)) return reply({ data: { tmdb_id: Number(path.split('/').at(-2)), average_rating: null, total_ratings: 0, distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 } } })
     if (path.endsWith('/auth/login')) { auth = 'verified'; owner = 8; return reply({ data: { id: owner, username: 'fixture_8', email: 'fan@example.test', avatar_url: null, email_verified_at: '2026-11-01T00:00:00Z' } }) }
     if (path.endsWith('/experience')) return reply({ data: { tmdb_id: 550, tagline: 'Every story has a place.', trailer: null, directors: [], cast: [], related: [] }, meta: { stale: false } })
     if (path === '/api/v1/movies/550') return reply({ data: { ...movie, runtime: 125, original_title: null, original_language: 'en', genres: [] }, meta: { stale: false } })
     if (/\/movies\/(popular|search)$/.test(path)) return reply({ data: [movie], meta: { page: 1, total_pages: 1, total_results: 1 } })
     if (auth === 'guest') return reply({ message: 'Unauthenticated.' }, 401)
     if (auth !== 'verified') return reply({ message: 'Unverified.' }, 403)
+    if (method === 'GET' && /\/me\/(?:reviews|ratings)\/\d+$/.test(path)) return reply({ data: null })
     if (path.endsWith('/library-state')) return reply({ data: { tmdb_id: 550, in_watchlist: true, watched_at: '2026-11-01T00:00:00Z' } })
     const match = path.match(/^\/api\/v1\/me\/collections(?:\/(\d+))?(\/movies)?(?:\/(\d+))?$/)
     if (!match) return reply({}, 404)

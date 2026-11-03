@@ -3,8 +3,8 @@
 ## Source of truth
 
 - Read the checked-out source and the relevant `docs/` contracts first. Planned architecture is not evidence of implementation.
-- **Active implementation scope: Milestone 2.3.** Preserve implemented M1/M2.0–M2.2. Add independent private whole-star ratings, public Core community statistics and controlled Movie Details rating interactions, with tests and docs.
-- Later M2 slices remain design-only: reviews and profile editing. Production OAuth, social accounts/graph, recommendation engines and administration remain out of scope. OAuth buttons may be disabled and labelled “Coming soon.”
+- **Active implementation scope: Milestone 2.4.** Preserve implemented M1/M2.0–M2.3. Add independent community reviews, public bounded reading, owner-only management and accessible spoiler concealment, with tests and docs.
+- Profile editing remains design-only for M2.5. Production OAuth, social accounts/graph, recommendation engines and administration remain out of scope. OAuth buttons may be disabled and labelled “Coming soon.”
 - Team has **approved two independently runnable Laravel backends** for Milestone 1; instructor has not confirmed whether this fully meets microservices grading expectations. See [ADR 0001](docs/decisions/0001-initial-architecture.md).
 
 ## Architectural boundaries

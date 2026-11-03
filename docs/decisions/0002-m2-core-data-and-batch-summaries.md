@@ -29,3 +29,7 @@ Private collections and memberships are implemented with the approved duplicate-
 ## M2.3 follow-up (2026-11-03)
 
 Independent Core ratings reuse LibraryMetadata confirmation only for a new personal rating. Atomic upsert under the owner/movie unique key provides last-database-writer semantics; existing updates and deletion remain available without Catalog. Public statistics derive all buckets, total and rounded weighted average from one grouped query. No persistent aggregate, Catalog score mutation, review coupling or infrastructure change. See the [M2.3 report](../development/m2.3-report.md).
+
+## M2.4 follow-up (2026-11-03)
+
+Independent Core reviews use the owner/movie unique key, safe eager public authors and bounded creation-time ordering. Only new creation confirms a Catalog reference through LibraryMetadata; preexisting duplicates conflict before HTTP and SQL uniqueness catches races. Owner/movie/id-scoped edits/deletion and reads remain available during outages. Plain text and explicit per-instance spoiler reveal avoid markup execution and accidental screen-reader disclosure; public JSON still contains the text. No rating coupling, aggregate/storage infrastructure, moderation or service changes. See the [M2.4 report](../development/m2.4-report.md).

@@ -200,3 +200,7 @@ For production, use HTTPS and `SESSION_SECURE_COOKIE=true`, `APP_DEBUG=false`, e
 - Core 503 when movie façade is implemented: check Catalog process, port, token, MySQL, TMDB availability and bounded HTTP timeout.
 - Browser 419 when Sanctum is implemented: consistently use `localhost`, configure `statefulApi`, CORS credentials and cookies; don't disable CSRF to hide the problem.
 - XAMPP database might be MariaDB; verify JSON behavior against CI MySQL 8.0.
+
+### M2.4 reviews migration
+
+Apply the single additive Core migration `2026_11_03_000002_create_reviews_table.php` before using the M2.4 frontend/API: in `backend/`, check `php artisan migrate:status`, then run `php artisan migrate`. This creates reviews without resetting ratings, collections or users. Isolated tests do not migrate the normal application database. No Catalog migration, new environment setting, package or storage setup is needed; existing credentialed POST/PATCH/DELETE CORS and CSRF/session configuration are reused. Never use `migrate:fresh` on normal data.

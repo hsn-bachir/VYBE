@@ -1,6 +1,6 @@
 # Milestone 2 foundation
 
-Status: M2 ownership and scope approved by the project owner on 2026-10-30. M2.0 delivered the batch-summary boundary. M2.1–M2.3 are implemented locally; see the [M2.1 report](../development/m2.1-report.md), [M2.2 report](../development/m2.2-report.md) and [M2.3 report](../development/m2.3-report.md). M2.4–M2.5 remain proposals, and M2.6 release acceptance remains pending.
+Status: M2 ownership and scope approved by the project owner on 2026-10-30. M2.0 delivered the batch-summary boundary. M2.1–M2.4 are implemented locally; see the [M2.1 report](../development/m2.1-report.md), [M2.2 report](../development/m2.2-report.md) [M2.3 report](../development/m2.3-report.md) and [M2.4 report](../development/m2.4-report.md). M2.5 remains proposed, and M2.6 release acceptance remains pending.
 
 ## Boundaries and sequence
 
@@ -28,11 +28,15 @@ M2.1 new additions confirm persisted movie identity via one batch request. Synta
 - Bootstrap CSRF before writes; 419 needs explicit resubmission, no automatic write replay. 401 means lost session; 403 means verification is required. Non-owned private resources return the same 404 as absent resources.
 - Use validated allowlists for mass assignment, authenticated IDs from the session, database unique constraints and transactions for duplicate/concurrent writes. Translate expected uniqueness races to documented 200/409/422 outcomes.
 - Reviews/bios/descriptions are plain text. React escapes text; never use HTML injection. Spoiler hiding is a display control, not access control: public review text is present in JSON.
-- Implemented limits: shared private writes 60/minute/user, private reads 120/minute/user, and M2.3 public community reads 120/minute/IP. Existing Laravel limiter/cache infrastructure returns 429 + Retry-After. Profile avatar uploads at 5/minute/user remain proposed for M2.5.
+- Implemented limits: shared private writes 60/minute/user, private reads 120/minute/user, and M2.3/M2.4 public community reads 120/minute/IP. Existing Laravel limiter/cache infrastructure returns 429 + Retry-After. Profile avatar uploads at 5/minute/user remain proposed for M2.5.
 - Return sanitized errors, never DB exceptions, internal URLs, service headers or tokens. Do not put credentials in VITE variables. Catalog shared-token auth is service identity, not user authorization.
 - No avatar upload implementation currently exists. The proposed local Core storage approach and remaining security choices are in the profile contract; no arbitrary remote URL fetch.
 
 ## Scope and decisions
+
+M2.4 adds independent Core reviews with one owner/movie row, public bounded pagination and a safe author projection. New review creation reuses LibraryMetadata confirmation outside a transaction; duplicate detection runs first and database uniqueness translates races to 409 REVIEW_EXISTS. Updates/deletes scope by authenticated owner, movie and review ID with local row locks. Public and own reads, existing edits/deletes and duplicate conflicts work without Catalog. No Catalog or rating/library mutation is involved. List ordering remains created_at DESC/id DESC after edits, with eager public authors rather than N+1 queries.
+
+The lazy Details community section uses escaped plain text, local drafts and server-confirmed writes. A creation conflict preserves the draft and offers explicit existing-review editing. Spoilers are excluded from DOM/accessibility output until reveal; content/version changes reset per-instance reveal state. Shared native Dialog now serves Collections and review deletion with explicit keyboard wrapping, pending containment and focus restoration. No new runtime dependency or moderation/social feature.
 
 M2.3 adds independent movie_ratings in Core. RatingService uses shared LibraryMetadata confirmation only for a missing personal rating, atomic upsert under the owner/movie unique key and Core-only reads/deletes. Public statistics are one grouped query with zero-filled buckets; no Catalog call, persistent counter or cache. Private routes reuse the existing protected stack/read/write limits; public statistics use a 120/min/IP limiter. React keeps the TMDB 0–10 score separate from the VYBE 1–5 community score. The lazy community section adapts Peek Rating with confirmed server state, accessible native radios and existing account-isolated query/cache behavior. No Catalog or service topology change.
 
