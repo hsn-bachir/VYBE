@@ -23,7 +23,7 @@ class TmdbClient
 
     public function details(int $id): array
     {
-        return $this->get('movie/'.$id, [], true);
+        return $this->get('movie/'.$id, ['append_to_response' => 'videos,credits,recommendations'], true);
     }
 
     private function get(string $path, array $query, bool $detail = false): array

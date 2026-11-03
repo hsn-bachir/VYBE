@@ -47,7 +47,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
-          extensions: mbstring, pdo_mysql, bcmath, xml, pdo_sqlite
+          extensions: mbstring, pdo_mysql, bcmath, xml, pdo_sqlite, gd, exif
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
       - name: Verify Core MySQL migrations
@@ -117,4 +117,5 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npx tsc -b --noEmit
+      - run: npm test
       - run: npm run build

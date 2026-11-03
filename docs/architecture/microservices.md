@@ -47,7 +47,7 @@ Catalog uses its existing `movies` schema and framework database cache. Detail h
 
 ### Future evolution — NOT Milestone 1
 
-Reviews/watchlists/community may become separate services if complexity and rubric justify it. Distributed user identity and events need a separate ADR when those domains enter scope. No message broker, Kubernetes, service mesh, or dedicated gateway process now: Core already serves as the browser-facing API/BFF.
+For M2, reviews/watchlists/collections/ratings/profiles belong to Core, as approved in [ADR 0002](../decisions/0002-m2-core-data-and-batch-summaries.md). They do not become additional services. No message broker, Kubernetes, service mesh, or dedicated gateway process is introduced: Core already serves as the browser-facing API/BFF. Product implementation remains deferred to the documented vertical slices.
 
 ### Instructor questions still open
 

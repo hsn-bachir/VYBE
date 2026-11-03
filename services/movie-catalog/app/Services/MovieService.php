@@ -11,7 +11,30 @@ use Illuminate\Support\Facades\DB;
 
 class MovieService
 {
-    public function __construct(private TmdbClient $client, private MovieNormalizer $normalizer) {}
+    public function __construct(private TmdbClient $client, private MovieNormalizer $normalizer, private MovieExperienceService $experience) {}
+
+    /** @param list<int> $ids Validated, bounded TMDB IDs. */
+    public function summaries(array $ids): array
+    {
+        $ids = array_values(array_unique($ids));
+        $stored = Movie::whereIn('tmdb_id', $ids)->get([
+            'tmdb_id', 'title', 'poster_path', 'backdrop_path', 'overview', 'release_date', 'tmdb_rating', 'tmdb_vote_count',
+        ])->keyBy('tmdb_id');
+        $movies = [];
+        $missing = [];
+        foreach ($ids as $id) {
+            if ($movie = $stored->get($id)) {
+                // Model serialization preserves the summary resource's YYYY-MM-DD date contract.
+                $movies[] = $movie->toArray();
+            } else {
+                $missing[] = $id;
+            }
+        }
+
+        return ['movies' => $movies, 'meta' => [
+            'requested_count' => count($ids), 'returned_count' => count($movies), 'missing_tmdb_ids' => $missing,
+        ]];
+    }
 
     public function ranking(int $page, ?string $query = null): array
     {
@@ -66,7 +89,8 @@ class MovieService
                 return [$movie, false];
             }
             try {
-                $values = $this->normalizer->normalize($this->client->details($id), true);
+                $raw = $this->client->details($id);
+                $values = $this->normalizer->normalize($raw, true);
                 if ($values['tmdb_id'] !== $id) {
                     throw new UpstreamUnavailable;
                 }
@@ -78,6 +102,12 @@ class MovieService
             $values['genres'] = json_encode($values['genres'], JSON_THROW_ON_ERROR);
             $values['metadata_fetched_at'] = now();
             Movie::upsert([$values], ['tmdb_id'], array_diff(array_keys($values), ['tmdb_id']));
+
+            try {
+                $this->experience->capture($raw, $id);
+            } catch (UpstreamUnavailable) {
+                // Optional appended content must never invalidate a valid base detail response.
+            }
 
             return [Movie::where('tmdb_id', $id)->firstOrFail(), false];
         } finally {

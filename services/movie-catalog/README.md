@@ -71,6 +71,14 @@ Genuine detail 404 returns `MOVIE_NOT_FOUND`, even with an old row. Outages, pro
 
 ## Tests
 
+### M2.0 cache-only batch summaries
+
+`POST /api/internal/v1/movies/summaries` accepts JSON `{"tmdb_ids":[550,551]}` with the same internal token. Maximum 50 strict positive integer IDs; duplicates collapse in first-occurrence order. One database query returns persisted summary DTOs and `meta.requested_count`, `returned_count`, `missing_tmdb_ids`. Missing rows are reported with 200, not hydrated. Stale/summary-only rows are allowed; no TMDB token or provider call is needed for this operation. See the [full contract](../../../docs/api/catalog-batch-summaries.md) and [verification record](../../../docs/development/m2-foundation-report.md). No new configuration or migration is required.
+
+```powershell
+Invoke-RestMethod "$base/movies/summaries" -Method Post -Headers $headers -ContentType 'application/json' -Body '{"tmdb_ids":[550,551]}'
+```
+
 ```powershell
 composer validate --strict
 composer check-platform-reqs
@@ -82,8 +90,8 @@ Tests use `Http::fake()` and reject stray HTTP; no real credentials are required
 
 Coverage includes service auth, validation, provider paths/auth/timeouts/retries, payloads, persistence/uniqueness, freshness/cooldown, lock contention, database cache, ordered snapshots, query/page separation, expiry, empty search and safe errors. Lock contention is deterministic, not a multiprocess load test. Existing CI separately verifies MySQL 8 migrations and runs Catalog tests; local MariaDB does not establish hosted CI success.
 
-## Task 2 handoff
+## Core integration
 
-Core can implement `MovieCatalogClient` with `MOVIE_CATALOG_URL=http://localhost:8001` and matching `MOVIE_CATALOG_TOKEN`. Use bounded HTTP; preserve ordering and `meta.stale`; translate 404/422/503; keep internal URLs/tokens out of browser responses. Allow for two provider attempts (about 10.2 seconds maximum with defaults) when choosing the Core timeout; avoid retry amplification. Core and React integration remains a separate task.
+Core's existing `MovieCatalogClient` uses `MOVIE_CATALOG_URL=http://localhost:8001` and matching `MOVIE_CATALOG_TOKEN`, bounded HTTP, normalized DTOs and safe errors. Core/React discovery is implemented. M2.0 extends the client with `summaries()`; future Library pages will consume it without adding public batch access. No new credentials/configuration are required. Core uses no retries and a default 12-second timeout, accommodating Catalog's two provider attempts for existing discovery/detail operations.
 
 Provider references: [popular](https://developer.themoviedb.org/reference/movie-popular-list), [search](https://developer.themoviedb.org/reference/search-movie), [details](https://developer.themoviedb.org/reference/movie-details), [bearer auth](https://developer.themoviedb.org/docs/authentication-application), [errors/page limit](https://developer.themoviedb.org/docs/errors), [rate limiting](https://developer.themoviedb.org/docs/rate-limiting).

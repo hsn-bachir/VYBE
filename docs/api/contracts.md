@@ -1,6 +1,6 @@
 # VYBE Milestone 1 — browser-facing and internal API contracts
 
-**Status:** Core auth, public Core movies and internal Catalog endpoints are implemented and tested. Core and Catalog preserve the same normalized movie DTOs.
+**Status:** Core auth, public Core movies and internal Catalog endpoints are implemented and tested. Core and Catalog preserve the same normalized movie DTOs. M2.1 adds the [personal library contracts](milestone-2-contracts.md) and additive [movie experience](movie-experience.md) endpoint without changing these DTOs. M2.2 collections, M2.3 ratings and M2.4 reviews are implemented in the [M2 contracts](milestone-2-contracts.md); public review authors expose only id/username/avatar_url.
 
 ## A. Public Core API — `http://localhost:8000/api/v1`
 
@@ -67,6 +67,7 @@ Called by **Core or another authorized backend** over HTTP. Each internal busine
 | --- | --- | --- |
 | GET | `/movies/popular?page=1` | Provider-ordered popular list, independent short cache |
 | GET | `/movies/search?query=...&page=1` | Provider-ordered search, independent short cache |
+| POST | `/movies/summaries` | Bounded cache-only batch; see [batch summary contract](catalog-batch-summaries.md) |
 | GET | `/movies/{tmdb_id}` | Metadata cache and detail hydration |
 | GET | `/health` | Token-protected liveness probe; no DB/TMDB readiness guarantee |
 
@@ -105,3 +106,9 @@ Catalog returns 503 for provider authentication/validation failures, 429, malfor
 Ranking keys include operation, page, normalized query and the fixed language/adult policy. Snapshots expire after `CATALOG_RANKING_TTL_SECONDS`; this implementation has no stale-ranking fallback. Only complete detail hydration sets `metadata_fetched_at`. Per-ID locks prevent simultaneous detail refreshes: contenders receive stale hydrated details or 503. Failed refreshes have `CATALOG_REFRESH_COOLDOWN_SECONDS=30` cooldown. The cache must be shared across Catalog workers. See [manual API requests and configuration](../../services/movie-catalog/README.md).
 
 Fake Catalog HTTP in Core tests and fake TMDB in Catalog tests. Validate the exact public/internal payloads, 401/403/419/422/404/429/503, query validation, pagination order, and stale behavior before declaring endpoints complete.
+
+## M2 extension status
+
+The [internal batch contract](catalog-batch-summaries.md) extends Catalog without changing discovery/detail payloads. [Public M2 contracts](milestone-2-contracts.md) implement M2.1 Library, M2.2 Collections and M2.3 Ratings; M2.4–M2.5 remain planned. See the [foundation report](../development/m2-foundation-report.md), [M2.1 report](../development/m2.1-report.md), [M2.2 report](../development/m2.2-report.md) and [M2.3 report](../development/m2.3-report.md) for actual implementation and verification.
+
+M2.5 private profiles reuse the exact auth UserResource, add separate bio/member_since/count fields only in the profile envelope, and expose managed raster assets through a constrained public image route. See [M2 contracts](milestone-2-contracts.md) and [M2.5 report](../development/m2.5-report.md).

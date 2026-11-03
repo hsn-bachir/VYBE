@@ -2,7 +2,7 @@
 
 VYBE is a dark cinematic movie discovery application and planned social platform built by a four-person Antonine University team.
 
-> **Current milestone:** Milestone 1 → `v0.1.0` (in development; no release claim). **Approved architecture:** React SPA + two independent Laravel backend services. The foundation starter does **not** claim authentication or TMDB pages are implemented.
+> **Current work:** M2.5 User Profiles and Managed Avatars, building on implemented M1/M2.0–M2.4. **Approved architecture:** React SPA + two independent Laravel backend services. Local verification is recorded per milestone; no release or hosted-CI claim.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ frontend/                   React + Vite + TypeScript :5173
    v
 backend/                    Core Laravel API :8000, Sanctum SPA, public /api/v1
    |                                 |
-   |                                 +--> vybe_core (users and framework tables)
+   |                                 +--> vybe_core (users, watchlist, watched, collections, ratings, reviews, framework tables)
    | internal HTTP token
    v
 services/movie-catalog/     Movie Catalog Laravel :8001
@@ -30,11 +30,11 @@ vybe_movies              TMDB API
 
 **Milestone 1 targets:** users schema; Sanctum registration/login/logout/me; TMDB popular/search/detail through Core → Catalog; persistent movie metadata and short-lived ranked caches; responsive VYBE layouts/tokens; tests/CI and TMDB attribution.
 
-**Deferred:** OAuth implementation, reviews, watchlists, social feeds, admin, recommendations and other future capabilities. Google/GitHub UI options may be disabled with “Coming soon.”
+**M2.1–M2.5 implemented:** independent Watchlist/Watched, protected Library, private custom collections with multi-collection saving, Catalog-confirmed references, outage-safe batch metadata, cinematic Details and on-demand trailers/cast/provider-related movies, plus independent 1–5 star VYBE ratings and public community statistics, and independent plain-text community reviews with owner management and explicit spoiler reveal, plus private profiles, editable username/bio, managed avatars and real activity counts. OAuth, social feeds, administration and personalized recommendation engines remain deferred. Google/GitHub options remain disabled with “Coming soon.”
 
 ## Current implementation status
 
-Initial Laravel/React scaffold and GitHub Actions have been merged into `dev` through [setup PR #1](https://github.com/hsn-bachir/VYBE/pull/1). The **microservice foundation archive** adds a Catalog scaffold/template, internal token guard and separate CI job **only after applied and merged**. Auth/movie business endpoints and frontend features remain to be built on follow-up branches. Do not confuse [historical repo audit](docs/development/repository-audit.md) with live implementation status.
+The checked-out implementation includes Core session authentication/email verification, Catalog TMDB caching/discovery, Core movie forwarding, M2.0 batch summaries, M2.1 library/details, M2.2 collections, M2.3 community ratings, M2.4 reviews and M2.5 profiles. The [M2.5 engineering report](docs/development/m2.5-report.md) records actual tests, browser checks, migration/configuration steps and limitations. The [M2.4 report](docs/development/m2.4-report.md), [M2.3 report](docs/development/m2.3-report.md), [M2.2 report](docs/development/m2.2-report.md), [M2.1 report](docs/development/m2.1-report.md), [foundation report](docs/development/m2-foundation-report.md) and [repository audit](docs/development/repository-audit.md) record earlier checkpoints.
 
 ## Quick start
 
@@ -47,6 +47,8 @@ See [Windows + XAMPP setup](docs/development/setup.md) for required PHP/Node ver
 | Catalog Laravel service | 8001 | `vybe_movies` |
 
 ## Docs and collaboration
+
+M2 work is tracked in the [architecture](docs/architecture/milestone-2.md), [checklist](docs/development/milestone-2-checklist.md) and [M2.5 report](docs/development/m2.5-report.md). M2.6 release acceptance remains pending. Library/Collections/Ratings/Reviews/Profiles and [movie experience contracts](docs/api/movie-experience.md) document the current implementation. Deploy M2.5 with its additive Core bio migration and configured GD/EXIF plus persistent avatar storage; Catalog needs no change. See setup for earlier migrations when upgrading from an older baseline.
 
 - [System overview](docs/architecture/system-overview.md) · [Core/Catalog responsibilities](docs/architecture/backend.md) · [Microservices](docs/architecture/microservices.md)
 - [API contracts](docs/api/contracts.md) · [DB schema](docs/database/schema.md) · [Frontend architecture](docs/architecture/frontend.md) · [Design system](docs/design/design-system.md)
