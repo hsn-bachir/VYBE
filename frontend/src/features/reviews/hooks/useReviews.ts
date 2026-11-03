@@ -4,6 +4,7 @@ import { authKey } from '../../auth/hooks/useAuth'
 import type { User } from '../../auth/types/auth.types'
 import { changeReview, personalReview, reviewsPage, reviewStatus } from '../api/reviewsApi'
 import type { Review, ReviewOperation } from '../types/review.types'
+import { profileKey } from '../../profile/hooks/profileKeys'
 
 export const reviewKeys = {
   lists: (movie: number) => ['movies', 'reviews', movie] as const,
@@ -23,6 +24,7 @@ export async function synchronizeReview(client: QueryClient, owner: number, movi
   if (!isCurrent(client, owner)) return false
   client.setQueryData(reviewKeys.own(owner, movie), result)
   await Promise.all([client.invalidateQueries({ queryKey: reviewKeys.own(owner, movie), exact: true }), client.invalidateQueries({ queryKey: reviewKeys.lists(movie) })])
+  await client.invalidateQueries({ queryKey: profileKey(owner), exact: true })
   return isCurrent(client, owner)
 }
 export function useReviewAccessError(error: unknown, owner: number) {

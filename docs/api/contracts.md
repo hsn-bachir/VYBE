@@ -110,3 +110,5 @@ Fake Catalog HTTP in Core tests and fake TMDB in Catalog tests. Validate the exa
 ## M2 extension status
 
 The [internal batch contract](catalog-batch-summaries.md) extends Catalog without changing discovery/detail payloads. [Public M2 contracts](milestone-2-contracts.md) implement M2.1 Library, M2.2 Collections and M2.3 Ratings; M2.4–M2.5 remain planned. See the [foundation report](../development/m2-foundation-report.md), [M2.1 report](../development/m2.1-report.md), [M2.2 report](../development/m2.2-report.md) and [M2.3 report](../development/m2.3-report.md) for actual implementation and verification.
+
+M2.5 private profiles reuse the exact auth UserResource, add separate bio/member_since/count fields only in the profile envelope, and expose managed raster assets through a constrained public image route. See [M2 contracts](milestone-2-contracts.md) and [M2.5 report](../development/m2.5-report.md).

@@ -1,4 +1,4 @@
-# M2 frontend integration — M2.1–M2.4 implemented, profile planned
+# M2 frontend integration — M2.1–M2.5 implemented
 
 M2.0 changed no React code. M2.1 adds `features/library` and cinematic movie details. Build future features under `src/features/<feature>/api`, `hooks`, `types`, `components`, `pages`, with tests beside their feature; create directories only as needed. Reuse `src/lib/api/client.ts`, `useAuth`, `RequireAuth`, `AppLayout`, semantic design tokens, shared Button/Input, `MovieCard`, `MovieGrid`, `MovieImage` and `MovieState`. Existing movie DTOs and public detail query remain unchanged.
 
@@ -40,14 +40,19 @@ M2.0 changed no React code. M2.1 adds `features/library` and cinematic movie det
 - ReviewCard renders escaped plain text, safe avatar URL or initials, edited/owner labels and accessible Read more for long text. Concealed spoilers have no body text in DOM/accessibility output; Reveal/Hide remains keyboard operable and per instance. Body subcomponent identity includes movie/id/updated_at/body/flag so same-second edits also conceal again. The reveal-only CSS blur never hides already-mounted spoilers.
 - Shared `components/ui/Dialog` extracts the existing CollectionDialog behavior. Native modal, labelled heading, explicit Tab wrapping, pending focus containment/Escape protection and trigger/logical focus restoration serve review deletion and preserve Collections. Permanent deletion copy explains that ratings and library memberships remain unchanged. Failed deletion leaves the dialog open; a disappeared trigger falls back to the management button.
 - VYBE tokens, compact cards, visible focus/status/errors, restrained editor/reveal CSS and reduced-motion overrides; no new dependency or React Bits component. Browser fixtures and real-service persistence/outage checks are recorded in the [M2.4 report](../development/m2.4-report.md).
+- Review UI refinement: native checkbox with switch semantics and a styled On/Off track for Contains spoilers; disabled during writes, keyboard operable, reduced-motion safe. Card headers explicitly reset inherited global header padding/border. Reading width is capped at 960px; shorter spacing, a four-line/360-character expandable preview and a compact eye-off “Spoiler hidden / Contains plot details” row replace the oversized concealment panel. Concealed text remains absent from DOM/accessibility output. API, database and query contracts are unchanged.
 
-## Later slice plan (not implemented)
+## Implemented M2.5
 
-Only M2.5 profile editing remains proposed. The following shared conventions include implemented movie organization, ratings and reviews; `/profile` and profile count invalidation do not exist yet.
+Lazy features/profile provides private /profile with identity, bio, member date, real counts, account information and Library links. Native shared Dialog handles username/bio editing with Unicode limits, field errors, retained failed/closed drafts, pending controls and focus restoration. Shared Avatar serves navigation, profile and review authors with safe URL and failed-image fallback. AvatarEditor labels selected preview as unsaved, uses a separate multipart mutation, retains confirmed identity on failure and revokes object URLs on replacement/discard/unmount/success.
+
+Profile key is ['me', userId, 'profile']; mutation ['me', userId, 'profile-write'] serialized per account. Reads use AbortSignal, staleTime 30 seconds, no retries/focus polling. Writes bootstrap CSRF and check current verified identity before dispatch and before/after cache cancellation. Successful responses update existing authKey and profile, invalidate public review pages and personal review author projections, and leave movie metadata/discovery/ratings/library caches alone. Existing auth cancellation/clearing and owner-keyed UI prevent cross-account drafts/state. Library membership writes and review writes invalidate the owner's profile for committed counts; no count store or Catalog call. 401/403 refresh auth and clear affected private profile data. Cached counts display a refresh status while updated server values arrive.
+
+VYBE semantic tokens, a restrained CSS identity header, stat-card hover and shared controls preserve the existing style. Official React Bits Profile Card was evaluated, then deferred; its tilt/glare/foil, pointer engine and icon dependencies are unnecessary for a readable owner dashboard. No component copied or package added. Profile remains separate from Library. M2.6 release acceptance remains pending.
 
 ## Pages and state
 
-- `/library` redirects to `/library/watchlist`; `/library/watchlist`, `/library/watched`, `/library/collections`, `/library/collections/:id` use RequireAuth; the proposed `/profile` route will reuse it. Server authentication/verification/ownership still enforce every request.
+- `/library` redirects to `/library/watchlist`; `/library/watchlist`, `/library/watched`, `/library/collections`, `/library/collections/:id` and `/profile` use RequireAuth. Server authentication/verification/ownership still enforce every request.
 - Movie Details remains public with public VYBE rating statistics and paginated reviews. Add watchlist/watched/save/rate/review controls only in their vertical slices. Guests sign in; unverified accounts use existing verification flow. Never block public metadata on a failed private-state request.
 - Use library-state singleton for watchlist/watched action state; own rating/review singleton APIs for editors. Collection modal uses paginated collections with `contains_tmdb_id`, a single query per page returning all check states. Each selection tracks its own request outcome; failed changes stay visible with retry. No unbounded fetch-all or per-collection membership calls.
 - Library responses already combine Core relationship fields and Catalog summaries. Render available `movie` through existing cards. Missing/unavailable metadata retains a card-sized placeholder with TMDB ID and removal action; do not fabricate title/poster or silently drop saved entries. Distinguish a Catalog outage banner from individual missing records and from a Core list-fetch error.
@@ -56,9 +61,9 @@ Only M2.5 profile editing remains proposed. The following shared conventions inc
 - Review bodies/descriptions/bios render as escaped plain text. Spoilers are concealed until an explicit accessible reveal action. Reset reveal state on review ID/updated_at change; spoiler hiding is not data privacy. Show edit/delete only for matching auth user IDs; server remains authoritative.
 - Profile GET returns the existing auth UserResource under `data.user`. Read identity from `authKey = ['auth','me']`; on profile success update that key with `data.user`, not a second global user store. Profile query caches only page response/details; no localStorage identity or tokens. Counts come from Core.
 
-## Future query key and invalidation proposal
+## Query keys and invalidation
 
-Keep existing keys `['movies','popular',page]`, `['movies','search',normalizedQuery,page]`, `['movies','detail',tmdbIdString]` and popular-feed. Use numeric IDs for implemented M2 feature keys below; retain existing string movie-detail IDs. Proposed profile keys should follow these conventions; user-scoped keys prevent identity crossover. Include every query parameter in keys and forward AbortSignal to Axios. Private queries enabled only after verified auth resolves.
+Keep existing keys `['movies','popular',page]`, `['movies','search',normalizedQuery,page]`, `['movies','detail',tmdbIdString]` and popular-feed. Use numeric IDs for implemented M2 feature keys below; retain existing string movie-detail IDs. Profile keys follow these conventions; user-scoped keys prevent identity crossover. Include every query parameter in keys and forward AbortSignal to Axios. Private queries enabled only after verified auth resolves.
 
 | Data | Key |
 | --- | --- |
@@ -73,12 +78,12 @@ Keep existing keys `['movies','popular',page]`, `['movies','search',normalizedQu
 
 | Successful mutation | Invalidate/update |
 | --- | --- |
-| Watchlist add/remove | All user's watchlist pages, affected library-state; profile count only when M2.5 exists |
-| Watched add/remove | All user's watched pages, affected library-state; future profile count; no implicit watchlist mutation |
+| Watchlist add/remove | All user's watchlist pages, affected library-state; profile count |
+| Watched add/remove | All user's watched pages, affected library-state; profile count; no implicit watchlist mutation |
 | Collection create/rename/delete | All collections queries (including every modal ID/page); detail/movie queries for affected collection; remove deleted detail caches |
 | Collection membership | All collections queries/counts/membership flags and affected collection detail/movie pages |
 | Rating PUT/delete | Own rating singleton and public rating statistics; leave TMDB detail cache alone |
-| Review create/edit/delete | Own review singleton, public reviews for movie; profile review count only when M2.5 exists |
+| Review create/edit/delete | Own review singleton, public reviews for movie; profile review count |
 | Profile/username/avatar | Set existing authKey from returned UserResource; refresh profile and public review queries so displayed author identity updates |
 
 Existing login/logout hooks cancel in-flight queries and remove non-auth queries; preserve this behavior for all private keys. On 401 clear private state and recheck auth; use context-specific signed-out messaging (shared auth error helper currently says “Invalid email or password”). On 403 refresh verification state and show existing verification UI; on 419 bootstrap again only for explicit resubmission. 404 private collection goes to a safe not-found view, 409 review reloads own-review state, 422 maps inline fields, 429 observes Retry-After. Do not add a blind global retry interceptor.

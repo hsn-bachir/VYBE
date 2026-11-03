@@ -10,6 +10,7 @@ import { PopularMoviesPage } from './features/movies/pages/PopularMoviesPage'
 import { DiscoverPage } from './features/movies/pages/DiscoverPage'
 import { MovieState } from './features/movies/components/MovieState'
 const LibraryPage = lazy(() => import('./features/library/pages/LibraryPage'))
+const ProfilePage = lazy(() => import('./features/profile/pages/ProfilePage'))
 const CollectionsPage = lazy(() => import('./features/collections/pages/CollectionsPage'))
 const CollectionDetailsPage = lazy(() => import('./features/collections/pages/CollectionDetailsPage'))
 const MovieDetailsPage = lazy(() => import('./features/movies/pages/MovieDetailsPage').then(module => ({ default: module.MovieDetailsPage })))
@@ -21,6 +22,7 @@ export default function App() {
       <Route path="/discover" element={<DiscoverPage />} />
       <Route path="/movies/:tmdbId" element={<Suspense fallback={<p role="status">Setting the scene…</p>}><MovieDetailsPage /></Suspense>} />
       <Route element={<RequireAuth />}>
+        <Route path="/profile" element={<Suspense fallback={<p role="status">Opening your profile…</p>}><ProfilePage /></Suspense>} />
         <Route path="/library" element={<Navigate to="/library/watchlist" replace />} />
         <Route path="/library/watchlist" element={<Suspense fallback={<p role="status">Opening your library…</p>}><LibraryPage key="watchlist" kind="watchlist" /></Suspense>} />
         <Route path="/library/watched" element={<Suspense fallback={<p role="status">Opening your library…</p>}><LibraryPage key="watched" kind="watched" /></Suspense>} />

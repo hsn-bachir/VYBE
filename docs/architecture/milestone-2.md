@@ -1,6 +1,6 @@
 # Milestone 2 foundation
 
-Status: M2 ownership and scope approved by the project owner on 2026-10-30. M2.0 delivered the batch-summary boundary. M2.1–M2.4 are implemented locally; see the [M2.1 report](../development/m2.1-report.md), [M2.2 report](../development/m2.2-report.md) [M2.3 report](../development/m2.3-report.md) and [M2.4 report](../development/m2.4-report.md). M2.5 remains proposed, and M2.6 release acceptance remains pending.
+Status: M2 ownership and scope approved by the project owner on 2026-10-30. M2.0 delivered the batch-summary boundary. M2.1–M2.5 are implemented locally; see the [M2.1 report](../development/m2.1-report.md), [M2.2 report](../development/m2.2-report.md) [M2.3 report](../development/m2.3-report.md) [M2.4 report](../development/m2.4-report.md) and [M2.5 report](../development/m2.5-report.md). M2.6 release acceptance remains pending.
 
 ## Boundaries and sequence
 
@@ -28,9 +28,9 @@ M2.1 new additions confirm persisted movie identity via one batch request. Synta
 - Bootstrap CSRF before writes; 419 needs explicit resubmission, no automatic write replay. 401 means lost session; 403 means verification is required. Non-owned private resources return the same 404 as absent resources.
 - Use validated allowlists for mass assignment, authenticated IDs from the session, database unique constraints and transactions for duplicate/concurrent writes. Translate expected uniqueness races to documented 200/409/422 outcomes.
 - Reviews/bios/descriptions are plain text. React escapes text; never use HTML injection. Spoiler hiding is a display control, not access control: public review text is present in JSON.
-- Implemented limits: shared private writes 60/minute/user, private reads 120/minute/user, and M2.3/M2.4 public community reads 120/minute/IP. Existing Laravel limiter/cache infrastructure returns 429 + Retry-After. Profile avatar uploads at 5/minute/user remain proposed for M2.5.
+- Implemented limits: shared private writes 60/minute/user, private reads 120/minute/user, and M2.3/M2.4 public community reads 120/minute/IP. Existing Laravel limiter/cache infrastructure returns 429 + Retry-After. M2.5 avatar uploads additionally use 5/minute/user.
 - Return sanitized errors, never DB exceptions, internal URLs, service headers or tokens. Do not put credentials in VITE variables. Catalog shared-token auth is service identity, not user authorization.
-- No avatar upload implementation currently exists. The proposed local Core storage approach and remaining security choices are in the profile contract; no arbitrary remote URL fetch.
+- M2.5 avatars use Core local storage and a constrained public image route, with MIME/dimension/size validation, GD re-encoding, owner-scoped cleanup and fixed APP_URL origin. No arbitrary remote URL fetch.
 
 ## Scope and decisions
 
@@ -42,7 +42,7 @@ M2.3 adds independent movie_ratings in Core. RatingService uses shared LibraryMe
 
 M2.2 implements private collection CRUD and independent multi-collection memberships. CollectionService resolves every object through `User::collections()`. Counts and optional membership flags use SQL projections; movie pages reuse the existing batch client. New additions confirm metadata outside a short transaction, then lock/re-resolve the parent before insertion to handle deletion races safely. No Catalog schema, endpoint, client policy or service topology changed. Favorites remains an ordinary name; exact duplicate names and case variants are allowed.
 
-Approved: two services, Core ownership of user-generated data, TMDB references, no cross-DB keys, independent ratings/reviews, private collections, separate Profile/Library, bounded batch integration. M2.1 decisions: first-mark timestamps, duplicate 200 without timestamp changes, bounded pagination and Catalog confirmation of new references. M2.2 names preserve capitalization and permit duplicates, using IDs as identity. Avatar storage and other later details remain proposed. See [ADR 0002](../decisions/0002-m2-core-data-and-batch-summaries.md).
+Approved: two services, Core ownership of user-generated data, TMDB references, no cross-DB keys, independent ratings/reviews, private collections, separate Profile/Library, bounded batch integration. M2.1 decisions: first-mark timestamps, duplicate 200 without timestamp changes, bounded pagination and Catalog confirmation of new references. M2.2 names preserve capitalization and permit duplicates, using IDs as identity. M2.5 resolves avatar storage through the existing public disk and an explicit Core image-serving route; production persistence/hosting remain deployment responsibilities. See [ADR 0002](../decisions/0002-m2-core-data-and-batch-summaries.md).
 
 Deferred: public profiles/collections, following/social graph, personalized recommendation engines, OAuth, moderation/admin, replies, likes, reports, AI classification, email/password changes and persistent rating aggregates.
 
@@ -54,3 +54,7 @@ Deferred: public profiles/collections, following/social graph, personalized reco
 - [Frontend plan](milestone-2-frontend.md)
 - [Milestone checklist](../development/milestone-2-checklist.md)
 - [Audit and verification record](../development/m2-foundation-report.md)
+
+## Implemented M2.5 profiles
+
+ProfileService reuses Core users and existing activity relationships; ProfileResource wraps the existing auth UserResource. Only nullable bio is added. Username validation is shared with registration, uniqueness stays database-authoritative, and all changes retain the session. Counts use one aggregate projection rather than relationship downloads. AvatarService bounds/decode/re-encodes raster uploads outside the user-row transaction, then swaps the reference under lock and cleans only exact managed paths. No Catalog dependency, cross-service data, storage service or counting infrastructure is added. React has a lazy private /profile page, shared Avatar fallback, existing authKey synchronization, targeted author refresh and activity invalidation. See the M2.5 report for tests and storage deployment limits.

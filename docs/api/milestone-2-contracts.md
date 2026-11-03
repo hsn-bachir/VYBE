@@ -1,6 +1,6 @@
-# M2 public API contracts — M2.1–M2.4 implemented; M2.5 planned
+# M2 public API contracts — M2.1–M2.5 implemented
 
-All paths below start at `/api/v1`. M2.1–M2.4 routes below are implemented. M2.5 remains proposed and is not exposed. Existing [M1 contracts](contracts.md) and auth UserResource stay compatible. Examples are synthetic contract fixtures, not TMDB results.
+All paths below start at `/api/v1`. M2.1–M2.5 routes below are implemented. Existing [M1 contracts](contracts.md) and auth UserResource stay compatible. Examples are synthetic contract fixtures, not TMDB results.
 
 ## Shared rules (apply to every endpoint)
 
@@ -108,7 +108,7 @@ Creation checks for an existing owner/movie review before the shared LibraryMeta
 
 The public page uses three bounded SQL queries when nonempty (count, rows, eager public authors), no Catalog HTTP and no per-row author query. Spoiler bodies are present in API JSON: UI concealment is a reading preference, not access control. React omits concealed body text from the DOM/accessibility tree and resets reveal state on ID/movie/content changes, including edits within one timestamp second.
 
-## M2.5 Profile — proposed
+## M2.5 Profile — implemented
 
 Keep `/auth/me` and its exact five-field UserResource. Profile wraps that same resource rather than redefining identity:
 
@@ -120,10 +120,18 @@ Keep `/auth/me` and its exact five-field UserResource. Profile wraps that same r
 | --- | --- | --- | --- |
 | GET `/me/profile` | P; none | 200 profile envelope above | Profile page; includes indexed counts, no separate stats request required. Read-only. |
 | PATCH `/me/profile` | P; `{"username":"movie_fan2","bio":"Cinema enthusiast"}` (one or both) | 200 profile envelope with new username/bio | Existing lowercase username validation/reserved words/unique constraint; bio nullable max 500, blank → null. Idempotent business values; 422 duplicate username/invalid or forbidden fields. |
-| POST `/me/profile/avatar` | P; multipart `avatar` file | 200 profile envelope with server-managed avatar_url | Proposed upload contract; PNG/JPEG/WebP only, max 2 MiB, max 2048×2048, min 1×1; 422 invalid upload, 413 infrastructure body limit. Replacement is not idempotent at storage level. |
+| POST `/me/profile/avatar` | P; multipart `avatar` file | 200 profile envelope with server-managed avatar_url | Managed raster upload; PNG/JPEG/WebP only, max 2 MiB, max 2048×2048, min 1×1; 422 invalid upload, 413 infrastructure body limit. Replacement is not idempotent at storage level. |
 | DELETE `/me/profile/avatar` | P; none | 200 profile envelope with avatar_url null | Idempotent, absent already → 200 same profile. |
 
-Avatar proposal: Core's configured Laravel local public disk, random server filename, decoded/re-encoded raster (strip metadata), MIME/content and dimensions validation, no SVG or arbitrary URL input/fetch. Replace URL only after successful storage; clean up only owned previous files, never arbitrary legacy URLs. Serve from fixed configured origin with content-type/nosniff; production persistence/backups and available GD/Imagick support must be reviewed in M2.5. No media service or storage dependency is introduced in M2.0. Public review author avatars must use the same safe managed URL policy.
+Profile endpoints reject all query parameters and unsupported body/file fields. PATCH accepts JSON only, at least username or bio. Username shares registration's trim/lowercase, ASCII 3–30, reserved-name and uniqueness policy, ignoring the current authenticated ID. Race conflicts are safe username 422 errors. Bio is nullable, trims Unicode edge whitespace, preserves internal line breaks, max 500 Unicode code points, blank becomes null. No email/password/verification/avatar_url or owner changes through PATCH. GET/DELETE accept no body. Authenticated identity and sessions remain compatible; /auth/me gains no fields.
+
+Private profile routes reuse explicit web/CSRF, Sanctum, verification and no-store. GET shares library-read (120/minute/user); all writes share library-write (60/minute/user). Upload additionally has avatar-upload (5/minute/user); removal remains available after upload throttling. 404/413/419/429/unexpected 500 errors are sanitized with Retry-After retained. Storage/processing unavailability is safe 503 AVATAR_UNAVAILABLE; invalid uploads return 422 field errors. Counts are committed Core data, owner-scoped and independent of Catalog; read-only profile access needs no metadata request.
+
+POST requires multipart/form-data with only avatar. Inspect real MIME/size/dimensions: JPEG/PNG/WebP, 1–2048 pixels on each side, at most 2 MiB; reject SVG/GIF/corrupt/fake files. GD decodes after bounds checking, normalizes JPEG EXIF rotations/mirrors, scales proportionally to at most 512 pixels per side, and re-encodes WebP (quality 85), stripping original metadata. Files use Core's existing public disk at avatars/{owner}/{random-32-hex}.webp. No submitted filename, path or URL is trusted.
+
+New files are stored before a short user-row transaction replaces the reference. Database failure preserves the original reference and attempts cleanup of the new file; success then cleans the previous exact owned managed path. Random paths are never reused. Row locking serializes concurrent replacement/removal so cleanup cannot delete the winning reference. Legacy/foreign/traversal paths are never deleted. Cleanup failure is logged with user ID only and does not undo a committed profile; orphan cleanup after a process crash remains an operational concern.
+
+Auxiliary public image GET `/avatars/{owner}/{32-hex}.webp` serves only that constrained Core disk path, without a session or user data projection. Successful assets use image/webp, nosniff, restrictive CSP and immutable public cache headers. Missing files return an empty 404. User/author JSON generates absolute URLs from trusted APP_URL; only relative managed references are stored. No storage symlink is required for this controller-served path. Images are public resources, distinct from the private profile API. Deployment requires persistent Core storage, permissions, GD JPEG/PNG/WebP + EXIF and routing /avatars/* to Core; see setup/report.
 
 ## Required slice verification
 
