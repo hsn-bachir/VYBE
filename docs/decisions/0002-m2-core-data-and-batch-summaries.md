@@ -33,3 +33,7 @@ Independent Core ratings reuse LibraryMetadata confirmation only for a new perso
 ## M2.4 follow-up (2026-11-03)
 
 Independent Core reviews use the owner/movie unique key, safe eager public authors and bounded creation-time ordering. Only new creation confirms a Catalog reference through LibraryMetadata; preexisting duplicates conflict before HTTP and SQL uniqueness catches races. Owner/movie/id-scoped edits/deletion and reads remain available during outages. Plain text and explicit per-instance spoiler reveal avoid markup execution and accidental screen-reader disclosure; public JSON still contains the text. No rating coupling, aggregate/storage infrastructure, moderation or service changes. See the [M2.4 report](../development/m2.4-report.md).
+
+## M2.5 follow-up (2026-11-03)
+
+Private profiles extend existing users with nullable bio and wrap the established auth UserResource. Indexed activity subqueries remain Core-only. Avatar storage uses Core's existing public disk with random owner-scoped WebP paths, bounded GD decode/re-encoding and EXIF normalization. A constrained public Core image route supplies fixed-origin URLs/security headers without a general storage symlink. References swap under a user-row lock; only verified obsolete owned paths are cleaned after commit. No remote URL fetching, media service, profile table or duplicate identity store. Public profiles, account-security changes and M2.6 release remain separate. See [M2.5 report](../development/m2.5-report.md).

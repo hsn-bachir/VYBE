@@ -50,6 +50,17 @@ class User extends Authenticatable implements MustVerifyEmail
         return Attribute::make(set: fn (string $value) => Str::lower($value));
     }
 
+    protected function avatarUrl(): Attribute
+    {
+        return Attribute::make(get: function (?string $value): ?string {
+            if ($value && preg_match('#^/avatars/[1-9][0-9]*/[a-f0-9]{32}\.webp$#D', $value)) {
+                return rtrim(config('app.url'), '/').$value;
+            }
+
+            return $value && filter_var($value, FILTER_VALIDATE_URL) && in_array(parse_url($value, PHP_URL_SCHEME), ['http', 'https'], true) ? $value : null;
+        });
+    }
+
     protected function email(): Attribute
     {
         return Attribute::make(set: fn (string $value) => Str::lower(trim($value)));

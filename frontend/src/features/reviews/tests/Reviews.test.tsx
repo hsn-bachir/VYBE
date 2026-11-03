@@ -79,7 +79,7 @@ it('invalidates matching public lists/personal review and preserves ratings and 
   const invalidate = vi.spyOn(client, 'invalidateQueries')
   expect(await synchronizeReview(client, 7, 550, review)).toBe(true)
   expect(client.getQueryData(reviewKeys.own(7, 550))).toEqual(review)
-  expect(invalidate.mock.calls.map(([options]) => options?.queryKey)).toEqual([reviewKeys.own(7, 550), reviewKeys.lists(550)])
+  expect(invalidate.mock.calls.map(([options]) => options?.queryKey)).toEqual([reviewKeys.own(7, 550), reviewKeys.lists(550), ['me', 7, 'profile']])
   expect(client.getQueryState(['movies', 'ratings', 550])?.isInvalidated).toBe(false)
   expect(client.getQueryState(['library', 7, 'collections', 1])?.isInvalidated).toBe(false)
   expect(client.getQueryState(['library', 7, 'watchlist', 1])?.isInvalidated).toBe(false)
@@ -97,9 +97,10 @@ it('rejects old-account completion before and after cancellation', async () => {
 })
 it('conceals spoiler content completely from rendered HTML and reading order', () => {
   const html = renderToStaticMarkup(<ReviewCard review={{ ...review, contains_spoilers: true, body: 'Secret final-scene revelation' }} />)
-  expect(html).toContain('This review contains spoilers.')
+  expect(html).toContain('Spoiler hidden'); expect(html).toContain('Contains plot details.')
   expect(html).toContain('Reveal review'); expect(html).toContain('aria-expanded="false"')
   expect(html).not.toContain('Secret final-scene revelation')
+  expect(html).not.toContain('review-spoiler-mask')
 })
 it('renders plain text safely and does not accept executable avatar URLs', () => {
   const html = renderToStaticMarkup(<ReviewCard review={{ ...review, body: '<script>alert(1)</script>\n<img src=x onerror=alert(2)>', author: { ...review.author, avatar_url: 'javascript:alert(3)' } }} />)
@@ -129,7 +130,12 @@ it('prepopulates editing and counts Unicode characters after trimming', () => {
   const unicode = { body: `  ${'🎬'.repeat(5000)}  `, contains_spoilers: true }
   const html = renderToStaticMarkup(<ReviewEditor title="Fixture" initialValues={unicode} review={review} error={null} pending={false} onSubmit={() => {}} onCancel={() => {}} onEditExisting={() => {}} onCheckExisting={() => {}} />)
   expect(html).toContain('5,000 / 5,000'); expect(html).toContain('checked=""'); expect(html).toContain('Save changes')
+  expect(html).toContain('role="switch"'); expect(html).toContain('My review contains spoilers')
   expect(html).not.toContain('maxLength=')
+})
+it('keeps multiline reviews compact with an explicit expansion action', () => {
+  const html = renderToStaticMarkup(<ReviewCard review={{ ...review, body: 'Line\n'.repeat(12) }} />)
+  expect(html).toContain('review-copy-preview'); expect(html).toContain('Read full review')
 })
 it('preserves the draft and offers an explicit existing-review action on conflict', () => {
   const html = renderToStaticMarkup(<ReviewEditor title="Fixture" initialValues={{ body: 'My unsaved draft', contains_spoilers: true }} review={null} existingReview={review} error={{ isAxiosError: true, response: { status: 409 } }} pending={false} onSubmit={() => {}} onCancel={() => {}} onEditExisting={() => {}} onCheckExisting={() => {}} />)

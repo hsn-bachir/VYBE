@@ -1,0 +1,69 @@
+.profile-page { max-width: 1080px; margin: 0 auto; }
+.profile-page > .eyebrow { font-size: .65rem; margin-bottom: .8rem; }
+.profile-identity { display: flex; align-items: center; gap: 1.5rem; padding: 2rem; border: 1px solid var(--color-border); border-radius: 16px; background: radial-gradient(ellipse at 0 0, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent 65%), var(--color-surface); }
+.profile-hero-avatar { width: 100px; height: 100px; font-size: 2.1rem; border: 3px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-border)); }
+.profile-identity-copy { min-width: 0; flex: 1; }
+.profile-member { font-size: .7rem; color: var(--color-muted); margin-bottom: .4rem; }
+.profile-identity h1 { font-size: clamp(1.6rem, 3vw, 2.5rem); margin: 0 0 .65rem; overflow-wrap: anywhere; }
+.profile-bio { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; line-height: 1.7; max-width: 65ch; }
+.profile-bio.is-empty { color: var(--color-muted); }
+.profile-identity > .button { flex-shrink: 0; font-size: .8rem; }
+.profile-feedback { color: var(--color-muted); font-size: .8rem; }
+.profile-feedback:not(:empty) { margin-top: .75rem; }
+.profile-journey { margin-top: 2.5rem; }
+.profile-section-heading { display: flex; justify-content: space-between; gap: 1rem; align-items: end; margin-bottom: 1rem; }
+.profile-section-heading .eyebrow { font-size: .6rem; margin: 0 0 .5rem; }
+.profile-section-heading h2 { font-size: 1.4rem; margin: 0; }
+.profile-section-heading > a { font-size: .8rem; color: var(--color-muted); }
+.profile-statistics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.profile-stat { display: flex; flex-direction: column; gap: .4rem; padding: 1.25rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px; min-width: 0; }
+.profile-stat > span:first-child { font-size: 2rem; font-weight: 650; line-height: 1.2; overflow-wrap: anywhere; }
+.profile-stat > span:last-child { font-size: .75rem; color: var(--color-muted); }
+a.profile-stat { transition: border-color var(--motion-feedback), transform var(--motion-feedback) var(--motion-ease); }
+a.profile-stat:hover { border-color: var(--color-primary); transform: translateY(-2px); text-decoration: none; }
+.profile-details-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 1.5rem; margin-top: 1.5rem; }
+.profile-avatar-editor, .profile-account { min-width: 0; padding: 1.25rem; border: 1px solid var(--color-border); border-radius: 10px; }
+.profile-avatar-editor h2, .profile-account h2, .profile-library h2 { font-size: 1rem; margin-bottom: .5rem; }
+.profile-avatar-editor > div > p, .profile-account > p, .profile-library p { font-size: .75rem; color: var(--color-muted); }
+.profile-avatar-controls { display: flex; align-items: center; gap: .85rem; margin-top: 1rem; }
+.profile-avatar-controls .user-avatar { width: 48px; height: 48px; font-size: 1.2rem; }
+.profile-avatar-input { min-width: 0; flex: 1; }
+.profile-avatar-input label { display: block; font-size: .8rem; font-weight: 600; margin-bottom: .25rem; }
+.profile-avatar-input input { min-height: 44px; padding: .5rem; font-size: .7rem; width: 100%; }
+.profile-avatar-input input::file-selector-button { padding: .3rem .5rem; margin-right: .5rem; border: 1px solid var(--color-border); border-radius: 5px; background: var(--color-surface); color: var(--color-foreground); cursor: pointer; }
+.profile-avatar-preview { display: flex; align-items: center; gap: .8rem; margin-top: 1rem; }
+.profile-avatar-preview > img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.profile-avatar-preview > div { min-width: 0; }
+.profile-avatar-preview p { font-size: .75rem; color: var(--color-muted); }
+.profile-avatar-preview .button, .profile-remove-avatar { font-size: .7rem; min-height: 40px; padding: .4rem .6rem; }
+.profile-remove-avatar { margin-top: .75rem; }
+.profile-account dl { display: grid; gap: .75rem; margin: 1rem 0; }
+.profile-account dl > div { display: flex; justify-content: space-between; gap: 1rem; font-size: .75rem; }
+.profile-account dt { color: var(--color-muted); }
+.profile-account dd { min-width: 0; text-align: right; overflow-wrap: anywhere; }
+.profile-library { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; padding: 1.25rem; border: 1px solid var(--color-border); border-radius: 10px; }
+.profile-library nav { gap: 1rem; font-size: .8rem; }
+.profile-form { gap: .8rem; margin-top: 1rem; }
+.profile-form input { padding-right: .9rem; }
+.profile-form textarea { width: 100%; padding: .75rem; resize: vertical; min-height: 120px; background: var(--color-background); color: var(--color-foreground); border: 1px solid var(--color-border); border-radius: 8px; font: inherit; font-size: .85rem; }
+.profile-form textarea[aria-invalid=true] { border-color: var(--color-danger); }
+.profile-form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; margin-top: .5rem; }
+.profile-form-actions .button { font-size: .8rem; }
+.profile-loading .skeleton { height: 180px; margin-top: 1rem; border-radius: 12px; }
+.profile-error h1 { font-size: 1.7rem; }
+.profile-error p { color: var(--color-muted); margin-bottom: 1rem; }
+@media (max-width: 767px) {
+  .profile-identity { flex-wrap: wrap; gap: 1rem; padding: 1.25rem; }
+  .profile-hero-avatar { width: 72px; height: 72px; font-size: 1.6rem; }
+  .profile-identity-copy { flex-basis: calc(100% - 90px); }
+  .profile-identity > .button { margin-left: auto; }
+  .profile-details-grid { grid-template-columns: 1fr; gap: 1rem; }
+  .profile-statistics { gap: .5rem; }
+  .profile-stat { padding: 1rem .7rem; }
+  .profile-stat > span:first-child { font-size: 1.6rem; }
+  .profile-stat > span:last-child { font-size: .7rem; }
+  .profile-section-heading { align-items: start; flex-direction: column; gap: .5rem; }
+  .profile-library { align-items: start; flex-direction: column; }
+  .profile-library nav { justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { a.profile-stat { transition: none; } a.profile-stat:hover { transform: none; } }

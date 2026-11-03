@@ -45,7 +45,7 @@ function ReviewsExperience({ movie, title, auth }: { movie: number; title: strin
   const changePage = (next: number) => { setPage(next); listHeading.current?.focus({ preventScroll: true }) }
   return <section className="community-reviews" aria-labelledby="community-reviews-heading">
     <div className="section-heading"><div><p className="eyebrow">Beyond the final frame</p><h2 id="community-reviews-heading">Community Reviews<span className="accent-period">.</span></h2></div></div>
-    <p className="reviews-intro">What stayed with you? Share your perspective with the community.</p>
+    <p className="reviews-intro">Share your take. Leave the plot twists under wraps.</p>
     <div className="review-personal-panel">
       {auth.isPending ? <p role="status">Checking your account…</p> : auth.isError ? <div role="alert"><p>We couldn’t check your account. Your draft stays here.</p><Button onClick={() => void auth.refetch()}>Retry account for reviews</Button></div>
         : !auth.data ? <Link className="button" to="/login" state={{ from: location.pathname }}>Sign in to write a review</Link>

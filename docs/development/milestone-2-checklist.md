@@ -64,11 +64,13 @@ Only checked items have been delivered; future feature contracts are proposals, 
 
 ## M2.5 User Profiles
 
-- [ ] Backend: additive nullable bio, existing UserResource reuse, basic update/counts, reviewed local avatar storage and cleanup.
-- [ ] Frontend: profile route/editor/stats, existing authKey update, safe upload feedback.
-- [ ] Tests: username races/reserved names, counts/cascades, legacy null timestamps, upload content/size/dimensions, storage failure/cleanup, cache identity refresh.
-- [ ] Security: own identity only; no email/password update; raster re-encoding, safe URLs, CSRF/verified/upload limits.
-- [ ] DoD: full slice, no duplicate auth store/public social profile, docs/CI/review.
+- [x] Backend: additive nullable bio, unchanged UserResource reuse, validated username/bio update, real counts, safe local raster processing/storage and concurrent cleanup.
+- [x] Frontend: private lazy profile route/editor/stats, existing authKey and review-author refresh, safe selected-preview/upload/removal feedback, shared Avatar/navigation.
+- [x] Tests: username races/reserved names, owner counts, legacy dates, image content/size/dimensions, EXIF 1–8, storage/DB failure cleanup, concurrent avatars, cache/account isolation, browser fixtures and actual image serving/outage checks.
+- [x] Security: own identity only; no email/password update; raster re-encoding, safe fixed-origin managed URLs, actual CSRF/verification/upload limits.
+- [x] Local DoD: complete slice, no duplicate identity store/public profile/social feature, synchronized documentation and final diff; see [M2.5 report](m2.5-report.md).
+- [ ] Hosted CI and human review; no Git delivery or release performed.
+- Deployment: apply the single bio migration, enable GD JPEG/PNG/WebP and EXIF, restart PHP workers, configure canonical APP_URL and persistent Core storage. No Catalog migration or new package.
 - Dependencies: M2.1 and M2.4 counts; review storage deployment/persistence and available image-processing support.
 
 ## M2.6 Integration & Release

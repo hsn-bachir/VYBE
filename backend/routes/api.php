@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\CollectionController;
 use App\Http\Controllers\Api\V1\EmailVerificationController;
 use App\Http\Controllers\Api\V1\LibraryController;
 use App\Http\Controllers\Api\V1\MovieController;
+use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\RatingController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Middleware\EnsureVerifiedAccount;
@@ -38,6 +39,10 @@ Route::prefix('v1/me')->withoutMiddleware(EnsureFrontendRequestsAreStateful::cla
         Route::get('movies/{tmdb_id}/library-state', [LibraryController::class, 'state'])->middleware('throttle:library-read');
         Route::get('ratings/{tmdb_id}', [RatingController::class, 'show'])->middleware('throttle:library-read');
         Route::get('reviews/{tmdb_id}', [ReviewController::class, 'own'])->middleware('throttle:library-read');
+        Route::get('profile', [ProfileController::class, 'show'])->middleware('throttle:library-read');
+        Route::patch('profile', [ProfileController::class, 'update'])->middleware('throttle:library-write');
+        Route::post('profile/avatar', [ProfileController::class, 'upload'])->middleware(['throttle:library-write', 'throttle:avatar-upload']);
+        Route::delete('profile/avatar', [ProfileController::class, 'remove'])->middleware('throttle:library-write');
         Route::put('ratings/{tmdb_id}', [RatingController::class, 'put'])->middleware('throttle:library-write');
         Route::delete('ratings/{tmdb_id}', [RatingController::class, 'destroy'])->middleware('throttle:library-write');
         Route::get('collections', [CollectionController::class, 'index'])->middleware('throttle:library-read');
