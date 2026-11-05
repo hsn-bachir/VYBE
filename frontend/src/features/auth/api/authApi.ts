@@ -33,3 +33,13 @@ export async function logout() {
     if (!axios.isAxiosError(error) || error.response?.status !== 401) throw error
   }
 }
+
+export async function acceptInvitation(values: { email: string; token: string; password: string; password_confirmation: string }): Promise<void> {
+  await api.get('/sanctum/csrf-cookie')
+  await api.post('/api/v1/auth/invitations/accept', values)
+}
+
+export async function completePasswordReset(values: { email: string; token: string; password: string; password_confirmation: string }): Promise<void> {
+  await api.get('/sanctum/csrf-cookie')
+  await api.post('/api/v1/auth/password/reset', values)
+}

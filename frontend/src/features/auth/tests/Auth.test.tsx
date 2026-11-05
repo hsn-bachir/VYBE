@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, errorDetails } from '../../../lib/api/client'
-import { authenticate, currentUser, logout, resendVerification, verificationStatus } from '../api/authApi'
+import { acceptInvitation, authenticate, currentUser, logout, resendVerification, verificationStatus } from '../api/authApi'
 import { AuthForm } from '../components/AuthForm'
 import { VerificationPage } from '../pages/VerificationPage'
 import { Input } from '../../../components/ui/Input'
@@ -126,6 +126,14 @@ describe('authentication API and rendering', () => {
     expect(await resendVerification()).toBe('Verification link sent.')
     expect(api.get).toHaveBeenCalledWith('/sanctum/csrf-cookie')
     expect(api.post).toHaveBeenCalledWith('/api/v1/auth/email/verification-notification')
+    expect(vi.mocked(api.get).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.post).mock.invocationCallOrder[0])
+  })
+
+  it('bootstraps CSRF before accepting an invitation without changing auth state', async () => {
+    const values = { email: user.email, token: 'a'.repeat(64), password: 'longPassword123', password_confirmation: 'longPassword123' }
+    await acceptInvitation(values)
+    expect(api.get).toHaveBeenCalledWith('/sanctum/csrf-cookie')
+    expect(api.post).toHaveBeenCalledWith('/api/v1/auth/invitations/accept', values)
     expect(vi.mocked(api.get).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.post).mock.invocationCallOrder[0])
   })
 

@@ -33,7 +33,10 @@ class ReviewService
         }
         $this->metadata->confirm($movie);
         try {
-            return DB::transaction(fn () => $user->reviews()->create(['tmdb_id' => $movie] + $values + ['contains_spoilers' => false])->load('user:id,username,avatar_url'), 3);
+            return DB::transaction(function () use ($user, $movie, $values): Review {
+                AccountAccess::lock($user, true);
+                return $user->reviews()->create(['tmdb_id' => $movie] + $values + ['contains_spoilers' => false])->load('user:id,username,avatar_url');
+            }, 3);
         } catch (UniqueConstraintViolationException) {
             throw new ReviewExists;
         }
@@ -42,6 +45,7 @@ class ReviewService
     public function update(User $user, int $movie, int $id, array $values): Review
     {
         return DB::transaction(function () use ($user, $movie, $id, $values): Review {
+            AccountAccess::lock($user, true);
             $review = $user->reviews()->where('tmdb_id', $movie)->whereKey($id)->lockForUpdate()->firstOrFail();
             $review->fill($values)->save();
 
@@ -52,6 +56,7 @@ class ReviewService
     public function delete(User $user, int $movie, int $id): void
     {
         DB::transaction(function () use ($user, $movie, $id): void {
+            AccountAccess::lock($user);
             $user->reviews()->where('tmdb_id', $movie)->whereKey($id)->lockForUpdate()->firstOrFail()->delete();
         }, 3);
     }

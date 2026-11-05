@@ -18,7 +18,7 @@ class ProfileService
     {
         try {
             DB::transaction(function () use ($user, $values): void {
-                $current = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+                $current = AccountAccess::lock($user);
                 if (array_key_exists('username', $values)) {
                     $current->username = $values['username'];
                 }

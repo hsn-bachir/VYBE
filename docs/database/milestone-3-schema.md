@@ -1,6 +1,24 @@
-# M3 database design — proposed
+# M3 database design — roles, administrative actions and invitations implemented
 
-No M3 migrations exist. This design extends the implemented [M2 schema](milestone-2-schema.md) in Core's existing database; Catalog owns only movie metadata. IDs below are unsigned BIGINT auto-increment primary keys unless stated. Timestamps follow existing nullable Laravel UTC timestamps. APIs validate string/enum bounds; add portable CHECK constraints where supported and verify enforcement on the actual MySQL and SQLite test engines. No client can mass-assign owner, actor, state, or timestamps.
+## M3.1C migration
+
+Core migration `2026_11_04_000001_create_account_invitations_table.php` adds `users.invitation_pending BOOLEAN NOT NULL DEFAULT false` and a dedicated `account_invitations` table. The table has an auto-increment `id`, unique `user_id` FK to Core `users` with cascade delete, normalized current `email`, unique 64-character SHA-256 `token_hash`, indexed `expires_at` and Laravel timestamps. One row per invited user makes replacement atomic under the user row lock. The plaintext token is never persisted; acceptance deletes the row. Ordinary registration and `password_reset_tokens` are unchanged. Rollback drops the invitation table then marker, preserving users. SQLite rollback was tested; MySQL migration and locking still need an isolated run. `invitation_pending` is server managed and exposed only as a boolean in the private administrator projection.
+
+### M3.1C password session version
+
+Core migration `2026_11_05_000001_add_password_session_version_to_users_table.php` adds nullable `users.password_session_version VARCHAR(64)` with no index or default token. Existing accounts remain null and existing sessions remain valid until a password change. A direct administrator change or completed broker reset writes a fresh random version in the same transaction as the password hash, remember-token rotation, same-connection database session deletion and (for a direct change) audit record. Authenticated session middleware rejects a stale version even when local session storage uses files. Successful login stores the current version in the server-side session. The column is excluded from mass assignment, model serialization and every API resource. Rollback drops only the column.
+
+Laravel's existing `password_reset_tokens` table is reused; its keyed email, hashed token and creation time support one-use broker validation, 60-minute expiry and 60-second issuance cooldown. It remains separate from `account_invitations`. The M3.1C action allowlist adds `user.password_changed` and `user.password_reset_initiated`; each records actor/target IDs, reason and timestamp with empty safe details. No password, hash, reset token, session identifier or raw request payload is written to audit.
+
+## M3.1B migration
+
+Core migration `2026_11_03_000005_create_administrative_actions_table.php` creates `administrative_actions` with an auto-increment primary key, nullable `actor_id` FK to `users` (`ON DELETE SET NULL`), bounded action and logical target type/ID, nullable reason (maximum 1000), nullable JSON details, and a server timestamp. It has indexes `(target_type, target_id, created_at, id)` and `(actor_id, created_at, id)`; rollback drops the table. M3.1B writes only `user.updated`, `user.role_changed`, and `user.status_changed` through a private service. Details contain only username/email-changed flags or old/new role/status; no email or request payload is stored. Failed and no-op changes create no record. The action and account change commit in one Core transaction. The application offers no update/delete route for audit rows. Retention remains undecided before production rollout.
+
+## M3.1A migration
+
+Core migration `2026_11_03_000004_add_access_fields_to_users_table.php` adds `users.role VARCHAR(16) NOT NULL DEFAULT 'user'` and `users.account_status VARCHAR(16) NOT NULL DEFAULT 'active'`, with allowed-value CHECK constraints and `(account_status, role, id)` index. Existing users inherit the safe defaults. SQLite and MySQL use their respective CHECK syntax; rollback removes the index, constraints and columns. Only the Core database changes. Invitation state is implemented in M3.1C; review moderation, reports and recommendation revision remain proposed below.
+
+M3.1A role/status, M3.1B action-log and M3.1C invitation migrations are implemented; later migrations remain proposed. This design extends the implemented [M2 schema](milestone-2-schema.md) in Core's existing database; Catalog owns only movie metadata. IDs below are unsigned BIGINT auto-increment primary keys unless stated. Timestamps follow existing nullable Laravel UTC timestamps. APIs validate string/enum bounds; add portable CHECK constraints where supported and verify enforcement on the actual MySQL and SQLite test engines. No client can mass-assign owner, actor, state, or timestamps.
 
 ## Existing structures
 
@@ -12,7 +30,7 @@ No M3 migrations exist. This design extends the implemented [M2 schema](mileston
 | --- | --- |
 | `users.role` | `VARCHAR(16) NOT NULL DEFAULT 'user'`; allow `user`, `moderator`, `admin`; only trusted bootstrap can assign admin; API assigns only user/moderator. Existing rows backfill `user`. |
 | `users.account_status` | `VARCHAR(16) NOT NULL DEFAULT 'active'`; allow `active`, `restricted`, `banned`, `deactivated`; existing rows backfill active. No separate ban/restriction booleans. |
-| `users.invitation_pending` | `BOOLEAN NOT NULL DEFAULT false`, M3.1; set only for admin-created invitees and clear atomically when the setup token is consumed. This prevents an ordinary unverified registration from using the invitation flow. Existing rows backfill false; never expose or mass-assign it. |
+| `users.invitation_pending` | `BOOLEAN NOT NULL DEFAULT false`, implemented in M3.1C; set only for admin-created invitees and clear atomically when the setup token is consumed. Ordinary unverified registration cannot use this flow. Existing rows backfill false; never accept it from a client. Only the admin DTO exposes the safe boolean. |
 | `users.recommendation_revision` | `BIGINT UNSIGNED NOT NULL DEFAULT 0`, M3.3; increment atomically in the same transaction as every successful rating, watchlist, watched or collection-membership change, including membership loss from collection deletion. It is server-managed, not a public user field. It prevents a computation begun before a write from installing an obsolete cache entry. |
 | `reviews.visibility` | `VARCHAR(16) NOT NULL DEFAULT 'visible'`; `visible`/`hidden`; backfill visible. Moderator action only. |
 | `reviews.moderator_spoiler` | `BOOLEAN NOT NULL DEFAULT false`; moderator action only. Existing `contains_spoilers` remains the author flag. Public effective flag is their OR. |
@@ -44,7 +62,7 @@ Unique `(reporter_id, target_type, target_id)` guarantees one report per existin
 | --- | --- |
 | `id` | PK. |
 | `actor_id` | `BIGINT UNSIGNED NULL`, FK `users(id) ON DELETE SET NULL`; non-null when written. |
-| `action` | `VARCHAR(48) NOT NULL`; server allowlist such as `user.role_changed`, `user.status_changed`, `user.created`, `user.updated`, `user.deleted`, `review.hidden`, `review.restored`, `review.spoiler_set`, `report.resolved`, `report.dismissed`. |
+| `action` | `VARCHAR(48) NOT NULL`; implemented user actions are `user.updated`, `user.role_changed`, `user.status_changed`, `user.created` and `user.invitation_resent`. Later proposals include review/report actions. |
 | `target_type` | `VARCHAR(24) NOT NULL`; server allowlist `user`, `review`, `report`. |
 | `target_id` | `BIGINT UNSIGNED NOT NULL`; logical target ID; deliberately no FK so deletion does not erase history. |
 | `reason` | `VARCHAR(1000) NULL DEFAULT NULL`; bounded plain text, required for destructive/status decisions as specified by API. |
