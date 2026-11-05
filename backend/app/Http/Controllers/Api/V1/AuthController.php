@@ -25,6 +25,7 @@ class AuthController extends Controller
 
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
+        if ($user->password_session_version !== null) $request->session()->put('password_session_version', $user->password_session_version);
         event(new Registered($user));
 
         return (new UserResource($user))->response()->setStatusCode(201);
@@ -36,9 +37,20 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid email or password.'], 401);
         }
 
+        if (! Auth::guard('web')->user()->canAccessAccount()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return response()->json(['message' => 'Invalid email or password.'], 401);
+        }
+
         $request->session()->regenerate();
 
-        return new UserResource(Auth::guard('web')->user());
+        $user = Auth::guard('web')->user();
+        if ($user->password_session_version !== null) $request->session()->put('password_session_version', $user->password_session_version);
+
+        return new UserResource($user);
     }
 
     public function me(Request $request): UserResource

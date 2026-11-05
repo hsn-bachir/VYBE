@@ -21,8 +21,27 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn (Request $request) => $request->is('api/v1/me/*') ? null : '/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->shouldRenderJsonWhen(fn (Request $request, Throwable $e) => $request->is('api/v1/movies/*', 'api/v1/me/*') || $request->expectsJson());
+        $exceptions->shouldRenderJsonWhen(fn (Request $request, Throwable $e) => $request->is('api/v1/movies/*', 'api/v1/me/*', 'api/v1/admin/*', 'api/v1/auth/invitations/*', 'api/v1/auth/password/*') || $request->expectsJson());
         $exceptions->respond(function (Response $response, Throwable $e, Request $request) {
+            if ($request->is('api/v1/auth/invitations/*', 'api/v1/auth/password/*')) {
+                $response->headers->set('Cache-Control', 'no-store, private');
+                if (in_array($response->getStatusCode(), [419, 429], true)) return response()->json([
+                    'message' => $response->getStatusCode() === 419 ? 'CSRF token mismatch.' : 'Too many requests.',
+                ], $response->getStatusCode(), $response->headers->all())->header('Cache-Control', 'no-store, private');
+                if ($response->getStatusCode() >= 500) return response()->json([
+                    'message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR',
+                ], 500)->header('Cache-Control', 'no-store, private');
+            }
+            if ($request->is('api/v1/admin/*')) {
+                $response->headers->set('Cache-Control', 'no-store, private');
+                if ($response->getStatusCode() === 404) return response()->json(['message' => 'Not found.'], 404)->header('Cache-Control', 'no-store, private');
+                if (in_array($response->getStatusCode(), [419, 429], true)) return response()->json([
+                    'message' => $response->getStatusCode() === 419 ? 'CSRF token mismatch.' : 'Too many requests.',
+                ], $response->getStatusCode(), $response->headers->all())->header('Cache-Control', 'no-store, private');
+                if ($response->getStatusCode() >= 500) return response()->json([
+                    'message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR',
+                ], 500)->header('Cache-Control', 'no-store, private');
+            }
             if ($request->is('api/v1/me/profile', 'api/v1/me/profile/*')) {
                 $response->headers->set('Cache-Control', 'no-store, private');
                 if ($response->getStatusCode() === 404) {

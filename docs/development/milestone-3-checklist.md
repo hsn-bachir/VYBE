@@ -1,6 +1,17 @@
 # Milestone 3 execution checklist
 
-Only M3.0 documentation is delivered here. M3.1–M3.3 are proposed and unchecked. Each future slice includes migrations/models → validation/policies → API → backend tests → React → frontend tests → browser/real-service verification, plus docs and human review. The [architecture](../architecture/milestone-3.md), [schema](../database/milestone-3-schema.md), [API](../api/milestone-3-contracts.md) and [frontend plan](../architecture/milestone-3-frontend.md) are the implementation starting point.
+## M3.1A — roles, state and access foundation
+
+- [x] Add role/status defaults, constraints and index in Core; test SQLite migration rollback and existing-user defaults.
+- [x] Enforce current account state on protected Core routes and inside write transactions; retain logout for blocked accounts.
+- [x] Restrict rating writes and review creation/edits while preserving own-review deletion and personal library/profile access.
+- [x] Add role gates, role middleware and private `GET /me/access`; keep `/auth/me` unchanged.
+- [x] Add trusted `app:provision-admin {user_id}` command for one existing verified active account.
+- [x] Add lazy role-gated `/admin` landing for admin and moderator with role-aware navigation.
+- [x] Complete fixture and disposable SQLite real-session browser checks.
+- [ ] Complete isolated MySQL migration check and hosted CI/human review.
+
+M3.0 documentation, M3.1A foundation and M3.1B user management are delivered locally. M3.1C is implemented locally; M3.2 and M3.3 remain proposed. Each future slice includes migrations/models → validation/policies → API → backend tests → React → frontend tests → browser/real-service verification, plus docs and human review. The [architecture](../architecture/milestone-3.md), [schema](../database/milestone-3-schema.md), [API](../api/milestone-3-contracts.md) and [frontend plan](../architecture/milestone-3-frontend.md) are the implementation starting point.
 
 ## M3.0 — architecture and contracts
 
@@ -10,14 +21,26 @@ Only M3.0 documentation is delivered here. M3.1–M3.3 are proposed and unchecke
 - [x] Propose schema, API DTOs/errors, frontend integration, security tests, dependencies and ADR. No application code, migrations or dependencies added.
 - [ ] Human review and hosted CI acceptance of this architecture.
 
-## M3.1 — administration and user management
+## M3.1B — administrator user management
 
-- [ ] Add role/status and invitation state with safe defaults/backfill, indexed access, rollback and isolated DB tests.
-- [ ] Trusted first-admin provisioning; role gates/policies, last-admin and self-protection with concurrent tests.
-- [ ] Enforce current account status on every protected path and existing sessions/tokens; restrict community writes, generic login failure, CSRF and throttles.
-- [ ] Create/invite/activate user, list/search/detail/edit, moderator assignment, status and confirmed deletion; safe DTOs, audit records, race/error tests; decide retention before exposing deletion.
-- [ ] Build lazy protected admin layout and user screens, responsive dialogs, invitation screen, role-aware navigation, server-confirmed states and account isolation.
-- [ ] Run backend/DB, frontend, browser and real-session tests; exercise demotion/ban with retained session, 401/403/419/429, delivery failure and concurrent last-admin attempts.
+- [x] Add Core administrative action table, indexes, nullable actor FK, rollback and SQLite tests.
+- [x] Add administrator-only list/search/filter/detail/edit, moderator role and status APIs with narrow DTOs and strict validation.
+- [x] Lock and recheck actor/target for writes; protect self and the last verified active administrator; record actual mutations atomically with audit.
+- [x] Revoke target database sessions on actual role/status/email change; retain live account-state authorization; enforce CSRF and administrator throttles.
+- [x] Add lazy user list/detail routes, responsive VYBE styling, shared dialogs, account-scoped queries and server-confirmed feedback.
+- [x] Exercise Core PHPUnit, frontend unit, real disposable SQLite browser/API journey, and 375/768/1440 viewport checks.
+- [ ] Verify the migration and lock behavior on isolated MySQL, hosted CI, and human review.
+
+## M3.1C — creation, invitations and password management
+
+- [x] Add invitation state, safe account creation, one-use setup tokens and delivery/resend flow.
+- [ ] Decide retention before implementing hard deletion and confirm production administrator access protection.
+- [x] Add invitation UI, security tests and disposable SQLite browser journey.
+- [x] Add confirmed administrator password change and broker reset initiation, shared validation, audit, post-commit notification and one-use reset completion.
+- [x] Rotate a private session version and remember token on password changes, revoke same-connection database sessions, and reject stale file sessions.
+- [x] Add eligible-account password dialogs and a token-based reset page; run focused security tests and frontend checks.
+- [ ] Verify the new password-management journey in a disposable browser and isolated MySQL; confirm SMTP delivery.
+- [ ] Verify SMTP delivery and MySQL concurrency/migrations on isolated infrastructure.
 
 ## M3.2 — reporting and review moderation
 

@@ -14,11 +14,39 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 
 #[Fillable(['username', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'password_session_version'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    public const ROLE_USER = 'user';
+    public const ROLE_MODERATOR = 'moderator';
+    public const ROLE_ADMIN = 'admin';
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_RESTRICTED = 'restricted';
+    public const STATUS_BANNED = 'banned';
+    public const STATUS_DEACTIVATED = 'deactivated';
+
+    public function canAccessAccount(): bool
+    {
+        return in_array($this->account_status, [self::STATUS_ACTIVE, self::STATUS_RESTRICTED], true);
+    }
+
+    public function canWriteCommunity(): bool
+    {
+        return $this->account_status === self::STATUS_ACTIVE;
+    }
+
+    public function canModerate(): bool
+    {
+        return in_array($this->role, [self::ROLE_MODERATOR, self::ROLE_ADMIN], true);
+    }
+
+    public function canAdminister(): bool
+    {
+        return $this->role === self::ROLE_ADMIN;
+    }
 
     public function watchlistEntries(): HasMany
     {
@@ -43,6 +71,16 @@ class User extends Authenticatable implements MustVerifyEmail
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function administrativeActions(): HasMany
+    {
+        return $this->hasMany(AdministrativeAction::class, 'actor_id');
+    }
+
+    public function accountInvitations(): HasMany
+    {
+        return $this->hasMany(AccountInvitation::class);
     }
 
     protected function username(): Attribute
@@ -75,6 +113,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
+            'invitation_pending' => 'boolean',
             'password' => 'hashed',
         ];
     }

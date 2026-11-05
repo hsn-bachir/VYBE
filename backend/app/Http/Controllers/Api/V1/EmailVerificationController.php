@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
+use App\Models\User;
+use App\Services\AccountAccess;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\DB;
 
 class EmailVerificationController extends Controller
 {
@@ -39,11 +42,20 @@ class EmailVerificationController extends Controller
         if (! $user) {
             return redirect($frontend.'/login?verification=sign-in');
         }
+        $user = User::query()->find($user->getKey());
+        if (! $user || ! $user->canAccessAccount()) {
+            return redirect($frontend.'/verify-email/error?reason=account');
+        }
         if (! hash_equals((string) $user->getKey(), $id) || ! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
             return redirect($frontend.'/verify-email/error?reason=account');
         }
 
-        if (! $user->hasVerifiedEmail() && $user->markEmailAsVerified()) {
+        $verified = DB::transaction(function () use ($user): bool {
+            $current = AccountAccess::lock($user);
+            return ! $current->hasVerifiedEmail() && $current->markEmailAsVerified();
+        }, 3);
+        if ($verified) {
+            $user->refresh();
             event(new Verified($user));
         }
 
