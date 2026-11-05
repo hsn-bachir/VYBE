@@ -16,6 +16,10 @@ const ProfilePage = lazy(() => import('./features/profile/pages/ProfilePage'))
 const AdminPage = lazy(() => import('./features/admin/pages/AdminPage'))
 const AdminUsersPage = lazy(() => import('./features/admin/pages/AdminUsersPage'))
 const AdminUserDetailsPage = lazy(() => import('./features/admin/pages/AdminUserDetailsPage'))
+const ReportsPage = lazy(() => import('./features/moderation/pages/ReportsPage'))
+const ReportDetailsPage = lazy(() => import('./features/moderation/pages/ReportDetailsPage'))
+const ModerationReviewsPage = lazy(() => import('./features/moderation/pages/ModerationReviewsPage'))
+const ModerationActionsPage = lazy(() => import('./features/moderation/pages/ModerationActionsPage'))
 const CollectionsPage = lazy(() => import('./features/collections/pages/CollectionsPage'))
 const CollectionDetailsPage = lazy(() => import('./features/collections/pages/CollectionDetailsPage'))
 const MovieDetailsPage = lazy(() => import('./features/movies/pages/MovieDetailsPage').then(module => ({ default: module.MovieDetailsPage })))
@@ -29,6 +33,10 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route element={<RequireAdmin />}>
           <Route path="/admin" element={<Suspense fallback={<p role="status">Opening administration…</p>}><AdminPage /></Suspense>} />
+          <Route path="/admin/reports" element={<Suspense fallback={<p role="status">Opening reports…</p>}><ReportsPage /></Suspense>} />
+          <Route path="/admin/reports/:id" element={<Suspense fallback={<p role="status">Opening report…</p>}><ReportDetailsPage /></Suspense>} />
+          <Route path="/admin/reviews" element={<Suspense fallback={<p role="status">Opening reviews…</p>}><ModerationReviewsPage /></Suspense>} />
+          <Route path="/admin/actions" element={<Suspense fallback={<p role="status">Opening history…</p>}><ModerationActionsPage /></Suspense>} />
           <Route element={<RequireUserManager />}>
             <Route path="/admin/users" element={<Suspense fallback={<p role="status">Opening users…</p>}><AdminUsersPage /></Suspense>} />
             <Route path="/admin/users/:id" element={<Suspense fallback={<p role="status">Opening account…</p>}><AdminUserDetailsPage /></Suspense>} />

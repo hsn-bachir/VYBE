@@ -71,6 +71,8 @@ Example admin response (synthetic values):
 
 ## Reports and review moderation — M3.2
 
+Implemented in Core under `/api/v1` using the existing Sanctum session, verified-account, account-state, CSRF, no-store and moderator role middleware. Active accounts may report; only active moderators/administrators may mutate moderation state. Restricted privileged accounts may read. All IDs are canonical positive integers through 2147483647; JSON writes reject unknown fields and enforce strict booleans. Lists default to page 1 and 20 rows, maximum 50. Report and moderation errors use the existing private JSON conventions: 401 unauthenticated, 403 forbidden, 404 unavailable, 409 incompatible/target unavailable, 419 CSRF, 422 invalid request, 429 throttle, and safe 500 errors. No Catalog call is involved in reporting or moderation.
+
 Moderator report representation is `{id,target_type:"review",target_id,reason,description,status,resolved_by,resolved_at,resolution_note,resolution_action,created_at,updated_at}`. Queue/detail additionally expose a minimal reporter `{id,username}` or null and a `target_available` flag plus review projection only if still present. These private DTOs never expose reporter email. The reporter's create/duplicate response includes only `{id,target_type,target_id,reason,description,status,created_at,updated_at}`; it omits moderator identity, notes and decisions, even when returning an already-closed report.
 
 | Method and path | Request / validation | Success and behavior |
@@ -96,6 +98,8 @@ Example report creation and result:
 ```
 
 Existing public review list filters `visibility=visible` in the DB before count/pagination. Existing public and owner `contains_spoilers` is the effective OR; add `author_contains_spoilers`, `moderator_spoiler` and `visibility` only to the owner's resource so the editor can preserve its own selection and explain enforcement. Public DTO remains compatible and never exposes hidden review bodies. The author may edit a hidden review, which stays hidden; the moderator flag survives all edits. Owner DELETE still works, including for restricted users. A normal author cannot address the moderator routes or write moderator fields. Spoiler UI concealment is a reading preference: existing public JSON still includes visible spoiler text, as in M2.
+
+Report resolution writes one `report.resolved` audit row with the chosen action, review ID and a boolean transition marker; dismissal writes one `report.dismissed` row. Direct review changes write the corresponding `review.*` action. Idempotent retries and no-op direct changes preserve the original decision and write no duplicate action. Moderator action-history queries are server-filtered to the six review/report actions and `review`/`report` targets; administrators may see the wider administrative history. All audit DTOs contain only bounded reasons and safe transition metadata, never review text or email.
 
 ## Recommendations — M3.3
 

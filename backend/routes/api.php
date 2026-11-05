@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\V1\MovieController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\RatingController;
 use App\Http\Controllers\Api\V1\ReviewController;
+use App\Http\Controllers\Api\V1\ReportController;
+use App\Http\Controllers\Api\V1\ModerationController;
 use App\Http\Middleware\EnsureVerifiedAccount;
 use App\Http\Middleware\EnsureAccountAccess;
 use App\Http\Middleware\EnsureActiveAccount;
@@ -33,6 +35,21 @@ Route::prefix('v1/movies')->withoutMiddleware(EnsureFrontendRequestsAreStateful:
         Route::post('{tmdb_id}/reviews', [ReviewController::class, 'store'])->middleware(EnsureActiveAccount::class);
         Route::patch('{tmdb_id}/reviews/{review_id}', [ReviewController::class, 'update'])->middleware(EnsureActiveAccount::class);
         Route::delete('{tmdb_id}/reviews/{review_id}', [ReviewController::class, 'destroy']);
+        Route::post('{tmdb_id}/reviews/{review_id}/reports', [ReportController::class, 'store'])
+            ->middleware([EnsureActiveAccount::class, 'throttle:review-report']);
+    });
+
+Route::prefix('v1/admin')->withoutMiddleware(EnsureFrontendRequestsAreStateful::class)
+    ->middleware(['web', PreventAuthCaching::class, 'auth:sanctum', EnsureAccountAccess::class,
+        EnsureVerifiedAccount::class, EnsureRole::class.':moderator'])->group(function (): void {
+        Route::get('reports', [ModerationController::class, 'reports'])->middleware('throttle:admin-read');
+        Route::get('reports/{id}', [ModerationController::class, 'report'])->middleware('throttle:admin-read');
+        Route::post('reports/{id}/resolve', [ModerationController::class, 'resolve'])->middleware('throttle:admin-write');
+        Route::post('reports/{id}/dismiss', [ModerationController::class, 'dismiss'])->middleware('throttle:admin-write');
+        Route::get('reviews', [ModerationController::class, 'reviews'])->middleware('throttle:admin-read');
+        Route::put('reviews/{id}/visibility', [ModerationController::class, 'visibility'])->middleware('throttle:admin-write');
+        Route::put('reviews/{id}/spoiler', [ModerationController::class, 'spoiler'])->middleware('throttle:admin-write');
+        Route::get('actions', [ModerationController::class, 'actions'])->middleware('throttle:admin-read');
     });
 
 Route::prefix('v1/me')->withoutMiddleware(EnsureFrontendRequestsAreStateful::class)

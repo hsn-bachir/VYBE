@@ -1,4 +1,10 @@
-# M3 frontend integration — invitations and password management implemented, later screens proposed
+# M3 frontend integration — moderation screens implemented; recommendations proposed
+
+## M3.2 current implementation
+
+Movie Details reuses `ReviewCard`, `Dialog`, the shared Axios client and auth/access hooks to offer Report on another author's visible review only to a verified active account. The dialog explains that submitting a report does not remove content, validates a reason and optional 1000-character description, keeps input after a failed request, and distinguishes new from duplicate server-confirmed reports. Owner editing initializes from `author_contains_spoilers`, so a moderator-enforced flag is not copied into the author's own toggle. A hidden owner review is labelled clearly in the personal panel.
+
+The existing admin shell now links Reports, Reviews and History for moderators and administrators; Users remains administrator-only. `/admin/reports` has status filters, pagination and missing-target indicators. `/admin/reports/:id` shows the safe reporter/review projection and reason-confirmed resolve or dismiss actions. `/admin/reviews` supports bounded visibility/movie filters and direct hide/restore and spoiler-enforcement actions. `/admin/actions` shows server-filtered history. These routes are lazy-loaded, use existing VYBE tokens and accessible dialogs, and keep controls available at mobile widths. TanStack Query keys start with `['admin', ownerId, ...]`, include filters/page, pass `AbortSignal` for reads, and have no write retries. Successful moderation invalidates that owner's admin cache and the affected movie review lists; authentication changes already clear private caches.
 
 ## M3.1C current implementation
 

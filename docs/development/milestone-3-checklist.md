@@ -11,7 +11,7 @@
 - [x] Complete fixture and disposable SQLite real-session browser checks.
 - [ ] Complete isolated MySQL migration check and hosted CI/human review.
 
-M3.0 documentation, M3.1A foundation and M3.1B user management are delivered locally. M3.1C is implemented locally; M3.2 and M3.3 remain proposed. Each future slice includes migrations/models → validation/policies → API → backend tests → React → frontend tests → browser/real-service verification, plus docs and human review. The [architecture](../architecture/milestone-3.md), [schema](../database/milestone-3-schema.md), [API](../api/milestone-3-contracts.md) and [frontend plan](../architecture/milestone-3-frontend.md) are the implementation starting point.
+M3.0 documentation, M3.1A foundation and M3.1B user management are delivered locally. M3.1C and M3.2 are implemented locally; M3.3 remains proposed. Each slice includes migrations/models → validation/policies → API → backend tests → React → frontend tests → browser/real-service verification, plus docs and human review. The [architecture](../architecture/milestone-3.md), [schema](../database/milestone-3-schema.md), [API](../api/milestone-3-contracts.md) and [frontend plan](../architecture/milestone-3-frontend.md) are the implementation starting point.
 
 ## M3.0 — architecture and contracts
 
@@ -44,10 +44,11 @@ M3.0 documentation, M3.1A foundation and M3.1B user management are delivered loc
 
 ## M3.2 — reporting and review moderation
 
-- [ ] Depends on M3.1 roles, policies, status enforcement and action log. Add report table, review visibility and moderator spoiler flag with safe defaults and indexes.
-- [ ] Implement one-report-per-reporter/review, bounded queue/detail, resolve/dismiss, hide/restore and moderator spoiler toggle; lock target/report, audit and sanitize deleted-target races.
-- [ ] Filter every public review read/count at SQL level, preserve author edit/delete and enforced spoiler on edits; ensure moderator cannot impersonate owner.
-- [ ] Add report dialog, queue/review screens, owner enforcement feedback and invalidation. Test guest/unverified/restricted/moderator/admin, IDOR, CSRF, duplicate and deletion races, UI focus and real persistence.
+- [x] Reuse M3.1 roles, state enforcement and action log; add report table, review visibility and moderator spoiler flag with safe defaults and indexes.
+- [x] Implement one-report-per-reporter/review, bounded queue/detail, resolve/dismiss, hide/restore and moderator spoiler toggle; lock target/report, audit and handle deleted targets.
+- [x] Filter public review reads/counts at SQL level; preserve author edit/delete and enforced spoiler on edits; deny owner impersonation.
+- [x] Add report dialog, queue/review/history screens, owner enforcement feedback and query invalidation; run focused Core and frontend tests.
+- [ ] Complete real-browser focus/responsive/CSRF acceptance and isolated MySQL concurrency verification before release.
 
 ## M3.3 — For You recommendations
 

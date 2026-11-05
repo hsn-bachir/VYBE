@@ -1,4 +1,8 @@
-# M3 database design — roles, administrative actions and invitations implemented
+# M3 database design — roles, invitations and review moderation implemented
+
+## M3.2 migration
+
+Core migration `2026_11_06_000001_add_review_moderation_and_reports.php` adds `reviews.visibility VARCHAR(16) NOT NULL DEFAULT 'visible'`, `reviews.moderator_spoiler BOOLEAN NOT NULL DEFAULT false`, public listing index `(tmdb_id, visibility, created_at, id)` and moderation index `(visibility, created_at, id)`. Existing author `contains_spoilers` is preserved. MySQL uses a visibility CHECK; API validation and controlled writes enforce the same enum on SQLite. The migration also creates the `reports` table below. Its rollback drops reports and the two review columns/indexes without deleting reviews or users; the rollback test runs outside `RefreshDatabase` transactions.
 
 ## M3.1C migration
 
@@ -45,7 +49,7 @@ Add `INDEX(account_status, role, id)` for active-admin locking and status listin
 | `reporter_id` | `BIGINT UNSIGNED NULL`, FK `users(id) ON DELETE SET NULL`; non-null at creation, nullable only after account deletion. |
 | `target_type` | `VARCHAR(24) NOT NULL`; allowlisted `review` only in M3. No arbitrary PHP class names. |
 | `target_id` | `BIGINT UNSIGNED NOT NULL`; positive review ID. Logical reference, deliberately no polymorphic FK; see deletion rules below. |
-| `reason` | `VARCHAR(32) NOT NULL`; one of `harassment`, `hate`, `spam`, `spoiler`, `other`. |
+| `reason` | `VARCHAR(24) NOT NULL`; one of `harassment`, `hate`, `spam`, `spoiler`, `other`. |
 | `description` | `VARCHAR(1000) NULL DEFAULT NULL`; trimmed plain text, max 1000 Unicode characters, blank becomes null. |
 | `status` | `VARCHAR(16) NOT NULL DEFAULT 'pending'`; `pending`, `resolved`, `dismissed`. |
 | `resolved_by` | `BIGINT UNSIGNED NULL`, FK `users(id) ON DELETE SET NULL`; set by server on transition. |
@@ -54,7 +58,7 @@ Add `INDEX(account_status, role, id)` for active-admin locking and status listin
 | `resolution_action` | `VARCHAR(24) NULL DEFAULT NULL`; server-set `hide` or `mark_spoiler` on resolution; null while pending or dismissed. Supports deterministic replay even if the review is later deleted. |
 | `created_at`, `updated_at` | Laravel timestamps. |
 
-Unique `(reporter_id, target_type, target_id)` guarantees one report per existing reporter/target, including concurrent submissions; nullable reporter after deletion deliberately permits multiple historical nulls. Index `(status, created_at, id)` for the queue and `(target_type, target_id, status)` for target investigation. Target type/id references are deliberately logical so later allowlisted target kinds can be added without accepting arbitrary models. The M3.2 service locks and verifies a visible review before insert; author delete uses the same review row lock. A deleted review leaves the report's target ID, but no content snapshot; the queue marks it unavailable and permits dismissal. This preserves action context without retaining deleted review text. Reports by a deleted user are retained with a null reporter; resolved actor may also become null. Review deletion does not cascade reports.
+Unique `(reporter_id, target_type, target_id)` guarantees one report per existing reporter/target, including concurrent submissions; nullable reporter after deletion deliberately permits multiple historical nulls. Index `(status, created_at, id)` supports the queue and `(target_type, target_id, created_at, id)` supports target investigation. MySQL CHECK constraints restrict target type, reason and status; SQLite relies on strict API validation and server-controlled writes. Target type/id references are deliberately logical so later allowlisted target kinds can be added without accepting arbitrary models. The M3.2 service locks and verifies a visible review before insert; author delete uses the same review row lock. A deleted review leaves the report's target ID, but no content snapshot; the queue marks it unavailable and permits dismissal. This preserves action context without retaining deleted review text. Reports by a deleted user are retained with a null reporter; resolved actor may also become null. Review deletion does not cascade reports.
 
 ## `administrative_actions` — Core, M3.1 then M3.2
 
@@ -62,7 +66,7 @@ Unique `(reporter_id, target_type, target_id)` guarantees one report per existin
 | --- | --- |
 | `id` | PK. |
 | `actor_id` | `BIGINT UNSIGNED NULL`, FK `users(id) ON DELETE SET NULL`; non-null when written. |
-| `action` | `VARCHAR(48) NOT NULL`; implemented user actions are `user.updated`, `user.role_changed`, `user.status_changed`, `user.created` and `user.invitation_resent`. Later proposals include review/report actions. |
+| `action` | `VARCHAR(48) NOT NULL`; user actions include `user.updated`, `user.role_changed`, `user.status_changed`, `user.created` and `user.invitation_resent`. M3.2 adds `review.hidden`, `review.restored`, `review.spoiler_set`, `review.spoiler_cleared`, `report.resolved`, and `report.dismissed`. |
 | `target_type` | `VARCHAR(24) NOT NULL`; server allowlist `user`, `review`, `report`. |
 | `target_id` | `BIGINT UNSIGNED NOT NULL`; logical target ID; deliberately no FK so deletion does not erase history. |
 | `reason` | `VARCHAR(1000) NULL DEFAULT NULL`; bounded plain text, required for destructive/status decisions as specified by API. |

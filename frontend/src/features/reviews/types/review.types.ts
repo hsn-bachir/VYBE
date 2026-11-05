@@ -4,6 +4,9 @@ export interface Review {
   author: { id: number; username: string; avatar_url: string | null }
   body: string
   contains_spoilers: boolean
+  author_contains_spoilers?: boolean
+  moderator_spoiler?: boolean
+  visibility?: 'visible' | 'hidden'
   created_at: string | null
   updated_at: string | null
 }

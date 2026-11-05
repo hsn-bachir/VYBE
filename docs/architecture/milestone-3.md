@@ -1,4 +1,10 @@
-# M3 architecture — administrator invitations and password management implemented, later slices proposed
+# M3 architecture — reporting and review moderation implemented; recommendations proposed
+
+## M3.2 implementation (2026-11-06)
+
+Core now stores one report per reporter/review and adds visible/hidden and moderator spoiler state to reviews. Report creation locks the current active account and visible review, checks movie/owner identity, and relies on the unique key for duplicate safety. Moderation writes lock the actor, then the review before the report when both are involved, and recheck role/state inside the transaction. Resolve, dismiss, direct visibility changes and direct spoiler changes commit with their audit row. Repeated matching decisions are read-only no-ops; conflicting transitions return 409. Deleted review targets retain report metadata without a content snapshot and can be dismissed. Public review pagination filters hidden rows in SQL; owner edits preserve hidden state and moderator spoiler enforcement. The existing author flag remains author-controlled, while the public effective spoiler flag is the OR of both flags.
+
+React adds a report dialog to eligible review cards and reuses the protected admin shell for `/admin/reports`, report details, `/admin/reviews` and `/admin/actions`. Moderator navigation excludes user management. Private query keys include the current account ID and filters; successful moderation refreshes the admin queries and affected public review list. The shared auth hooks clear private cache on account changes. Catalog and its database are unchanged. M3.3 recommendations and administrative hard deletion remain deferred.
 
 ## M3.1C implementation (2026-11-04)
 
