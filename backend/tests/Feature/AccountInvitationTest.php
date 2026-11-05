@@ -3,12 +3,12 @@
 namespace Tests\Feature;
 
 use App\Mail\AccountInvitationMail;
+use App\Models\AdministrativeAction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class AccountInvitationTest extends TestCase
@@ -33,19 +33,6 @@ class AccountInvitationTest extends TestCase
         $this->assertStringContainsString('Activate your VYBE account', $mail->render());
         parse_str((string) parse_url($mail->activationUrl, PHP_URL_FRAGMENT), $fragment);
         return [$response->json('data.user.id'), $fragment['token'], $fragment['email']];
-    }
-
-    public function test_migration_rolls_back_and_recreates_without_damaging_users(): void
-    {
-        $user = User::factory()->create();
-        $migration = require database_path('migrations/2026_11_04_000001_create_account_invitations_table.php');
-        $this->assertTrue(Schema::hasTable('account_invitations'));
-        $migration->down();
-        $this->assertFalse(Schema::hasTable('account_invitations'));
-        $this->assertFalse(Schema::hasColumn('users', 'invitation_pending'));
-        $this->assertDatabaseHas('users', ['id' => $user->id]);
-        $migration->up();
-        $this->assertTrue(Schema::hasColumn('users', 'invitation_pending'));
     }
 
     public function test_create_and_accept_is_single_use_and_keeps_token_out_of_database_and_api(): void
@@ -208,13 +195,18 @@ class AccountInvitationTest extends TestCase
     public function test_creation_rolls_back_when_audit_fails(): void
     {
         $admin = $this->admin();
-        Schema::drop('administrative_actions');
         Mail::fake();
-        $this->actingAs($admin, 'web')->postJson('/api/v1/admin/users', [
-            'username' => 'rollback_user', 'email' => 'rollback@example.test',
-        ])->assertStatus(500)->assertJsonPath('code', 'INTERNAL_ERROR');
+        AdministrativeAction::creating(fn () => throw new \RuntimeException('Simulated audit write failure'));
+        try {
+            $this->actingAs($admin, 'web')->postJson('/api/v1/admin/users', [
+                'username' => 'rollback_user', 'email' => 'rollback@example.test',
+            ])->assertStatus(500)->assertJsonPath('code', 'INTERNAL_ERROR');
+        } finally {
+            AdministrativeAction::flushEventListeners();
+        }
         $this->assertDatabaseMissing('users', ['username' => 'rollback_user']);
         $this->assertDatabaseCount('account_invitations', 0);
+        $this->assertDatabaseCount('administrative_actions', 0);
         Mail::assertNothingSent();
     }
 

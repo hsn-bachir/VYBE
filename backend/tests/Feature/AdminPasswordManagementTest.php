@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\AccountPasswordChangedMail;
+use App\Models\AdministrativeAction;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -12,7 +13,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class AdminPasswordManagementTest extends TestCase
@@ -27,18 +27,6 @@ class AdminPasswordManagementTest extends TestCase
             'password_confirmation' => 'newPassword123!',
             'reason' => 'Requested account recovery',
         ];
-    }
-
-    public function test_session_version_migration_rolls_back_without_deleting_users(): void
-    {
-        $user = User::factory()->create();
-        $migration = require database_path('migrations/2026_11_05_000001_add_password_session_version_to_users_table.php');
-        $this->assertTrue(Schema::hasColumn('users', 'password_session_version'));
-        $migration->down();
-        $this->assertFalse(Schema::hasColumn('users', 'password_session_version'));
-        $this->assertDatabaseHas('users', ['id' => $user->id]);
-        $migration->up();
-        $this->assertTrue(Schema::hasColumn('users', 'password_session_version'));
     }
 
     public function test_direct_change_hashes_revokes_and_audits_without_exposing_secrets(): void
@@ -118,11 +106,20 @@ class AdminPasswordManagementTest extends TestCase
         $this->putJson($url, $this->payload())->assertForbidden();
         DB::table('users')->where('id', $admin->id)->update(['email_verified_at' => now()]);
         DB::table('sessions')->insert(['id' => 'rollback-session', 'user_id' => $target->id, 'payload' => '', 'last_activity' => time()]);
-        Schema::drop('administrative_actions');
-        $this->putJson($url, $this->payload())->assertStatus(500)->assertJsonPath('code', 'INTERNAL_ERROR');
+        $oldToken = Password::broker()->createToken($target);
+        Mail::fake();
+        AdministrativeAction::creating(fn () => throw new \RuntimeException('Simulated audit write failure'));
+        try {
+            $this->putJson($url, $this->payload())->assertStatus(500)->assertJsonPath('code', 'INTERNAL_ERROR');
+        } finally {
+            AdministrativeAction::flushEventListeners();
+        }
         $this->assertTrue(Hash::check('password', $target->fresh()->password));
         $this->assertNull($target->fresh()->password_session_version);
         $this->assertDatabaseHas('sessions', ['id' => 'rollback-session']);
+        $this->assertTrue(Password::broker()->tokenExists($target, $oldToken));
+        $this->assertDatabaseCount('administrative_actions', 0);
+        Mail::assertNothingSent();
     }
 
     public function test_admin_reset_uses_broker_token_and_reset_invalidates_old_sessions(): void

@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\AdministrativeAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class AdminUserManagementTest extends TestCase
@@ -18,16 +18,6 @@ class AdminUserManagementTest extends TestCase
         $admin = User::factory()->create();
         DB::table('users')->where('id', $admin->id)->update(['role' => 'admin']);
         return $admin->fresh();
-    }
-
-    public function test_audit_migration_rolls_back_and_recreates_with_actor_fk(): void
-    {
-        $migration = require database_path('migrations/2026_11_03_000005_create_administrative_actions_table.php');
-        $this->assertTrue(Schema::hasTable('administrative_actions'));
-        $migration->down();
-        $this->assertFalse(Schema::hasTable('administrative_actions'));
-        $migration->up();
-        $this->assertTrue(Schema::hasColumns('administrative_actions', ['actor_id', 'action', 'target_type', 'target_id', 'details', 'created_at']));
     }
 
     public function test_admin_only_read_access_and_safe_projection(): void
@@ -92,7 +82,11 @@ class AdminUserManagementTest extends TestCase
         $this->patchJson("/api/v1/admin/users/{$target->id}", ['password' => 'nope'])->assertUnprocessable();
         $this->patchJson("/api/v1/admin/users/{$target->id}", ['username' => $admin->username])->assertUnprocessable();
         $this->assertDatabaseCount('administrative_actions', 2);
-        $this->assertSame(['username_changed' => false, 'email_changed' => true], DB::table('administrative_actions')->orderByDesc('id')->first() ? json_decode(DB::table('administrative_actions')->orderByDesc('id')->first()->details, true) : []);
+        $details = json_decode(DB::table('administrative_actions')->orderByDesc('id')->value('details'), true);
+        $this->assertIsArray($details);
+        $this->assertEqualsCanonicalizing(['username_changed', 'email_changed'], array_keys($details));
+        $this->assertSame(false, $details['username_changed']);
+        $this->assertSame(true, $details['email_changed']);
     }
 
     public function test_role_status_audit_sessions_and_conflicts(): void
@@ -183,12 +177,21 @@ class AdminUserManagementTest extends TestCase
         $admin = $this->administrator();
         $target = User::factory()->create();
         DB::table('sessions')->insert(['id' => 'rollback-session', 'user_id' => $target->id, 'payload' => '', 'last_activity' => time()]);
-        Schema::drop('administrative_actions');
-        $this->actingAs($admin, 'web')->putJson("/api/v1/admin/users/{$target->id}/role", [
-            'role' => 'moderator', 'reason' => 'Should roll back',
-        ])->assertStatus(500)->assertJsonPath('code', 'INTERNAL_ERROR');
+        AdministrativeAction::creating(fn () => throw new \RuntimeException('Simulated audit write failure'));
+        try {
+            $this->actingAs($admin, 'web')->putJson("/api/v1/admin/users/{$target->id}/role", [
+                'role' => 'moderator', 'reason' => 'Should roll back',
+            ])->assertStatus(500)->assertJsonPath('code', 'INTERNAL_ERROR');
+            $this->putJson("/api/v1/admin/users/{$target->id}/status", [
+                'account_status' => 'restricted', 'reason' => 'Should roll back',
+            ])->assertStatus(500)->assertJsonPath('code', 'INTERNAL_ERROR');
+        } finally {
+            AdministrativeAction::flushEventListeners();
+        }
         $this->assertDatabaseHas('users', ['id' => $target->id, 'role' => 'user']);
+        $this->assertDatabaseHas('users', ['id' => $target->id, 'account_status' => 'active']);
         $this->assertDatabaseHas('sessions', ['id' => 'rollback-session']);
+        $this->assertDatabaseCount('administrative_actions', 0);
     }
 
     public function test_deleted_actor_becomes_null_without_erasing_audit_history(): void

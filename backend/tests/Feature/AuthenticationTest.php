@@ -19,9 +19,12 @@ class AuthenticationTest extends TestCase
 
     public function test_registration_normalizes_hashes_and_authenticates(): void
     {
-        $this->postJson('/api/v1/auth/register', $this->registration())->assertCreated()
-            ->assertExactJson(['data' => ['id' => 1, 'username' => 'movie_fan', 'email' => 'fan@example.com', 'avatar_url' => null, 'email_verified_at' => null]]);
-        $user = User::firstOrFail();
+        $response = $this->postJson('/api/v1/auth/register', $this->registration())->assertCreated();
+        $user = User::query()->where('email', 'fan@example.com')->firstOrFail();
+        $response->assertExactJson(['data' => [
+            'id' => $user->id, 'username' => 'movie_fan', 'email' => 'fan@example.com',
+            'avatar_url' => null, 'email_verified_at' => null,
+        ]]);
         $this->assertTrue(Hash::check('Cinema-lover123', $user->password));
         $this->assertAuthenticatedAs($user, 'web');
         Auth::forgetGuards();

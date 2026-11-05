@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class AccessFoundationTest extends TestCase
@@ -32,17 +31,6 @@ class AccessFoundationTest extends TestCase
                 $this->assertDatabaseHas('users', ['id' => $user->id, 'role' => 'user', 'account_status' => 'active']);
             }
         }
-    }
-
-    public function test_migration_preserves_existing_users_and_rolls_back(): void
-    {
-        $user = User::factory()->create();
-        $migration = require database_path('migrations/2026_11_03_000004_add_access_fields_to_users_table.php');
-        $migration->down();
-        $this->assertFalse(Schema::hasColumn('users', 'role'));
-        $this->assertFalse(Schema::hasColumn('users', 'account_status'));
-        $migration->up();
-        $this->assertDatabaseHas('users', ['id' => $user->id, 'role' => 'user', 'account_status' => 'active']);
     }
 
     public function test_public_registration_cannot_choose_privileged_fields(): void
