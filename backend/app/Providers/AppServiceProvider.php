@@ -45,6 +45,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('library-read', fn (Request $request) => Limit::perMinute(120)->by('library-read:'.$request->user()->getKey()));
         RateLimiter::for('library-write', fn (Request $request) => Limit::perMinute(60)->by('library-write:'.$request->user()->getKey()));
         RateLimiter::for('community-read', fn (Request $request) => Limit::perMinute(120)->by('community-read:'.$request->ip()));
+        RateLimiter::for('review-report', fn (Request $request) => [
+            Limit::perHour(5)->by('review-report:user:'.$request->user()->getKey()),
+            Limit::perHour(20)->by('review-report:ip:'.$request->ip()),
+        ]);
         RateLimiter::for('avatar-upload', fn (Request $request) => Limit::perMinute(5)->by('avatar-upload:'.$request->user()->getKey()));
         RateLimiter::for('admin-read', fn (Request $request) => [
             Limit::perMinute(60)->by('admin-read:user:'.$request->user()->getKey()),

@@ -11,7 +11,7 @@ class Review extends Model
 {
     protected function casts(): array
     {
-        return ['tmdb_id' => 'integer', 'contains_spoilers' => 'boolean'];
+        return ['tmdb_id' => 'integer', 'contains_spoilers' => 'boolean', 'moderator_spoiler' => 'boolean'];
     }
 
     public function user(): BelongsTo

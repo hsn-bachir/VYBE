@@ -14,7 +14,7 @@ class ReviewService
 
     public function listing(int $movie, int $page, int $perPage): array
     {
-        $rows = Review::query()->where('tmdb_id', $movie)->with('user:id,username,avatar_url')
+        $rows = Review::query()->where('tmdb_id', $movie)->where('visibility', 'visible')->with('user:id,username,avatar_url')
             ->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage, ['*'], 'page', $page);
 
         return ['entries' => $rows->getCollection(), 'meta' => ['page' => $rows->currentPage(), 'per_page' => $rows->perPage(),

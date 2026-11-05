@@ -25,14 +25,14 @@ function ReviewBody({ review }: { review: Review }) {
   </div>
 }
 
-export function ReviewCard({ review, onEdit, onDelete, busy = false }: { review: Review; onEdit?: () => void; onDelete?: () => void; busy?: boolean }) {
+export function ReviewCard({ review, onEdit, onDelete, onReport, busy = false }: { review: Review; onEdit?: () => void; onDelete?: () => void; onReport?: () => void; busy?: boolean }) {
   const date = review.created_at ? new Date(review.created_at) : null
   const validDate = date && !Number.isNaN(date.getTime())
   return <article className={`review-card ${onEdit ? 'is-own' : ''}`} aria-label={`Review by ${review.author.username}`}>
     <header className="review-card-header"><div className="review-author">
       <Avatar username={review.author.username} url={review.author.avatar_url} className="review-avatar" />
       <div><h3>@{review.author.username}</h3><p>{validDate ? <time dateTime={review.created_at!}>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</time> : 'Date unavailable'}{review.updated_at && review.updated_at !== review.created_at && <span> · Edited</span>}{onEdit && <span className="review-own-label"> · Your review</span>}</p></div>
-    </div>{onEdit && onDelete && <div className="review-card-actions"><Button disabled={busy} onClick={onEdit} aria-label={`Edit review by ${review.author.username}`}>Edit</Button><Button disabled={busy} onClick={onDelete} aria-label={`Delete review by ${review.author.username}`}>Delete</Button></div>}</header>
+    </div><div className="review-card-actions">{onEdit && onDelete && <><Button disabled={busy} onClick={onEdit} aria-label={`Edit review by ${review.author.username}`}>Edit</Button><Button disabled={busy} onClick={onDelete} aria-label={`Delete review by ${review.author.username}`}>Delete</Button></>}{onReport && <Button disabled={busy} onClick={onReport} aria-label={`Report review by ${review.author.username}`}>Report</Button>}</div></header>
     <ReviewBody key={JSON.stringify([review.tmdb_id, review.id, review.updated_at, review.contains_spoilers, review.body])} review={review} />
   </article>
 }

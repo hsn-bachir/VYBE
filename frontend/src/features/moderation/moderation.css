@@ -1,0 +1,13 @@
+.moderation-tabs, .moderation-filters { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.25rem 0; }
+.moderation-filters .field { min-width: min(100%, 220px); }
+.moderation-filters input, .moderation-filters select, .report-review-dialog select, .report-review-dialog textarea { width: 100%; min-height: 44px; padding: .65rem .8rem; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-background); color: var(--color-foreground); font: inherit; }
+.moderation-filters input:focus-visible, .moderation-filters select:focus-visible, .report-review-dialog select:focus-visible, .report-review-dialog textarea:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.moderation-review-list { display: grid; gap: 1rem; }
+.moderation-review-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.moderation-review-heading h2 { margin: .25rem 0; font-size: 1.15rem; }
+.moderation-review-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; padding: .8rem 0; }
+.report-review-dialog form { display: grid; gap: 1rem; }
+.report-review-dialog .field { margin: 0; }
+.report-review-dialog textarea { resize: vertical; min-height: 100px; }
+.report-dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .7rem; margin-top: .3rem; }
+@media (max-width: 620px) { .moderation-tabs .button { flex: 1; } .moderation-review-heading { flex-wrap: wrap; } .moderation-filters .field { width: 100%; } }

@@ -1,9 +1,11 @@
-import { Link } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
+import type { Access } from '../../auth/hooks/useAccess'
 import './admin.css'
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
+  const access = useOutletContext<Access>()
   return <section className="admin-shell">
-    <div className="admin-topline"><span className="eyebrow">VYBE / Administration</span><Link to="/admin">Overview</Link><Link to="/admin/users">Users</Link></div>
+    <nav className="admin-topline" aria-label="Administration"><span className="eyebrow">VYBE / {access.role === 'moderator' ? 'Moderation' : 'Administration'}</span><Link to="/admin">Overview</Link>{access.role === 'admin' && <Link to="/admin/users">Users</Link>}<Link to="/admin/reports">Reports</Link><Link to="/admin/reviews">Reviews</Link><Link to="/admin/actions">History</Link></nav>
     {children}
   </section>
 }
