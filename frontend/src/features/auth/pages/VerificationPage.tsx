@@ -7,7 +7,7 @@ import { resendVerification } from '../api/authApi'
 import { useAuth, useLogout } from '../hooks/useAuth'
 
 export function VerificationPage({ state }: { state: 'pending' | 'success' | 'error' }) {
-  const auth = useAuth()
+  const auth = useAuth(state === 'success' ? 0 : 5_000)
   const navigate = useNavigate()
   const signOut = useLogout()
   const [params] = useSearchParams()

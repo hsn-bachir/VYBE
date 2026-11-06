@@ -3,8 +3,8 @@
 namespace App\Http\Requests\Auth;
 
 use App\Rules\UsernameRules;
+use App\Rules\AccountPasswordRules;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password;
 
 class RegisterRequest extends LoginRequest
 {
@@ -21,7 +21,9 @@ class RegisterRequest extends LoginRequest
         return [
             'username' => UsernameRules::rules(),
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'max:255', 'confirmed', Password::min(12)->letters()->numbers()],
+            'password' => AccountPasswordRules::rules(),
+            'role' => ['prohibited'],
+            'account_status' => ['prohibited'],
         ];
     }
 

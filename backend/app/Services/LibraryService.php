@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class LibraryService
 {
@@ -35,13 +36,19 @@ class LibraryService
         $this->metadata->confirm($id);
 
         // Eloquent createOrFirst handles a unique-key race without updating the existing timestamps.
-        return $this->entries($user, $library)->firstOrCreate(['tmdb_id' => $id],
-            $library === 'watched' ? ['watched_at' => now('UTC')] : []);
+        return DB::transaction(function () use ($user, $library, $id): Model {
+            AccountAccess::lock($user);
+            return $this->entries($user, $library)->firstOrCreate(['tmdb_id' => $id],
+                $library === 'watched' ? ['watched_at' => now('UTC')] : []);
+        }, 3);
     }
 
     public function remove(User $user, string $library, int $id): void
     {
-        $this->entries($user, $library)->where('tmdb_id', $id)->delete();
+        DB::transaction(function () use ($user, $library, $id): void {
+            AccountAccess::lock($user);
+            $this->entries($user, $library)->where('tmdb_id', $id)->delete();
+        }, 3);
     }
 
     public function state(User $user, int $id): array

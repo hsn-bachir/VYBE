@@ -30,12 +30,16 @@ class CollectionService
 
     public function create(User $user, array $values): Collection
     {
-        return $user->collections()->create($values)->loadCount('movies');
+        return DB::transaction(function () use ($user, $values): Collection {
+            AccountAccess::lock($user);
+            return $user->collections()->create($values)->loadCount('movies');
+        }, 3);
     }
 
     public function update(User $user, int $id, array $values): Collection
     {
         return DB::transaction(function () use ($user, $id, $values) {
+            AccountAccess::lock($user);
             $collection = $user->collections()->whereKey($id)->lockForUpdate()->first() ?? abort(404, 'Not found.');
             $collection->update($values);
 
@@ -45,7 +49,10 @@ class CollectionService
 
     public function delete(User $user, int $id): void
     {
-        abort_unless($user->collections()->whereKey($id)->delete(), 404, 'Not found.');
+        DB::transaction(function () use ($user, $id): void {
+            AccountAccess::lock($user);
+            abort_unless($user->collections()->whereKey($id)->delete(), 404, 'Not found.');
+        }, 3);
     }
 
     public function movies(User $user, int $id, int $page, int $perPage): array
@@ -66,6 +73,7 @@ class CollectionService
         $this->metadata->confirm($movie);
 
         return DB::transaction(function () use ($user, $id, $movie) {
+            AccountAccess::lock($user);
             $collection = $user->collections()->whereKey($id)->lockForUpdate()->first() ?? abort(404, 'Not found.');
 
             // Parent lock serializes against deletion. Unique membership key remains the final authority.
@@ -76,6 +84,7 @@ class CollectionService
     public function remove(User $user, int $id, int $movie): void
     {
         DB::transaction(function () use ($user, $id, $movie) {
+            AccountAccess::lock($user);
             $collection = $user->collections()->whereKey($id)->lockForUpdate()->first() ?? abort(404, 'Not found.');
             $collection->movies()->where('tmdb_id', $movie)->delete();
         }, 3);

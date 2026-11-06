@@ -12,6 +12,7 @@ export const api = axios.create({
 export function errorDetails(error: unknown): { message: string; fields: Record<string, string[]> } {
   if (!axios.isAxiosError(error)) return { message: 'Something went wrong. Please try again.', fields: {} }
   const status = error.response?.status
+  const code = error.response?.data?.code
   const messages: Record<number, string> = {
     401: 'Invalid email or password.',
     419: 'Your session expired. Please submit again to refresh your session.',
@@ -22,7 +23,7 @@ export function errorDetails(error: unknown): { message: string; fields: Record<
     504: 'The service took too long to respond. Please try again shortly.',
   }
   return {
-    message: status === 422 ? 'Please check the highlighted fields.' : messages[status ?? 0] || 'Unable to connect. Please try again shortly.',
+    message: status === 422 ? 'Please check the highlighted fields.' : status === 403 ? code === 'ACCOUNT_RESTRICTED' ? 'This account is restricted from community contributions.' : code === 'ACCOUNT_BANNED' ? 'This account is banned.' : code === 'ACCOUNT_DEACTIVATED' ? 'This account is deactivated.' : 'You do not have permission to do that.' : messages[status ?? 0] || 'Unable to connect. Please try again shortly.',
     fields: status === 422 ? error.response?.data?.errors ?? {} : {},
   }
 }

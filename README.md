@@ -2,7 +2,7 @@
 
 VYBE is a dark cinematic movie discovery application and planned social platform built by a four-person Antonine University team.
 
-> **Current work:** M2.5 User Profiles and Managed Avatars, building on implemented M1/M2.0–M2.4. **Approved architecture:** React SPA + two independent Laravel backend services. Local verification is recorded per milestone; no release or hosted-CI claim.
+> **Current work:** M3.0 architecture and contracts for trust, safety and personalized discovery. M2.1–M2.5 features are present; the checked-in M2.6 release checklist remains open. **Approved topology:** React SPA + two independent Laravel backend services. Local verification is recorded per milestone; no release or hosted-CI claim.
 
 ## Architecture
 
@@ -49,6 +49,8 @@ See [Windows + XAMPP setup](docs/development/setup.md) for required PHP/Node ver
 ## Docs and collaboration
 
 M2 work is tracked in the [architecture](docs/architecture/milestone-2.md), [checklist](docs/development/milestone-2-checklist.md) and [M2.5 report](docs/development/m2.5-report.md). M2.6 release acceptance remains pending. Library/Collections/Ratings/Reviews/Profiles and [movie experience contracts](docs/api/movie-experience.md) document the current implementation. Deploy M2.5 with its additive Core bio migration and configured GD/EXIF plus persistent avatar storage; Catalog needs no change. See setup for earlier migrations when upgrading from an older baseline.
+
+M3.0 proposals are in the [architecture](docs/architecture/milestone-3.md), [schema](docs/database/milestone-3-schema.md), [API contracts](docs/api/milestone-3-contracts.md), [frontend plan](docs/architecture/milestone-3-frontend.md), [decision](docs/decisions/0003-m3-trust-and-recommendations.md), and [M3 checklist](docs/development/milestone-3-checklist.md). Administration, moderation, reports and recommendations are planned for M3.1–M3.3 and are not implemented by M3.0.
 
 - [System overview](docs/architecture/system-overview.md) · [Core/Catalog responsibilities](docs/architecture/backend.md) · [Microservices](docs/architecture/microservices.md)
 - [API contracts](docs/api/contracts.md) · [DB schema](docs/database/schema.md) · [Frontend architecture](docs/architecture/frontend.md) · [Design system](docs/design/design-system.md)

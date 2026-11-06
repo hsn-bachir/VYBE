@@ -2,6 +2,8 @@
 
 **Status:** Team-approved Milestone 1 target (two independent Laravel services); authentication and movie discovery are implemented; release acceptance remains pending. The rubric rewards microservices, but the instructor has not specified a minimum topology or deployment demonstration.
 
+This is a historical M1 overview. M2.1–M2.5 user-generated features are implemented in the checked-out source; use the [M2 architecture](milestone-2.md) for current behavior and the [M3 proposal](milestone-3.md) for future administration and recommendations. M2.6 release acceptance remains unchecked in the M2 checklist.
+
 ## Context
 
 ```mermaid

@@ -27,7 +27,7 @@ class AvatarService
         }
         try {
             $old = DB::transaction(function () use ($user, $path): ?string {
-                $current = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+                $current = AccountAccess::lock($user);
                 $old = $current->getRawOriginal('avatar_url');
                 $current->avatar_url = '/'.$path;
                 $current->save();
@@ -44,7 +44,7 @@ class AvatarService
     public function remove(User $user): void
     {
         $old = DB::transaction(function () use ($user): ?string {
-            $current = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $current = AccountAccess::lock($user);
             $old = $current->getRawOriginal('avatar_url');
             $current->avatar_url = null;
             $current->save();
