@@ -1,0 +1,29 @@
+.moderation-tabs, .moderation-filters { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.25rem 0; }
+.moderation-filters .field { min-width: min(100%, 220px); }
+.moderation-filters input, .moderation-filters select, .report-review-dialog select, .report-review-dialog textarea { width: 100%; min-height: 44px; padding: .65rem .8rem; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-background); color: var(--color-foreground); font: inherit; }
+.moderation-filters input:focus-visible, .moderation-filters select:focus-visible, .report-review-dialog select:focus-visible, .report-review-dialog textarea:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.moderation-review-list { display: grid; gap: 1rem; }
+.moderation-review-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.moderation-review-heading h2 { margin: .25rem 0; font-size: 1.15rem; }
+.moderation-review-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; padding: .8rem 0; }
+.report-review-dialog form { display: grid; gap: 1rem; }
+.report-review-dialog .field { margin: 0; }
+.report-review-dialog textarea { resize: vertical; min-height: 100px; }
+.report-dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .7rem; margin-top: .3rem; }
+@media (max-width: 620px) { .moderation-tabs .button { flex: 1; } .moderation-review-heading { flex-wrap: wrap; } .moderation-filters .field { width: 100%; } }
+.moderation-tabs { margin: .7rem 0; }
+.moderation-tabs .button { min-height: 38px; padding: .4rem .8rem; font-size: .82rem; }
+.moderation-filters { align-items: start; margin: .55rem 0 1rem; }
+.moderation-filters .field { min-width: min(100%, 270px); }
+.moderation-review-body { max-height: min(50vh, 340px); overflow: auto; white-space: pre-wrap; }
+.admin-text-button { border: 0; padding: 0; background: none; color: var(--color-foreground); text-align: left; font: inherit; cursor: pointer; }
+.admin-text-button:hover { color: var(--color-primary); text-decoration: underline; }
+.admin-movie-filter { position: relative; }
+.admin-selected-movie { display: flex; align-items: center; gap: .6rem; margin-top: .4rem; color: var(--color-muted); font-size: .8rem; }
+.admin-selected-movie .button { min-height: 30px; padding: .2rem .5rem; font-size: .75rem; }
+.admin-movie-suggestions { position: absolute; z-index: 5; top: 100%; left: 0; width: min(100%, 360px); max-height: 290px; overflow: auto; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); box-shadow: 0 12px 30px color-mix(in srgb, var(--color-background) 70%, transparent); }
+.admin-movie-suggestions p { margin: .45rem .65rem; font-size: .78rem; color: var(--color-muted); }
+.admin-movie-suggestions ul { list-style: none; margin: 0; padding: 0; }
+.admin-movie-suggestions button { width: 100%; border: 0; padding: .55rem .7rem; background: transparent; color: var(--color-foreground); text-align: left; }
+.admin-movie-suggestions button:hover { background: color-mix(in srgb, var(--color-primary) 15%, transparent); }
+.admin-review-dialog { max-width: min(700px, calc(100vw - 2rem)); }

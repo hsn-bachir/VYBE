@@ -24,6 +24,7 @@ class RatingService
         // No HTTP inside the transaction. Unique key + atomic upsert serialize competing writes.
         // The last database writer wins; created_at is preserved, updated_at may advance on repeats.
         return DB::transaction(function () use ($user, $id, $rating): MovieRating {
+            AccountAccess::lock($user, true);
             MovieRating::query()->upsert([['user_id' => $user->getKey(), 'tmdb_id' => $id, 'rating' => $rating]],
                 ['user_id', 'tmdb_id'], ['rating', 'updated_at']);
 
@@ -33,7 +34,10 @@ class RatingService
 
     public function remove(User $user, int $id): void
     {
-        $user->movieRatings()->where('tmdb_id', $id)->delete();
+        DB::transaction(function () use ($user, $id): void {
+            AccountAccess::lock($user, true);
+            $user->movieRatings()->where('tmdb_id', $id)->delete();
+        }, 3);
     }
 
     public function statistics(int $id): array
