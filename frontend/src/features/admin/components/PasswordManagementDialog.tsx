@@ -8,13 +8,12 @@ import { AdminNotice } from './AdminShell'
 export function PasswordManagementDialog({ mode, user, pending, onClose, onChange, onReset, onDone }: {
   mode: 'change' | 'reset'; user: AdminUser; pending: boolean; onClose: () => void
   onChange: (values: PasswordChange) => Promise<void>
-  onReset: (reason: string) => Promise<ResetDelivery>
+  onReset: (reason?: string) => Promise<ResetDelivery>
   onDone: (message: string) => void
 }) {
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
-  const [reason, setReason] = useState('')
   const [failure, setFailure] = useState('')
   const [fields, setFields] = useState<Record<string, string[]>>({})
   const submitting = useRef(false)
@@ -25,11 +24,11 @@ export function PasswordManagementDialog({ mode, user, pending, onClose, onChang
     setFailure(''); setFields({})
     try {
       if (mode === 'change') {
-        await onChange({ admin_current_password: adminPassword, password, password_confirmation: confirmation, reason })
+        await onChange({ admin_current_password: adminPassword, password, password_confirmation: confirmation })
         setPassword(''); setConfirmation(''); setAdminPassword('')
         onDone('Password changed. Existing sessions for this account were revoked.')
       } else {
-        const delivery = await onReset(reason)
+        const delivery = await onReset()
         onDone(delivery === 'accepted' ? 'The mail service accepted the reset link. Inbox delivery is not guaranteed.'
           : 'A reset link was created, but email delivery was not confirmed. You can try again after the cooldown.')
       }
@@ -49,9 +48,9 @@ export function PasswordManagementDialog({ mode, user, pending, onClose, onChang
         <Input label="Confirm new password" name="password_confirmation" type="password" value={confirmation} onChange={event => setConfirmation(event.target.value)} error={fields.password_confirmation?.[0]} autoComplete="new-password" required disabled={pending} />
         <Input label="Your administrator password" name="admin_current_password" type="password" value={adminPassword} onChange={event => setAdminPassword(event.target.value)} error={fields.admin_current_password?.[0]} autoComplete="current-password" required disabled={pending} />
       </>}
-      <div className="field"><label htmlFor="password-reason">Reason</label><textarea id="password-reason" value={reason} onChange={event => setReason(event.target.value)} maxLength={1000} required disabled={pending} aria-invalid={!!fields.reason} aria-describedby={fields.reason ? 'password-reason-error' : undefined} />{fields.reason && <p id="password-reason-error" className="field-error">{fields.reason[0]}</p>}</div>
+      {fields.reason && <p className="field-error">{fields.reason[0]}</p>}
       {failure && <AdminNotice error>{failure}</AdminNotice>}
-      <div className="admin-dialog-actions"><Button type="button" disabled={pending} onClick={onClose}>Cancel</Button><Button className="primary" type="submit" disabled={pending || !reason.trim()}>{pending ? 'Processing…' : mode === 'change' ? 'Change password' : 'Send reset link'}</Button></div>
+      <div className="admin-dialog-actions"><Button type="button" disabled={pending} onClick={onClose}>Cancel</Button><Button className="primary" type="submit" disabled={pending}>{pending ? 'Processing…' : mode === 'change' ? 'Change password' : 'Send reset link'}</Button></div>
     </form>
   </Dialog>
 }

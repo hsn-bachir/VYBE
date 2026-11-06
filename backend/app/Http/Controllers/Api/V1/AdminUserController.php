@@ -85,7 +85,7 @@ class AdminUserController extends Controller
     public function password(ChangeUserPasswordRequest $request)
     {
         $values = $request->validated();
-        $this->users->password($request->user(), (int) $values['id'], $values['admin_current_password'], $values['password'], $values['reason']);
+        $this->users->password($request->user(), (int) $values['id'], $values['admin_current_password'], $values['password'], $values['reason'] ?? null);
         return response()->noContent()->header('Cache-Control', 'no-store, private');
     }
 

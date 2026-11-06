@@ -58,6 +58,15 @@ M3.0 documentation, M3.1A foundation and M3.1B user management are delivered loc
 - [ ] Add Home section, owner-scoped queries, invalidation, guest/cold-start/loading/error/stale states and responsive accessible cards.
 - [ ] Test positive/negative weights, ties, duplicates, missing data, large libraries, cache/write race, user isolation, network call limits and outage; run browser and real-service checks without invented provider data.
 
+## M3.2.5 — performance and administration UX
+
+- [x] Capture a local development performance baseline and identify auth gating, Core-to-Catalog latency and admin density problems.
+- [x] Show public page shells during auth checks while preserving protected-route checks; keep verification success fresh.
+- [x] Add real admin aggregates, scoped review views, compact previews, full review inspection and batched movie titles.
+- [x] Refactor all seven administration pages with compact navigation/tables, mobile states, filters and simplified reason forms.
+- [x] Preserve session/CSRF/role/audit semantics and test Core SQLite plus frontend unit/browser fixtures at 375/768/1440 px.
+- [ ] Run isolated MySQL EXPLAIN/migration and live authenticated browser-action timing when disposable services are available; complete hosted CI and human review.
+
 ## Release and open decisions
 
 - [ ] Confirm hard-deletion/audit/report retention and avatar cache implications with the project owner before production deletion.

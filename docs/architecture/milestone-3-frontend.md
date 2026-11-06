@@ -1,5 +1,13 @@
 # M3 frontend integration — moderation screens implemented; recommendations proposed
 
+## M3.2.5 current administration UI
+
+All seven implemented routes (`/admin`, `/admin/users`, `/admin/users/:id`, `/admin/reports`, `/admin/reports/:id`, `/admin/reviews`, `/admin/actions`) use the shared compact AdminShell. The desktop sidebar stays visible during scroll; the mobile navigation collapses into a keyboard-operable `<details>` menu. Overview reads server aggregates. User, report, review and action history pages show bounded server-paginated tables, mobile rows, loading skeletons, empty/error states and focused actions. User details group account information, access, password controls and recent administrative history.
+
+Review management defaults to URL-backed Needs Attention, with Actioned and All Reviews plus an Actioned subtype filter. The movie filter debounces existing Core movie search by 300 ms, takes a suggestion's TMDB ID internally and displays the chosen title. Table movie titles are hydrated through one admin summary batch per page and fall back to `Movie #id` during metadata failure. List requests use `compact=1`; the inspect dialog fetches full review text only on demand. Review actions close their menu before opening the confirmation dialog. Punitive hide and account sanction dialogs show required reason fields; routine actions do not fabricate reasons.
+
+Private keys remain owner-scoped under `['admin', ownerId, ...]`; new keys cover `overview`, `movie-summaries`, individual `review`, and URL-backed filter objects. Existing auth-change cancellation and admin invalidation are reused. A confirmed moderation write invalidates current-account admin views plus the affected movie's review state; unrelated ratings, discovery and library queries remain untouched. Public Home/Discover render during the auth check; the verified-email success route explicitly refreshes auth. Existing React Bits rating and cinematic motion components remain intact.
+
 ## M3.2 current implementation
 
 Movie Details reuses `ReviewCard`, `Dialog`, the shared Axios client and auth/access hooks to offer Report on another author's visible review only to a verified active account. The dialog explains that submitting a report does not remove content, validates a reason and optional 1000-character description, keeps input after a failed request, and distinguishes new from duplicate server-confirmed reports. Owner editing initializes from `author_contains_spoilers`, so a moderator-enforced flag is not copied into the author's own toggle. A hidden owner review is labelled clearly in the personal panel.

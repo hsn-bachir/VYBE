@@ -38,7 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 if (in_array($response->getStatusCode(), [419, 429], true)) return response()->json([
                     'message' => $response->getStatusCode() === 419 ? 'CSRF token mismatch.' : 'Too many requests.',
                 ], $response->getStatusCode(), $response->headers->all())->header('Cache-Control', 'no-store, private');
-                if ($response->getStatusCode() >= 500) return response()->json([
+                if ($response->getStatusCode() >= 500 && ! $e instanceof CatalogFailure) return response()->json([
                     'message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR',
                 ], 500)->header('Cache-Control', 'no-store, private');
             }

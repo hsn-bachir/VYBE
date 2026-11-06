@@ -53,7 +53,7 @@ class AdminUserService
         }
     }
 
-    public function role(User $actor, int $id, string $role, string $reason): User
+    public function role(User $actor, int $id, string $role, ?string $reason): User
     {
         return $this->change($actor, $id, function (User $target) use ($actor, $role, $reason): void {
             if ($target->id === $actor->id || $target->role === User::ROLE_ADMIN) $this->conflict('Administrator roles cannot be changed here.');
@@ -66,7 +66,7 @@ class AdminUserService
         });
     }
 
-    public function status(User $actor, int $id, string $status, string $reason): User
+    public function status(User $actor, int $id, string $status, ?string $reason): User
     {
         return $this->change($actor, $id, function (User $target, $admins) use ($actor, $status, $reason): void {
             if ($target->id === $actor->id && $status !== User::STATUS_ACTIVE) $this->conflict('You cannot change your own account to this status.');
@@ -82,7 +82,7 @@ class AdminUserService
         });
     }
 
-    public function password(User $actor, int $id, string $adminPassword, string $password, string $reason): void
+    public function password(User $actor, int $id, string $adminPassword, string $password, ?string $reason): void
     {
         $target = $this->change($actor, $id, function (User $target, $admins) use ($actor, $adminPassword, $password, $reason): void {
             $this->assertPasswordTarget($actor, $target);
@@ -106,7 +106,7 @@ class AdminUserService
         }
     }
 
-    public function initiatePasswordReset(User $actor, int $id, string $reason): string
+    public function initiatePasswordReset(User $actor, int $id, ?string $reason): string
     {
         $token = '';
         $target = $this->change($actor, $id, function (User $target) use ($actor, $reason, &$token): void {

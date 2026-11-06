@@ -41,7 +41,7 @@ class ModerationService
         }
     }
 
-    public function resolve(User $actor, int $id, string $action, string $reason): Report
+    public function resolve(User $actor, int $id, string $action, ?string $reason): Report
     {
         return DB::transaction(function () use ($actor, $id, $action, $reason): Report {
             $current = $this->actor($actor);
@@ -67,7 +67,7 @@ class ModerationService
         }, 3);
     }
 
-    public function dismiss(User $actor, int $id, string $reason): Report
+    public function dismiss(User $actor, int $id, ?string $reason): Report
     {
         return DB::transaction(function () use ($actor, $id, $reason): Report {
             $current = $this->actor($actor);
@@ -81,7 +81,7 @@ class ModerationService
         }, 3);
     }
 
-    public function changeReview(User $actor, int $id, string $field, mixed $value, string $reason): Review
+    public function changeReview(User $actor, int $id, string $field, mixed $value, ?string $reason): Review
     {
         return DB::transaction(function () use ($actor, $id, $field, $value, $reason): Review {
             $current = $this->actor($actor);
@@ -107,7 +107,7 @@ class ModerationService
         return $current;
     }
 
-    private function audit(User $actor, string $action, string $type, int $id, string $reason, array $details): void
+    private function audit(User $actor, string $action, string $type, int $id, ?string $reason, array $details): void
     {
         AdministrativeAction::query()->create(['actor_id' => $actor->id, 'action' => $action,
             'target_type' => $type, 'target_id' => $id, 'reason' => $reason,

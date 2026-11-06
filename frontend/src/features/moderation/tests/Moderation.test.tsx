@@ -28,7 +28,7 @@ function screen(path: string, item: Report = report, status: 'active' | 'restric
   client.setQueryData(accessKey(actor.id), { role: 'moderator', account_status: status })
   client.setQueryData(moderationKeys.reports(actor.id, { page: 1, per_page: 20, status: 'pending' }), { data: [item], meta })
   client.setQueryData(moderationKeys.report(actor.id, item.id), item)
-  client.setQueryData(moderationKeys.reviews(actor.id, { page: 1, per_page: 20, visibility: '', tmdb_id: '' }), { data: [review], meta })
+  client.setQueryData(moderationKeys.reviews(actor.id, { page: 1, per_page: 20, scope: 'needs_attention', actioned_type: '', visibility: '', tmdb_id: '' }), { data: [{ ...review, body_preview: 'A reported review' }], meta })
   return renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Routes>
     <Route element={<Outlet context={{ role: 'moderator', account_status: status }} />}>
       <Route path="/admin/reports" element={<ReportsPage />} /><Route path="/admin/reports/:id" element={<ReportDetailsPage />} />
@@ -38,9 +38,9 @@ function screen(path: string, item: Report = report, status: 'active' | 'restric
 }
 
 it('shows report action for another author and clear dialog copy', () => {
-  const card = renderToStaticMarkup(<ReviewCard review={{ ...review, author: { ...review.author!, avatar_url: null } }} onReport={() => {}} />)
+  const card = renderToStaticMarkup(<ReviewCard review={{ ...review, body: review.body ?? '', author: { ...review.author!, avatar_url: null } }} onReport={() => {}} />)
   expect(card).toContain('Report review by writer')
-  const dialog = renderToStaticMarkup(<QueryClientProvider client={new QueryClient()}><ReportReviewDialog review={{ ...review, author: { ...review.author!, avatar_url: null } }} owner={8} onClose={() => {}} onDone={() => {}} /></QueryClientProvider>)
+  const dialog = renderToStaticMarkup(<QueryClientProvider client={new QueryClient()}><ReportReviewDialog review={{ ...review, body: review.body ?? '', author: { ...review.author!, avatar_url: null } }} owner={8} onClose={() => {}} onDone={() => {}} /></QueryClientProvider>)
   expect(dialog).toContain('does not automatically remove a review')
   expect(dialog).toContain('Unmarked spoilers')
 })
@@ -66,7 +66,7 @@ it('uses bounded cancellable reads and CSRF before writes', async () => {
   const post = vi.spyOn(api, 'post').mockResolvedValue({ data: { data: { id: 4, status: 'pending' } }, status: 201 })
   const signal = new AbortController().signal
   await reports({ page: 2, per_page: 20, status: 'pending' }, signal)
-  expect(get).toHaveBeenCalledWith('/api/v1/admin/reports', { params: { page: 2, per_page: 20, status: 'pending' }, signal })
+  expect(get).toHaveBeenCalledWith('/api/v1/admin/reports', { params: { page: 2, per_page: 20, status: 'pending', compact: 1 }, signal })
   expect(await submitReport(550, 12, { reason: 'spoiler' }, () => true)).toEqual({ report: { id: 4, status: 'pending' }, created: true })
   expect(post).toHaveBeenCalledWith('/api/v1/movies/550/reviews/12/reports', { reason: 'spoiler' })
   post.mockResolvedValueOnce({ data: { data: { id: 4, status: 'pending' } }, status: 200 })

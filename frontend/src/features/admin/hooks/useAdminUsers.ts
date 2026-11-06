@@ -83,7 +83,7 @@ export function useChangeAdminPassword(owner: number) {
 export function useSendAdminPasswordReset(owner: number) {
   const client = useQueryClient()
   const current = () => client.getQueryData<User | null>(authKey)?.id === owner
-  const result = useMutation({ retry: false, mutationFn: ({ id, reason }: { id: number; reason: string }) => sendAdminPasswordReset(id, reason, current) })
+  const result = useMutation({ retry: false, mutationFn: ({ id, reason }: { id: number; reason?: string }) => sendAdminPasswordReset(id, reason, current) })
   useAdminAccessError(result.error, owner)
   return result
 }
