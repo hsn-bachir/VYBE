@@ -3,8 +3,8 @@ import { authenticate, currentUser, logout } from '../api/authApi'
 import type { Credentials, Registration, User } from '../types/auth.types'
 
 export const authKey = ['auth', 'me'] as const
-export function useAuth() {
-  return useQuery({ queryKey: authKey, queryFn: ({ signal }) => currentUser(signal), retry: false, staleTime: 0 })
+export function useAuth(staleTime = 5_000) {
+  return useQuery({ queryKey: authKey, queryFn: ({ signal }) => currentUser(signal), retry: false, staleTime })
 }
 
 export function useAuthenticate(mode: 'login' | 'register') {

@@ -26,7 +26,7 @@ class AdminUserRequest extends FormRequest
         } elseif ($this->isMethod('GET') && is_string($this->query('q'))) {
             $this->query->set('q', Str::lower(Str::trim($this->query('q'))));
         } elseif ($this->isMethod('PUT') && is_string($this->input('reason'))) {
-            $this->merge(['reason' => Str::trim($this->input('reason'))]);
+            $this->merge(['reason' => Str::trim($this->input('reason')) ?: null]);
         }
     }
 
@@ -53,7 +53,7 @@ class AdminUserRequest extends FormRequest
         if ($this->isMethod('PUT')) return $id + [
             'role' => str_ends_with($this->path(), '/role') ? ['required', Rule::in([User::ROLE_USER, User::ROLE_MODERATOR])] : ['prohibited'],
             'account_status' => str_ends_with($this->path(), '/status') ? ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_RESTRICTED, User::STATUS_BANNED, User::STATUS_DEACTIVATED])] : ['prohibited'],
-            'reason' => ['required', 'string', 'min:1', 'max:1000'],
+            'reason' => ['nullable', Rule::requiredIf(str_ends_with($this->path(), '/status') && $this->input('account_status') !== User::STATUS_ACTIVE), 'string', 'min:1', 'max:1000'],
         ];
         return $id;
     }

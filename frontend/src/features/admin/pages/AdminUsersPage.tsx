@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { adminError } from '../api/adminUsersApi'
@@ -18,6 +18,7 @@ const statuses = ['', 'active', 'restricted', 'banned', 'deactivated'] as const
 const label = (value: string) => value ? value[0].toUpperCase() + value.slice(1) : 'All'
 export default function AdminUsersPage() {
   const access = useOutletContext<Access>()
+  const navigate = useNavigate()
   const auth = useAuth()
   const client = useQueryClient()
   const create = useCreateAdminUser(auth.data?.id ?? 0)
@@ -58,11 +59,11 @@ export default function AdminUsersPage() {
       <div className="field"><label htmlFor="admin-status">Status</label><select id="admin-status" value={filters.account_status} onChange={e => change('account_status', e.target.value)}>{statuses.map(status => <option key={status} value={status}>{status ? label(status) : 'All statuses'}</option>)}</select></div>
     </div>
     {filters.q && filters.q.length < 3 ? <AdminNotice>Enter at least 3 characters to search.</AdminNotice>
-      : query.isPending ? <AdminNotice>Loading users…</AdminNotice>
+      : query.isPending ? <div className="admin-table-wrap" role="status" aria-label="Loading users"><div className="admin-skeleton-row skeleton" /><div className="admin-skeleton-row skeleton" /><div className="admin-skeleton-row skeleton" /></div>
       : query.isError ? <div><AdminNotice error>{adminError(query.error).message}</AdminNotice><Button onClick={() => void query.refetch()}>Try again</Button></div>
       : !query.data?.data.length ? <AdminNotice>No accounts match these filters.</AdminNotice>
       : <><div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th><th>Action</th></tr></thead><tbody>
-        {query.data.data.map(user => <tr key={user.id}><td data-label="User"><strong>{user.username}</strong><small>#{user.id}</small>{user.invitation_pending && <small>Invitation pending</small>}</td><td data-label="Email" className="admin-email">{user.email}</td><td data-label="Role"><AccountBadge value={user.role} /></td><td data-label="Status"><AccountBadge value={user.account_status} /></td><td data-label="Joined">{new Date(user.created_at).toLocaleDateString()}</td><td data-label="Action"><Link className="button" to={`/admin/users/${user.id}`}>Manage</Link></td></tr>)}
+        {query.data.data.map(user => <tr key={user.id} className="admin-clickable-row" onClick={event => { if (!(event.target instanceof Element && event.target.closest('a, button, details, summary'))) navigate(`/admin/users/${user.id}`) }}><td data-label="User"><strong><Link to={`/admin/users/${user.id}`}>@{user.username}</Link></strong><small>#{user.id}{user.invitation_pending ? ' · Invitation pending' : ''}</small></td><td data-label="Email" className="admin-email">{user.email}</td><td data-label="Role"><AccountBadge value={user.role} /></td><td data-label="Status"><AccountBadge value={user.account_status} /></td><td data-label="Joined">{new Date(user.created_at).toLocaleDateString()}</td><td data-label="Actions"><details className="admin-action-menu"><summary>Actions</summary><div><Link to={`/admin/users/${user.id}`}>View details</Link><Link to={`/admin/users/${user.id}`} state={{ action: 'edit' }}>Edit account</Link>{user.role !== 'admin' && <Link to={`/admin/users/${user.id}`} state={{ action: 'role' }}>Change role</Link>}<Link to={`/admin/users/${user.id}`} state={{ action: 'status' }}>{user.account_status === 'active' ? 'Change status' : 'Restore account'}</Link>{!user.invitation_pending && user.role !== 'admin' && <Link to={`/admin/users/${user.id}`} state={{ action: 'password' }}>Manage password</Link>}</div></details></td></tr>)}
       </tbody></table></div><div className="admin-pagination"><span>Page {filters.page} of {query.data.meta.total_pages} · {query.data.meta.total_results} accounts</span><div><Button disabled={filters.page <= 1} onClick={() => page(filters.page - 1)}>Previous</Button><Button disabled={filters.page >= query.data.meta.total_pages} onClick={() => page(filters.page + 1)}>Next</Button></div></div></>}
     {creating && <CreateUserDialog onClose={() => setCreating(false)} pending={create.isPending} onCreate={values => create.mutateAsync(values)} onDone={result => {
       if (client.getQueryData<User | null>(authKey)?.id !== auth.data?.id) return

@@ -12,7 +12,7 @@ class ChangeUserPasswordRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if (is_string($this->input('reason'))) $this->merge(['reason' => trim($this->input('reason'))]);
+        if (is_string($this->input('reason'))) $this->merge(['reason' => trim($this->input('reason')) ?: null]);
     }
 
     public function validationData(): array
@@ -27,7 +27,7 @@ class ChangeUserPasswordRequest extends FormRequest
             'admin_current_password' => ['required', 'string'],
             'password' => AccountPasswordRules::rules(),
             'password_confirmation' => ['required', 'string'],
-            'reason' => ['required', 'string', 'min:1', 'max:1000'],
+            'reason' => ['nullable', 'string', 'min:1', 'max:1000'],
         ];
     }
 

@@ -11,7 +11,7 @@ class SendPasswordResetRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if (is_string($this->input('reason'))) $this->merge(['reason' => trim($this->input('reason'))]);
+        if (is_string($this->input('reason'))) $this->merge(['reason' => trim($this->input('reason')) ?: null]);
     }
 
     public function validationData(): array
@@ -23,7 +23,7 @@ class SendPasswordResetRequest extends FormRequest
     {
         return [
             'id' => ['required', 'regex:/^[1-9][0-9]*$/D', 'integer', 'between:1,2147483647'],
-            'reason' => ['required', 'string', 'min:1', 'max:1000'],
+            'reason' => ['nullable', 'string', 'min:1', 'max:1000'],
         ];
     }
 

@@ -1,4 +1,18 @@
-# M3 API contracts — access, admin user management, invitations and password management implemented
+# M3 API contracts — implemented access, account management and moderation; recommendations proposed
+
+## M3.2.5 current admin contract (2026-11-06)
+
+This section supersedes older reason requirements and list descriptions below. All paths are relative to `/api/v1`. Existing Sanctum session, email verification, live role/state checks, CSRF on writes, admin throttles, private `no-store` responses, transaction locks and audit rules remain in force. Moderators may read operational and moderation data; only administrators receive user counts or user-management access. Restricted privileged accounts may read but cannot mutate.
+
+| Endpoint | Current request and response |
+| --- | --- |
+| `GET /admin/overview` | No query or body fields. Returns `data` with real `pending_reports`, `handled_reports`, `hidden_reviews`, `enforced_spoilers`, and at most five `recent_reports`. Administrators also receive `users:{total,restricted,banned,deactivated}`; moderators do not. |
+| `GET /admin/reports` | Adds `status=all`, `target_id` and `compact=1` to the existing bounded page/status filters. Default remains pending, ordered oldest first. `compact=1` omits the nested full review body and supplies a bounded `body_preview`. Report detail still returns full available review content. |
+| `GET /admin/reviews` | Adds `scope=needs_attention\|actioned\|all`, `actioned_type=hidden\|spoiler` and `compact=1` to the existing bounded filters. Omitting `scope` preserves the earlier all-reviews API behavior; the UI explicitly selects Needs Attention by default. `needs_attention` means at least one pending report; `actioned` means hidden or moderator spoiler enforced. Each row includes `pending_report_count` and a bounded `body_preview`. `compact=1` omits `body`; full review is available through `GET /admin/reviews/{id}`. |
+| `GET /admin/movie-summaries` | `tmdb_ids[]=...` accepts 1–50 distinct canonical positive TMDB IDs. Reuses Core's authenticated Catalog batch client and existing summary envelope. Missing titles appear in `meta.missing_tmdb_ids`; Catalog failure is a safe 503. No per-row or browser-to-Catalog request. |
+| `GET /admin/actions` | Existing bounded list accepts optional `target_type` and `target_id`. Moderator action-type filtering remains server-side. |
+
+Routine admin writes now accept an omitted, null or blank-trimmed reason and audit `reason:null`: role assignment/revocation, restoration to active, spoiler marking/clearing, review restoration, report dismissal or spoiler resolution, direct password change, and password-reset initiation. Valid supplied reasons remain accepted for existing clients. Account restriction/ban/deactivation and review hiding (directly or by resolving a report with `action=hide`) still require a 1–1000 character trimmed reason. Username/email editing and invitation resend have no reason field. Password changes still require the acting administrator's current password and retain existing session/token revocation safeguards. Audit actor/action/target/timestamp/transition data are written on every actual successful mutation; idempotent no-ops do not add audit rows.
 
 ## M3.1C implemented contract
 

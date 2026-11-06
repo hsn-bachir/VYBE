@@ -7,7 +7,7 @@ import { useLogout } from '../hooks/useAuth'
 import axios from 'axios'
 import { accessDestination, canEnterAdmin } from './access'
 
-export function AuthStatus({ children }: { children: React.ReactNode }) {
+export function AuthStatus({ children, allowPending = false }: { children: React.ReactNode; allowPending?: boolean }) {
   const auth = useAuth()
   const logout = useLogout()
   const [retrying, setRetrying] = useState(false)
@@ -15,7 +15,7 @@ export function AuthStatus({ children }: { children: React.ReactNode }) {
     setRetrying(true)
     try { await auth.refetch() } finally { setRetrying(false) }
   }
-  if (auth.isPending && !retrying) return <div className="status" role="status">Checking your session…</div>
+  if (auth.isPending && !retrying && !allowPending) return <div className="status" role="status">Checking your session…</div>
   if (auth.isError && axios.isAxiosError(auth.error) && auth.error.response?.status === 403) {
     const code = auth.error.response.data?.code
     return <div className="status" role="alert"><h1>Account unavailable</h1><p>{code === 'ACCOUNT_BANNED' ? 'This account is banned.' : code === 'ACCOUNT_DEACTIVATED' ? 'This account is deactivated.' : 'This account cannot access VYBE.'}</p><Button disabled={logout.isPending} onClick={() => logout.mutate()}>Sign out</Button></div>
@@ -60,5 +60,7 @@ export function GuestOnly() {
 export function PublicOrVerified() {
   const auth = useAuth()
   const destination = accessDestination(auth.data ?? null, false)
-  return <AuthStatus>{destination ? <Navigate to={destination} replace /> : <Outlet />}</AuthStatus>
+  // Public routes can render while the session check runs. Private children keep
+  // their own RequireAuth guard and never use a pending identity for access.
+  return <AuthStatus allowPending>{destination ? <Navigate to={destination} replace /> : <Outlet />}</AuthStatus>
 }

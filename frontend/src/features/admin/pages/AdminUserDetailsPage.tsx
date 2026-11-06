@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useOutletContext, useParams } from 'react-router-dom'
+import { Link, useLocation, useOutletContext, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../../../components/ui/Button'
 import { Dialog } from '../../../components/ui/Dialog'
@@ -11,6 +11,7 @@ import type { User } from '../../auth/types/auth.types'
 import type { AccountStatus, AdminUser, UserChange } from '../api/adminUsersApi'
 import { AccountBadge, AdminNotice, AdminShell } from '../components/AdminShell'
 import { PasswordManagementDialog } from '../components/PasswordManagementDialog'
+import { useModerationActions } from '../../moderation/hooks/useModeration'
 import { useAdminUser, useAdminUserChange, useChangeAdminPassword, useResendAdminInvitation, useSendAdminPasswordReset } from '../hooks/useAdminUsers'
 
 type Mode = 'edit' | 'role' | 'status'
@@ -32,8 +33,8 @@ function ChangeDialog({ mode, user, onClose, onDone, change, pending }: {
     setFailure(''); setFields({})
     try {
       const operation: UserChange = mode === 'edit' ? { kind: 'edit', id: user.id, values: { username, email } }
-        : mode === 'role' ? { kind: 'role', id: user.id, values: { role, reason } }
-          : { kind: 'status', id: user.id, values: { account_status: status, reason } }
+        : mode === 'role' ? { kind: 'role', id: user.id, values: { role } }
+          : { kind: 'status', id: user.id, values: { account_status: status, ...(status !== 'active' ? { reason: reason.trim() } : {}) } }
       await change(operation)
       onDone(mode === 'edit' ? 'Account details saved.' : mode === 'role' ? 'Role updated.' : 'Account status updated.')
     } catch (error) {
@@ -51,25 +52,28 @@ function ChangeDialog({ mode, user, onClose, onDone, change, pending }: {
         {email.trim().toLowerCase() !== user.email && <p className="admin-hint">Changing email clears verification and signs out this account until it verifies the new address.</p>}
       </> : mode === 'role' ? <div className="field"><label htmlFor="change-role">New role</label><select id="change-role" value={role} onChange={e => setRole(e.target.value as 'user' | 'moderator')}><option value="user">User</option><option value="moderator">Moderator</option></select></div>
         : <><div className="field"><label htmlFor="change-status">New status</label><select id="change-status" value={status} onChange={e => setStatus(e.target.value as AccountStatus)}>{statuses.map(value => <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}</select></div><p className="admin-hint">{status === 'active' ? 'Restoring access allows this account to sign in again.' : status === 'restricted' ? 'The account keeps personal library access but cannot write community content.' : 'The account loses authenticated VYBE access. Existing movies and reviews remain.'}</p></>}
-      {mode !== 'edit' && <div className="field"><label htmlFor="change-reason">Reason</label><textarea id="change-reason" value={reason} onChange={e => setReason(e.target.value)} maxLength={1000} required aria-invalid={!!fields.reason} aria-describedby={fields.reason ? 'change-reason-error' : undefined} />{fields.reason && <p id="change-reason-error" className="field-error">{fields.reason[0]}</p>}</div>}
+      {mode === 'status' && status !== 'active' && <div className="field"><label htmlFor="change-reason">Reason for account sanction</label><textarea id="change-reason" value={reason} onChange={e => setReason(e.target.value)} maxLength={1000} required aria-invalid={!!fields.reason} aria-describedby={fields.reason ? 'change-reason-error' : undefined} />{fields.reason && <p id="change-reason-error" className="field-error">{fields.reason[0]}</p>}</div>}
       {failure && <AdminNotice error>{failure}</AdminNotice>}
-      <div className="admin-dialog-actions"><Button type="button" disabled={pending} onClick={onClose}>Cancel</Button><Button className="primary" type="submit" disabled={pending || (mode !== 'edit' && !reason.trim())}>{pending ? 'Saving…' : mode === 'edit' ? 'Save changes' : mode === 'role' ? 'Confirm role' : 'Confirm status'}</Button></div>
+      <div className="admin-dialog-actions"><Button type="button" disabled={pending} onClick={onClose}>Cancel</Button><Button className="primary" type="submit" disabled={pending || (mode === 'status' && status !== 'active' && !reason.trim())}>{pending ? 'Saving…' : mode === 'edit' ? 'Save changes' : mode === 'role' ? 'Confirm role' : status === 'active' ? 'Restore account' : 'Confirm status'}</Button></div>
     </form>
   </Dialog>
 }
 export default function AdminUserDetailsPage() {
   const { id } = useParams()
+  const location = useLocation()
   const targetId = id && /^[1-9][0-9]*$/.test(id) && Number(id) <= 2147483647 ? Number(id) : 0
   const auth = useAuth()
   const access = useOutletContext<Access>()
   const client = useQueryClient()
   const query = useAdminUser(auth.data?.id ?? 0, targetId)
+  const history = useModerationActions(auth.data?.id ?? 0, 1, { target_type: 'user', target_id: String(targetId) })
   const mutation = useAdminUserChange(auth.data?.id ?? 0)
   const resend = useResendAdminInvitation(auth.data?.id ?? 0)
   const passwordChange = useChangeAdminPassword(auth.data?.id ?? 0)
   const passwordReset = useSendAdminPasswordReset(auth.data?.id ?? 0)
-  const [mode, setMode] = useState<Mode | null>(null)
-  const [passwordMode, setPasswordMode] = useState<'change' | 'reset' | null>(null)
+  const initialAction: unknown = location.state?.action
+  const [mode, setMode] = useState<Mode | null>(initialAction === 'edit' || initialAction === 'role' || initialAction === 'status' ? initialAction : null)
+  const [passwordMode, setPasswordMode] = useState<'change' | 'reset' | null>(initialAction === 'password' ? 'change' : null)
   const [notice, setNotice] = useState('')
   const [noticeError, setNoticeError] = useState(false)
   if (access.role !== 'admin') return <AdminNotice error>Only administrators can manage users.</AdminNotice>
@@ -93,9 +97,12 @@ export default function AdminUserDetailsPage() {
               try { const delivery = await resend.mutateAsync(user.id); if (client.getQueryData<User | null>(authKey)?.id === auth.data?.id) setNotice(delivery === 'accepted' ? 'The mail service accepted the new invitation. The previous link is no longer valid.' : 'A new link was created, but email delivery failed. You can try resending again.') }
               catch (error) { if (client.getQueryData<User | null>(authKey)?.id === auth.data?.id) { setNoticeError(true); setNotice(adminError(error).message) } }
             }}>{resend.isPending ? 'Sending…' : 'Resend invitation'}</Button>}</div></section>
-            <section className="admin-panel"><h2>Access</h2><div className="admin-access-row"><span>Role</span><AccountBadge value={user.role} /></div><div className="admin-access-row"><span>Status</span><AccountBadge value={user.account_status} /></div><p className="admin-hint">Changes take effect on the server. Active sessions for the affected account are revoked.</p><div className="admin-access-actions"><Button disabled={user.role === 'admin' || isSelf || access.account_status !== 'active'} onClick={() => { setNotice(''); setMode('role') }}>Change role</Button><Button disabled={isSelf || access.account_status !== 'active'} onClick={() => { setNotice(''); setMode('status') }}>Change status</Button></div>{user.role === 'admin' && <p className="admin-hint">Administrator roles are managed through trusted server provisioning.</p>}</section>
+            <section className="admin-panel"><h2>Access</h2><div className="admin-access-row"><span>Role</span><AccountBadge value={user.role} /></div><div className="admin-access-row"><span>Status</span><AccountBadge value={user.account_status} /></div><p className="admin-hint">Changes take effect on the server. Active sessions for the affected account are revoked.</p><div className="admin-access-actions"><Button disabled={user.role === 'admin' || isSelf || access.account_status !== 'active'} onClick={() => { setNotice(''); setMode('role') }}>Change role</Button><Button disabled={isSelf || access.account_status !== 'active'} onClick={() => { setNotice(''); setMode('status') }}>{user.account_status === 'active' ? 'Change status' : 'Restore account'}</Button></div>{user.role === 'admin' && <p className="admin-hint">Administrator roles are managed through trusted server provisioning.</p>}</section>
             {canManagePassword && <section className="admin-panel"><h2>Password management</h2><p className="admin-hint">Help this person regain access. A password change signs out their existing sessions; a reset link lets them choose a new password.</p><div className="admin-access-actions"><Button onClick={() => { setNotice(''); setPasswordMode('change') }}>Change password</Button><Button onClick={() => { setNotice(''); setPasswordMode('reset') }}>Send password reset</Button></div></section>}
           </div>
+          <div className="admin-section-heading"><h2>Recent administrative activity</h2><Link to={`/admin/actions?target_type=user&target_id=${user.id}`}>View history</Link></div>
+          {history.isPending ? <AdminNotice>Loading account history…</AdminNotice> : history.isError ? <AdminNotice error>{adminError(history.error).message}</AdminNotice> : !history.data?.data.length ? <AdminNotice>No administrative changes recorded for this account.</AdminNotice>
+            : <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Date</th><th>Action</th><th>Administrator</th><th>Reason</th></tr></thead><tbody>{history.data.data.slice(0, 5).map(item => <tr key={item.id}><td data-label="Date">{new Date(item.created_at).toLocaleString()}</td><td data-label="Action">{item.action.replace(/[._]/g, ' ')}</td><td data-label="Administrator">{item.actor ? `@${item.actor.username}` : 'Deleted account'}</td><td data-label="Reason">{item.reason || '—'}</td></tr>)}</tbody></table></div>}
           {mode && <ChangeDialog key={`${mode}-${user.id}`} mode={mode} user={user} onClose={() => setMode(null)} onDone={done} change={operation => mutation.mutateAsync(operation)} pending={mutation.isPending} />}
           {passwordMode && canManagePassword && <PasswordManagementDialog key={`${passwordMode}-${user.id}`} mode={passwordMode} user={user} onClose={() => setPasswordMode(null)} onDone={done} onChange={values => passwordChange.mutateAsync({ id: user.id, values })} onReset={reason => passwordReset.mutateAsync({ id: user.id, reason })} pending={passwordChange.isPending || passwordReset.isPending} />}
         </>}

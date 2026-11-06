@@ -13,9 +13,9 @@ export type UserFilters = { page: number; per_page: number; q: string; role: Rol
 export type UserPage = { data: AdminUser[]; meta: { page: number; per_page: number; total_pages: number; total_results: number } }
 export type UserChange =
   | { kind: 'edit'; id: number; values: { username?: string; email?: string } }
-  | { kind: 'role'; id: number; values: { role: 'user' | 'moderator'; reason: string } }
-  | { kind: 'status'; id: number; values: { account_status: AccountStatus; reason: string } }
-export type PasswordChange = { admin_current_password: string; password: string; password_confirmation: string; reason: string }
+  | { kind: 'role'; id: number; values: { role: 'user' | 'moderator'; reason?: string } }
+  | { kind: 'status'; id: number; values: { account_status: AccountStatus; reason?: string } }
+export type PasswordChange = { admin_current_password: string; password: string; password_confirmation: string; reason?: string }
 export type ResetDelivery = 'accepted' | 'pending'
 
 const path = '/api/v1/admin/users'
@@ -50,10 +50,10 @@ export async function changeAdminPassword(id: number, values: PasswordChange, is
   if (!isCurrent()) throw new Error('The signed-in account changed. Please sign in again.')
   await api.put(`${path}/${id}/password`, values)
 }
-export async function sendAdminPasswordReset(id: number, reason: string, isCurrent: () => boolean): Promise<ResetDelivery> {
+export async function sendAdminPasswordReset(id: number, reason: string | undefined, isCurrent: () => boolean): Promise<ResetDelivery> {
   await api.get('/sanctum/csrf-cookie')
   if (!isCurrent()) throw new Error('The signed-in account changed. Please sign in again.')
-  return (await api.post<{ data: { reset_delivery: ResetDelivery } }>(`${path}/${id}/password-reset`, { reason })).data.data.reset_delivery
+  return (await api.post<{ data: { reset_delivery: ResetDelivery } }>(`${path}/${id}/password-reset`, reason ? { reason } : {})).data.data.reset_delivery
 }
 export function adminError(error: unknown) {
   if (!axios.isAxiosError(error)) return errorDetails(error)

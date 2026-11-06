@@ -42,11 +42,14 @@ Route::prefix('v1/movies')->withoutMiddleware(EnsureFrontendRequestsAreStateful:
 Route::prefix('v1/admin')->withoutMiddleware(EnsureFrontendRequestsAreStateful::class)
     ->middleware(['web', PreventAuthCaching::class, 'auth:sanctum', EnsureAccountAccess::class,
         EnsureVerifiedAccount::class, EnsureRole::class.':moderator'])->group(function (): void {
+        Route::get('overview', [ModerationController::class, 'overview'])->middleware('throttle:admin-read');
+        Route::get('movie-summaries', [ModerationController::class, 'movieSummaries'])->middleware('throttle:admin-read');
         Route::get('reports', [ModerationController::class, 'reports'])->middleware('throttle:admin-read');
         Route::get('reports/{id}', [ModerationController::class, 'report'])->middleware('throttle:admin-read');
         Route::post('reports/{id}/resolve', [ModerationController::class, 'resolve'])->middleware('throttle:admin-write');
         Route::post('reports/{id}/dismiss', [ModerationController::class, 'dismiss'])->middleware('throttle:admin-write');
         Route::get('reviews', [ModerationController::class, 'reviews'])->middleware('throttle:admin-read');
+        Route::get('reviews/{id}', [ModerationController::class, 'review'])->middleware('throttle:admin-read');
         Route::put('reviews/{id}/visibility', [ModerationController::class, 'visibility'])->middleware('throttle:admin-write');
         Route::put('reviews/{id}/spoiler', [ModerationController::class, 'spoiler'])->middleware('throttle:admin-write');
         Route::get('actions', [ModerationController::class, 'actions'])->middleware('throttle:admin-read');
