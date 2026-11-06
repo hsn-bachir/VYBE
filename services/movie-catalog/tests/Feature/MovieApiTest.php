@@ -88,7 +88,8 @@ class MovieApiTest extends TestCase
         $this->assertDatabaseCount('movies', 1);
         $this->assertNotNull(Movie::first()->metadata_fetched_at);
         Http::assertSentCount(1);
-        Http::assertSent(fn ($request) => $request->url() === 'https://api.themoviedb.org/3/movie/550?language=en-US'
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.themoviedb.org/3/movie/550?')
+            && $request['language'] === 'en-US' && $request['append_to_response'] === 'videos,credits,recommendations'
             && $request->hasHeader('Authorization', 'Bearer test-provider') && ! $request->hasHeader('X-VYBE-Service-Token'));
     }
 

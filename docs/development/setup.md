@@ -121,6 +121,14 @@ On CI, Core and Catalog migrations run independently against isolated MySQL data
 
 ## Troubleshooting
 
+### Library, Save or Create Collection fails
+
+M2.3 ratings likewise require `2026_11_03_000001_create_movie_ratings_table.php` in the normal Core database. Run the existing additive `php artisan migrate` before starting the new Core/frontend; isolated test migrations do not prepare the normal app. PUT must be allowed in cached CORS configuration. MySQL must enforce CHECK constraints (verified MySQL 8.0.43); no new environment variable, dependency or Catalog migration is required.
+
+Tests use disposable databases; passing tests does not migrate your normal local `vybe_core` database. In `backend/`, run `php artisan migrate:status`. If the `2026_10_31_*` or `2026_11_01_*` migrations are pending, apply the existing additive migrations with `php artisan migrate`. Do not use `migrate:fresh` or reset existing data. Missing tables cause HTTP 500 responses, which older frontend feedback described as “Unable to connect.”
+
+Keep all three normal development processes running: Core on `localhost:8000`, Catalog on `localhost:8001`, and Vite on `localhost:5173`. Temporary browser-test servers are separate and do not start the normal app. Use the same `localhost` hostname throughout and refresh the browser after starting services. HTTP 500 feedback now distinguishes a server failure from a network connection failure; inspect local server logs without exposing their contents to users.
+
 ### “We couldn’t check your session”
 
 This is a failed Core session request, not proof that you are signed out. The SPA keeps the current URL and verification guard in place, and offers a retry with pending feedback. Only a genuine `/api/v1/auth/me` 401 is treated as a guest; network errors, timeouts and server failures are not.
@@ -192,3 +200,17 @@ For production, use HTTPS and `SESSION_SECURE_COOKIE=true`, `APP_DEBUG=false`, e
 - Core 503 when movie façade is implemented: check Catalog process, port, token, MySQL, TMDB availability and bounded HTTP timeout.
 - Browser 419 when Sanctum is implemented: consistently use `localhost`, configure `statefulApi`, CORS credentials and cookies; don't disable CSRF to hide the problem.
 - XAMPP database might be MariaDB; verify JSON behavior against CI MySQL 8.0.
+
+### M2.4 reviews migration
+
+Apply the single additive Core migration `2026_11_03_000002_create_reviews_table.php` before using the M2.4 frontend/API: in `backend/`, check `php artisan migrate:status`, then run `php artisan migrate`. This creates reviews without resetting ratings, collections or users. Isolated tests do not migrate the normal application database. No Catalog migration, new environment setting, package or storage setup is needed; existing credentialed POST/PATCH/DELETE CORS and CSRF/session configuration are reused. Never use `migrate:fresh` on normal data.
+
+### M2.5 profiles and avatars
+
+In Core run `php artisan migrate:status`, then the existing additive `php artisan migrate` to apply `2026_11_03_000003_add_bio_to_users_table.php`. It adds nullable bio without resetting users/activity. Do not run migrate:fresh on normal data.
+
+Enable PHP GD with JPEG/PNG/WebP support and EXIF in the PHP configuration used by Core (verify `php -m` and `gd_info()`). Restart all relevant PHP workers after extension changes; stale opcode caches must be cleared/restarted. Local bundled GD/EXIF were enabled and the VYBE PHP servers restarted during verification; CI Core extension setup now declares both. No Composer/npm image package is added. Missing GD support safely disables avatar writes with 503, while profiles/counts remain readable.
+
+Keep APP_URL set to the canonical public Core origin (HTTPS in production). New references stored in users.avatar_url are relative `/avatars/{user_id}/{random32hex}.webp`; API resources use the configured origin, never a client-supplied host. Core stores re-encoded images at `storage/app/public/avatars/...` on its existing public disk. GET `/avatars/{owner}/{filename}` is a constrained controller-served public image route with image/webp/nosniff/CSP/cache headers. It requires no storage:link. Ensure the reverse proxy routes /avatars/* to Core, rather than the SPA, and supports credentialed profile APIs as before.
+
+Persist and back up Core's public disk together with database references across deployments; application workers need read/write permission. Keep directories non-executable and production PHP display_errors off. PHP upload_max_filesize must allow 2 MiB, post_max_size and proxy body limits must allow multipart overhead; application validation still caps the image itself at 2 MiB/2048×2048. GD emits at most 512×512 WebP. Images are public assets; profile email/bio/statistics remain private. Immutable unique URLs avoid stale replacements, but previously cached public image copies are not revoked by removal. Failed obsolete-file cleanup is logged without paths and may require operator housekeeping; no cleanup queue is added.

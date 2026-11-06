@@ -27,4 +27,9 @@ class MovieController extends Controller
     {
         return response()->json($this->catalog->details((int) $request->validated('tmdb_id')));
     }
+
+    public function experience(ShowMovieRequest $request): JsonResponse
+    {
+        return response()->json($this->catalog->experience((int) $request->validated('tmdb_id')));
+    }
 }

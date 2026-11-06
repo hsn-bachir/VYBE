@@ -83,8 +83,13 @@ describe('authentication API and rendering', () => {
     await expect(logout()).rejects.toMatchObject({ response: { status: 419 } })
   })
 
-  it.each([[401, 'Invalid email or password.'], [419, 'Your session expired.'], [429, 'Too many attempts.'], [500, 'Unable to connect.']])('maps %i to safe feedback', (status, message) => {
+  it.each([[401, 'Invalid email or password.'], [419, 'Your session expired.'], [429, 'Too many attempts.'], [500, 'The server could not complete this request.'], [503, 'The service is temporarily unavailable.']])('maps %i to safe feedback', (status, message) => {
     expect(errorDetails(failure(status as number)).message).toContain(message as string)
+  })
+
+  it('distinguishes a network failure from an HTTP server failure without exposing server details', () => {
+    expect(errorDetails({ isAxiosError: true, code: 'ERR_NETWORK' }).message).toContain('Unable to connect.')
+    expect(errorDetails({ isAxiosError: true, response: { status: 500, data: { message: 'SQLSTATE sensitive details' } } }).message).not.toMatch(/Unable to connect|SQLSTATE/)
   })
 
   it('preserves field errors from Laravel validation', () => {
