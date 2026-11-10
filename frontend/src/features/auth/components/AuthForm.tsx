@@ -1,16 +1,21 @@
 import { useState, type FormEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Input } from '../../../components/ui/Input'
 import { Button } from '../../../components/ui/Button'
 import { errorDetails } from '../../../lib/api/client'
-import { useAuthenticate } from '../hooks/useAuth'
+import { storeAuthenticatedUser, useAuthenticate } from '../hooks/useAuth'
+import { firebaseSocialSignIn, type SocialProvider } from '../api/firebaseSocial'
 
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const registering = mode === 'register'
   const mutation = useAuthenticate(mode)
+  const query = useQueryClient()
   const navigate = useNavigate()
   const location = useLocation()
   const [localErrors, setLocalErrors] = useState<Record<string, string[]>>({})
+  const [socialPending, setSocialPending] = useState<SocialProvider | null>(null)
+  const [socialFailure, setSocialFailure] = useState('')
   const error = mutation.error ? errorDetails(mutation.error) : null
   const fields = { ...error?.fields, ...localErrors }
 
@@ -36,6 +41,25 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     } catch { /* Persistent, accessible error shown below. */ }
   }
 
+  async function socialSignIn(provider: SocialProvider) {
+    if (socialPending || mutation.isPending) return
+    setSocialPending(provider); setSocialFailure('')
+    try {
+      const result = await firebaseSocialSignIn(provider)
+      if (result.kind === 'onboarding') {
+        navigate('/auth/social/username')
+        return
+      }
+      await storeAuthenticatedUser(query, result.user)
+      const from = location.state?.from
+      navigate(!result.user.email_verified_at ? '/verify-email' : typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && !/^\/(login|register)/.test(from) ? from : '/', { replace: true })
+    } catch (failure) {
+      setSocialFailure(errorDetails(failure).message)
+    } finally {
+      setSocialPending(null)
+    }
+  }
+
   return <div className="auth-card">
     <p className="eyebrow">{registering ? 'Your next chapter' : 'Good to see you again'}</p>
     <h2>{registering ? 'Create your account' : 'Welcome back'}</h2>
@@ -45,11 +69,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       {registering && <Input name="username" label="Username" autoComplete="username" required minLength={3} maxLength={30} pattern="[A-Za-z0-9_]+" hint="3–30 letters, numbers, or underscores." error={fields.username?.[0]} disabled={mutation.isPending} />}
       <Input name="email" label="Email address" type="email" autoComplete="email" required maxLength={255} error={fields.email?.[0]} disabled={mutation.isPending} />
       <Input name="password" label="Password" type="password" autoComplete={registering ? 'new-password' : 'current-password'} required minLength={registering ? 12 : undefined} maxLength={255} hint={registering ? 'At least 12 characters, including a letter and a number.' : undefined} error={fields.password?.[0]} disabled={mutation.isPending} />
+      {!registering && import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase' && <p className="auth-switch"><Link to="/password/forgot">Forgot password?</Link></p>}
       {registering && <Input name="password_confirmation" label="Confirm password" type="password" autoComplete="new-password" required maxLength={255} error={fields.password_confirmation?.[0]} disabled={mutation.isPending} />}
       <Button type="submit" className="primary w-full" disabled={mutation.isPending}>{mutation.isPending ? 'Please wait…' : registering ? 'Create account' : 'Sign in'}</Button>
     </form>
     <div className="divider">More ways to connect</div>
-    <div className="oauth-options">{['Google', 'GitHub'].map(provider => <Button key={provider} type="button" disabled>{provider}<span>Coming soon</span></Button>)}</div>
+    {socialFailure && <div className="form-error" role="alert">{socialFailure}</div>}
+    <div className="oauth-options">{([['Google', 'google.com'], ['GitHub', 'github.com']] as const).map(([label, provider]) => <Button key={provider} type="button" disabled={import.meta.env.VITE_AUTH_IDENTITY_PROVIDER !== 'firebase' || socialPending !== null || mutation.isPending} onClick={() => void socialSignIn(provider)}>{socialPending === provider ? `Connecting ${label}…` : label}{import.meta.env.VITE_AUTH_IDENTITY_PROVIDER !== 'firebase' && <span>Coming soon</span>}</Button>)}</div>
     <p className="auth-switch">{registering ? 'Already have an account?' : 'New to VYBE?'}{' '}<Link to={registering ? '/login' : '/register'}>{registering ? 'Sign in' : 'Create an account'}</Link></p>
   </div>
 }
