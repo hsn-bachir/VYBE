@@ -5,16 +5,16 @@ namespace Tests\Feature;
 use App\Models\Movie;
 use App\Services\MovieService;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
+use Tests\UsesPostgresSafeRefreshDatabase;
 
 class MovieApiTest extends TestCase
 {
-    use RefreshDatabase;
+    use UsesPostgresSafeRefreshDatabase;
 
     protected function setUp(): void
     {
@@ -43,6 +43,26 @@ class MovieApiTest extends TestCase
         return Movie::create(['tmdb_id' => 550, 'title' => 'Stored movie', 'runtime' => 139,
             'genres' => [['id' => 18, 'name' => 'Drama']], 'overview' => 'Stored overview',
             'metadata_fetched_at' => $hydrated ? now()->subDays(8) : null]);
+    }
+
+    public function test_maximum_accepted_movie_numbers_round_trip_through_detail_api(): void
+    {
+        $detail = $this->detail(2147483647);
+        $detail['runtime'] = 65535;
+        $detail['vote_count'] = 4294967295;
+        $detail['vote_average'] = 10.0;
+        Http::fake(['*' => Http::response($detail)]);
+
+        $this->getJson('/api/internal/v1/movies/2147483647')->assertOk()
+            ->assertJsonPath('data.tmdb_id', 2147483647)
+            ->assertJsonPath('data.runtime', 65535)
+            ->assertJsonPath('data.tmdb_vote_count', 4294967295);
+        $movie = Movie::query()->where('tmdb_id', 2147483647)->sole();
+        $this->assertSame(65535, $movie->runtime);
+        $this->assertSame(4294967295, $movie->tmdb_vote_count);
+        $this->assertSame('10.00', $movie->tmdb_rating);
+        $this->assertSame([['id' => 18, 'name' => 'Drama']], $movie->genres);
+        $this->assertNotNull($movie->metadata_fetched_at);
     }
 
     public static function routes(): array

@@ -4,15 +4,15 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ModerationRequest;
+use App\Http\Requests\Admin\MovieSummariesRequest;
 use App\Http\Resources\ModerationActionResource;
 use App\Http\Resources\ModerationReviewResource;
 use App\Http\Resources\ReportResource;
+use App\Integrations\MovieCatalog\MovieCatalogClient;
 use App\Models\AdministrativeAction;
 use App\Models\Report;
 use App\Models\Review;
 use App\Models\User;
-use App\Http\Requests\Admin\MovieSummariesRequest;
-use App\Integrations\MovieCatalog\MovieCatalogClient;
 use App\Services\ModerationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -23,7 +23,7 @@ class ModerationController extends Controller
 
     public function overview(ModerationRequest $request): JsonResponse
     {
-        $reviews = Review::query()->selectRaw("COUNT(CASE WHEN visibility = 'hidden' THEN 1 END) AS hidden_reviews, COUNT(CASE WHEN moderator_spoiler = 1 THEN 1 END) AS enforced_spoilers")->first();
+        $reviews = Review::query()->selectRaw("COUNT(CASE WHEN visibility = 'hidden' THEN 1 END) AS hidden_reviews, COUNT(CASE WHEN moderator_spoiler THEN 1 END) AS enforced_spoilers")->first();
         $reports = Report::query()->selectRaw("COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending_reports, COUNT(CASE WHEN status = 'resolved' OR status = 'dismissed' THEN 1 END) AS handled_reports")->first();
         $recent = Report::query()->select(['id', 'target_id', 'reason', 'status', 'created_at'])
             ->orderByDesc('created_at')->orderByDesc('id')->limit(5)->get()->map(fn (Report $report) => [
@@ -38,6 +38,7 @@ class ModerationController extends Controller
             $data['users'] = ['total' => (int) $users->total_users, 'restricted' => (int) $users->restricted_users,
                 'banned' => (int) $users->banned_users, 'deactivated' => (int) $users->deactivated_users];
         }
+
         return response()->json(['data' => $data]);
     }
 
@@ -54,9 +55,16 @@ class ModerationController extends Controller
                 ->select(['id', 'user_id', 'tmdb_id', 'visibility', 'contains_spoilers', 'moderator_spoiler', 'created_at', 'updated_at'])
                 ->selectRaw('SUBSTR(body, 1, 181) AS body')]);
         }
-        if ($request->validated('status', 'pending') !== 'all') $query->where('status', $request->validated('status', 'pending'));
-        if ($request->filled('target_type')) $query->where('target_type', $request->validated('target_type'));
-        if ($request->filled('target_id')) $query->where('target_id', $request->validated('target_id'));
+        if ($request->validated('status', 'pending') !== 'all') {
+            $query->where('status', $request->validated('status', 'pending'));
+        }
+        if ($request->filled('target_type')) {
+            $query->where('target_type', $request->validated('target_type'));
+        }
+        if ($request->filled('target_id')) {
+            $query->where('target_id', $request->validated('target_id'));
+        }
+
         return $this->page($query->orderBy('created_at')->orderBy('id'), ReportResource::class, $request);
     }
 
@@ -87,15 +95,26 @@ class ModerationController extends Controller
                 ->selectRaw('SUBSTR(body, 1, 181) AS body');
         }
         $query->withCount(['reports as pending_reports_count' => fn ($q) => $q->where('status', 'pending')]);
-        if ($scope === 'needs_attention') $query->whereHas('reports', fn ($q) => $q->where('status', 'pending'));
+        if ($scope === 'needs_attention') {
+            $query->whereHas('reports', fn ($q) => $q->where('status', 'pending'));
+        }
         if ($scope === 'actioned') {
             $type = $request->validated('actioned_type');
-            if ($type === 'hidden') $query->where('visibility', 'hidden');
-            elseif ($type === 'spoiler') $query->where('moderator_spoiler', true);
-            else $query->where(fn ($q) => $q->where('visibility', 'hidden')->orWhere('moderator_spoiler', true));
+            if ($type === 'hidden') {
+                $query->where('visibility', 'hidden');
+            } elseif ($type === 'spoiler') {
+                $query->where('moderator_spoiler', true);
+            } else {
+                $query->where(fn ($q) => $q->where('visibility', 'hidden')->orWhere('moderator_spoiler', true));
+            }
         }
-        if ($request->filled('visibility')) $query->where('visibility', $request->validated('visibility'));
-        if ($request->filled('tmdb_id')) $query->where('tmdb_id', $request->validated('tmdb_id'));
+        if ($request->filled('visibility')) {
+            $query->where('visibility', $request->validated('visibility'));
+        }
+        if ($request->filled('tmdb_id')) {
+            $query->where('tmdb_id', $request->validated('tmdb_id'));
+        }
+
         return $this->page($query->orderByDesc('created_at')->orderByDesc('id'), ModerationReviewResource::class, $request);
     }
 
@@ -126,8 +145,13 @@ class ModerationController extends Controller
                 'review.spoiler_cleared', 'report.resolved', 'report.dismissed'])
                 ->whereIn('target_type', ['review', 'report']);
         }
-        if ($request->filled('target_type')) $query->where('target_type', $request->validated('target_type'));
-        if ($request->filled('target_id')) $query->where('target_id', $request->validated('target_id'));
+        if ($request->filled('target_type')) {
+            $query->where('target_type', $request->validated('target_type'));
+        }
+        if ($request->filled('target_id')) {
+            $query->where('target_id', $request->validated('target_id'));
+        }
+
         return $this->page($query->orderByDesc('created_at')->orderByDesc('id'), ModerationActionResource::class, $request);
     }
 
@@ -136,6 +160,7 @@ class ModerationController extends Controller
         $page = (int) $request->validated('page', 1);
         $perPage = (int) $request->validated('per_page', 20);
         $rows = $query->paginate($perPage, ['*'], 'page', $page);
+
         return $resource::collection($rows->items())->additional(['meta' => [
             'page' => $page, 'per_page' => $perPage, 'total_pages' => $rows->lastPage(), 'total_results' => $rows->total(),
         ]]);

@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Services\FirebaseAuthentication;
 use App\Services\FirebaseIdentity;
 use App\Services\FirebaseUserResolver;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth as LaravelAuth;
 use Illuminate\Support\Facades\DB;
 use Kreait\Firebase\Auth\UserRecord;
@@ -17,10 +16,11 @@ use Lcobucci\JWT\Token\DataSet;
 use Lcobucci\JWT\UnencryptedToken;
 use Mockery;
 use Tests\TestCase;
+use Tests\UsesPostgresSafeRefreshDatabase;
 
 class FirebaseSessionTest extends TestCase
 {
-    use RefreshDatabase;
+    use UsesPostgresSafeRefreshDatabase;
 
     protected function setUp(): void
     {

@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Services\FirebaseAuthentication;
 use App\Services\FirebaseIdentity;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth as LaravelAuth;
 use Kreait\Firebase\Auth\UserRecord;
 use Kreait\Firebase\Contract\Auth;
@@ -13,10 +12,11 @@ use Kreait\Firebase\Exception\Auth\EmailNotFound;
 use Kreait\Firebase\Exception\Auth\InvalidOobCode;
 use Mockery;
 use Tests\TestCase;
+use Tests\UsesPostgresSafeRefreshDatabase;
 
 class FirebasePhase2BTest extends TestCase
 {
-    use RefreshDatabase;
+    use UsesPostgresSafeRefreshDatabase;
 
     protected function setUp(): void
     {

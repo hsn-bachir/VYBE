@@ -15,10 +15,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // A local password account cannot sign in when Firebase owns identity.
+        if (config('firebase_auth.mode') !== 'legacy') {
+            return;
+        }
 
         User::factory()->create([
-            'name' => 'Test User',
+            'username' => 'test_user',
             'email' => 'test@example.com',
         ]);
     }
