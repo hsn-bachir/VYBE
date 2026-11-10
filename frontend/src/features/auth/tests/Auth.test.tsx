@@ -3,12 +3,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, errorDetails } from '../../../lib/api/client'
-import { acceptInvitation, authenticate, currentUser, logout, resendVerification, verificationStatus } from '../api/authApi'
+import { acceptInvitation, authenticate, completeFirebasePasswordReset, currentUser, logout, requestFirebasePasswordReset, resendVerification, verificationStatus } from '../api/authApi'
 import { AuthForm } from '../components/AuthForm'
 import { VerificationPage } from '../pages/VerificationPage'
 import { Input } from '../../../components/ui/Input'
 import { accessDestination } from '../guards/access'
 import { VybeLogo } from '../../../components/branding/VybeLogo'
+import { firebaseLogin } from '../api/firebaseLogin'
+import { firebaseRegister } from '../api/firebaseRegistration'
+import { FirebaseEmailActionPage } from '../pages/FirebaseEmailActionPage'
+import { InvitationAcceptancePage } from '../pages/InvitationAcceptancePage'
+
+vi.mock('../api/firebaseLogin', () => ({ firebaseLogin: vi.fn() }))
+vi.mock('../api/firebaseRegistration', () => ({ firebaseRegister: vi.fn() }))
 
 const user = { id: 1, username: 'movie_fan', email: 'fan@example.com', avatar_url: null, email_verified_at: null }
 const failure = (status: number, errors = {}) => ({ isAxiosError: true, response: { status, data: { errors } } })
@@ -16,6 +23,7 @@ const credentials = { email: user.email, password: 'Cinema-lover123' }
 
 beforeEach(() => {
   vi.restoreAllMocks()
+  vi.stubEnv('VITE_AUTH_IDENTITY_PROVIDER', 'legacy')
   vi.spyOn(api, 'get').mockResolvedValue({ data: { data: user } })
   vi.spyOn(api, 'post').mockResolvedValue({ data: { data: user } })
 })
@@ -23,8 +31,8 @@ beforeEach(() => {
 describe('authentication API and rendering', () => {
   it('uses the supplied full logo and compact symbol without repeating the wordmark', () => {
     const render = (variant: 'full' | 'symbol') => renderToStaticMarkup(<MemoryRouter><VybeLogo variant={variant} /></MemoryRouter>)
-    expect(render('full')).toContain('logo.svg')
-    expect(render('symbol')).toContain('symbol.svg')
+    expect(render('full')).toContain('vybe-logo-full')
+    expect(render('symbol')).toContain('vybe-logo-symbol')
     expect(render('full')).toContain('aria-label="VYBE home"')
     expect(render('full')).not.toContain('VYBE<span>')
   })
@@ -32,6 +40,26 @@ describe('authentication API and rendering', () => {
     expect(api.defaults.withCredentials).toBe(true)
     expect(api.defaults.withXSRFToken).toBe(true)
     expect(api.defaults.headers.Accept).toBe('application/json')
+  })
+  it('submits Firebase invitations to the Firebase acceptance endpoint', async () => {
+    vi.stubEnv('VITE_AUTH_IDENTITY_PROVIDER', 'firebase')
+    const values = { email: 'invited@example.test', token: 'a'.repeat(64), password: 'New-password123', password_confirmation: 'New-password123' }
+    await acceptInvitation(values)
+    expect(api.get).toHaveBeenCalledWith('/sanctum/csrf-cookie')
+    expect(api.post).toHaveBeenCalledWith('/api/v1/auth/firebase/invitations/accept', values)
+    const existing = { email: 'existing@example.test', token: 'b'.repeat(64), id_token: 'fresh-firebase-token' }
+    await acceptInvitation(existing)
+    expect(api.post).toHaveBeenCalledWith('/api/v1/auth/firebase/invitations/accept', existing)
+  })
+  it('offers existing Firebase invitees their current sign-in methods', () => {
+    vi.stubEnv('VITE_AUTH_IDENTITY_PROVIDER', 'firebase')
+    vi.stubGlobal('window', { location: { hash: `#email=existing%40example.test&token=${'b'.repeat(64)}&existing=1` } })
+    const html = renderToStaticMarkup(<MemoryRouter><InvitationAcceptancePage /></MemoryRouter>)
+    expect(html).toContain('Sign in to your existing Firebase account')
+    expect(html).toContain('GitHub')
+    expect(html).toContain('Google')
+    expect(html).not.toContain('Confirm password')
+    vi.unstubAllGlobals()
   })
 
   it.each(['login', 'register'] as const)('bootstraps CSRF before %s and returns the server user', async mode => {
@@ -46,6 +74,20 @@ describe('authentication API and rendering', () => {
     vi.mocked(api.get).mockRejectedValue(failure(500))
     await expect(authenticate('login', credentials)).rejects.toMatchObject({ response: { status: 500 } })
     expect(api.post).not.toHaveBeenCalled()
+  })
+
+  it('uses Firebase exchange for login in Firebase mode without a legacy password request', async () => {
+    vi.stubEnv('VITE_AUTH_IDENTITY_PROVIDER', 'firebase')
+    vi.mocked(firebaseLogin).mockResolvedValue(user)
+    expect(await authenticate('login', credentials)).toEqual(user)
+    expect(firebaseLogin).toHaveBeenCalledWith(credentials)
+    expect(api.post).not.toHaveBeenCalled()
+    const html = renderToStaticMarkup(<QueryClientProvider client={new QueryClient()}><MemoryRouter><AuthForm mode="register" /></MemoryRouter></QueryClientProvider>)
+    expect(html).toContain('Create account')
+    expect(html).not.toContain('Coming soon')
+    vi.mocked(firebaseRegister).mockResolvedValue(user)
+    expect(await authenticate('register', { ...credentials, username: 'movie_fan', password_confirmation: credentials.password })).toEqual(user)
+    expect(firebaseRegister).toHaveBeenCalled()
   })
 
   it('restores the user from the backend and forwards cancellation', async () => {
@@ -127,6 +169,27 @@ describe('authentication API and rendering', () => {
     expect(api.get).toHaveBeenCalledWith('/sanctum/csrf-cookie')
     expect(api.post).toHaveBeenCalledWith('/api/v1/auth/email/verification-notification')
     expect(vi.mocked(api.get).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.post).mock.invocationCallOrder[0])
+  })
+
+  it('sends Firebase password recovery requests through Core with CSRF', async () => {
+    await requestFirebasePasswordReset('fan@example.com')
+    expect(api.post).toHaveBeenCalledWith('/api/v1/auth/firebase/password/forgot', { email: 'fan@example.com' })
+    const values = { oob_code: 'one-time-code', password: 'New-password123', password_confirmation: 'New-password123' }
+    await completeFirebasePasswordReset(values)
+    expect(api.post).toHaveBeenCalledWith('/api/v1/auth/firebase/password/reset', values)
+    expect(vi.mocked(api.get)).toHaveBeenCalledWith('/sanctum/csrf-cookie')
+  })
+
+  it('routes Firebase email actions by mode and rejects unsupported links', () => {
+    const render = (mode: string) => {
+      vi.stubGlobal('window', { location: { search: `?mode=${mode}&oobCode=test-code` } })
+      return renderToStaticMarkup(<QueryClientProvider client={new QueryClient()}><MemoryRouter><FirebaseEmailActionPage /></MemoryRouter></QueryClientProvider>)
+    }
+    expect(render('verifyEmail')).toContain('Checking email link')
+    expect(render('recoverEmail')).toContain('Checking email link')
+    expect(render('resetPassword')).toContain('Choose a new password')
+    expect(render('unsupported')).toContain('Link not valid')
+    vi.unstubAllGlobals()
   })
 
   it('bootstraps CSRF before accepting an invitation without changing auth state', async () => {

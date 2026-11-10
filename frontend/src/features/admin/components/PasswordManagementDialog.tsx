@@ -4,13 +4,16 @@ import { Dialog } from '../../../components/ui/Dialog'
 import { Input } from '../../../components/ui/Input'
 import { adminError, type AdminUser, type PasswordChange, type ResetDelivery } from '../api/adminUsersApi'
 import { AdminNotice } from './AdminShell'
+import { freshFirebaseIdentityToken } from '../../auth/api/firebaseSocial'
 
-export function PasswordManagementDialog({ mode, user, pending, onClose, onChange, onReset, onDone }: {
-  mode: 'change' | 'reset'; user: AdminUser; pending: boolean; onClose: () => void
+export function PasswordManagementDialog({ mode, user, pending, onClose, onChange, onReset, onDone, adminEmail }: {
+  mode: 'change' | 'reset'; user: AdminUser; pending: boolean; onClose: () => void; adminEmail?: string
   onChange: (values: PasswordChange) => Promise<void>
   onReset: (reason?: string) => Promise<ResetDelivery>
   onDone: (message: string) => void
 }) {
+  const firebaseMode = import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase'
+  const [method, setMethod] = useState<'password' | 'google.com' | 'github.com'>('password')
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
@@ -24,7 +27,8 @@ export function PasswordManagementDialog({ mode, user, pending, onClose, onChang
     setFailure(''); setFields({})
     try {
       if (mode === 'change') {
-        await onChange({ admin_current_password: adminPassword, password, password_confirmation: confirmation })
+        const confirmationToken = firebaseMode ? await freshFirebaseIdentityToken(method, adminEmail ?? '', adminPassword) : undefined
+        await onChange({ ...(firebaseMode ? { admin_id_token: confirmationToken } : { admin_current_password: adminPassword }), password, password_confirmation: confirmation })
         setPassword(''); setConfirmation(''); setAdminPassword('')
         onDone('Password changed. Existing sessions for this account were revoked.')
       } else {
@@ -46,7 +50,8 @@ export function PasswordManagementDialog({ mode, user, pending, onClose, onChang
       {mode === 'change' && <>
         <Input label="New password" name="password" type="password" value={password} onChange={event => setPassword(event.target.value)} error={fields.password?.[0]} autoComplete="new-password" minLength={12} maxLength={255} hint="At least 12 characters, including a letter and a number." required disabled={pending} />
         <Input label="Confirm new password" name="password_confirmation" type="password" value={confirmation} onChange={event => setConfirmation(event.target.value)} error={fields.password_confirmation?.[0]} autoComplete="new-password" required disabled={pending} />
-        <Input label="Your administrator password" name="admin_current_password" type="password" value={adminPassword} onChange={event => setAdminPassword(event.target.value)} error={fields.admin_current_password?.[0]} autoComplete="current-password" required disabled={pending} />
+        {firebaseMode && <div className="field"><label htmlFor="admin-confirm-method">Confirm your identity with</label><select id="admin-confirm-method" value={method} onChange={event => setMethod(event.target.value as typeof method)}><option value="password">Email and password</option><option value="google.com">Google</option><option value="github.com">GitHub</option></select></div>}
+        {(!firebaseMode || method === 'password') && <Input label="Your administrator password" name="admin_current_password" type="password" value={adminPassword} onChange={event => setAdminPassword(event.target.value)} error={fields.admin_current_password?.[0] ?? fields.admin_id_token?.[0]} autoComplete="current-password" required disabled={pending} />}
       </>}
       {fields.reason && <p className="field-error">{fields.reason[0]}</p>}
       {failure && <AdminNotice error>{failure}</AdminNotice>}

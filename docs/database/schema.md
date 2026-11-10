@@ -1,5 +1,11 @@
 # Milestone 1 database schema and ownership
 
+Phase 2C Google/GitHub sign-in reuses `users.firebase_uid` and the existing username/email constraints. It adds no provider table or migration. Provider linking changes a Firebase identity's sign-in methods and preserves its mapped SQL user ID and relationships.
+
+Phase 2D administrator identity operations add no migration. A newly provisioned Firebase-mode invitee has a reserved `firebase_uid`; an invitee who already owns an unlinked Firebase identity has `firebase_uid=NULL` until dual-proof acceptance. Both have `password=NULL`, `invitation_pending=true`, and no verified SQL email until one-use invitation acceptance. The existing `account_invitations` hash/expiry table and `password_session_version` support activation and revocation. Existing numeric IDs and user relationships remain intact. Provisioning failures leave a visible pending SQL reservation for authorized resend/reconciliation; no Firebase identity is deleted automatically.
+
+Phase 2A adds nullable, unique `vybe_core.users.firebase_uid VARCHAR(128)`. Existing integer user IDs and all relationships remain unchanged. Firebase-only users have a null SQL password; neither Firebase passwords nor refresh tokens are stored in Core. The additive migration does not link existing users by email or change Catalog data. Phase 2B needs no further schema change: registration uses this UID column, trusted Firebase email and verification sync use existing `email`/`email_verified_at`, and password-reset session revocation rotates existing `password_session_version`. Explicit linking preserves existing primary keys and relationships.
+
 **Status:** Approved schema. Core users adjustments are implemented as an additive migration. The two Laravel apps never query each other's database. M2.1 adds Core watchlist_entries/watched_movies; M2.2 adds collections/collection_movies; M2.3 adds movie_ratings with independent owner/movie uniqueness and a checked 1–5 range; M2.4 adds independent reviews with owner/movie uniqueness, spoiler flag and movie/creation ordering index. See the [M2 schema](milestone-2-schema.md) for implemented migrations and constraints.
 
 ```mermaid

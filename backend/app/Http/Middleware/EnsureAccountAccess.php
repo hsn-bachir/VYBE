@@ -20,8 +20,18 @@ class EnsureAccountAccess
         if (! $current) {
             return response()->json(['message' => 'Unauthenticated.'], 401)->header('Cache-Control', 'no-store, private');
         }
+        if (config('firebase_auth.mode') === 'firebase' && ! $current->firebase_uid) {
+            Auth::guard('web')->logoutCurrentDevice();
+            if ($request->hasSession()) {
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
+
+            return response()->json(['message' => 'Unauthenticated.'], 401)->header('Cache-Control', 'no-store, private');
+        }
         if (! $current->canAccessAccount()) {
             $code = $current->account_status === User::STATUS_BANNED ? 'ACCOUNT_BANNED' : 'ACCOUNT_DEACTIVATED';
+
             return response()->json(['message' => 'This account cannot access VYBE.', 'code' => $code], 403)
                 ->header('Cache-Control', 'no-store, private');
         }
@@ -32,6 +42,7 @@ class EnsureAccountAccess
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
             }
+
             return response()->json(['message' => 'Unauthenticated.'], 401)->header('Cache-Control', 'no-store, private');
         }
         $request->setUserResolver(fn (?string $guard = null) => $current);
