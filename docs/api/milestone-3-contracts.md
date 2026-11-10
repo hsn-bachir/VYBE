@@ -1,5 +1,7 @@
 # M3 API contracts — implemented access, account management and moderation; recommendations proposed
 
+**Firebase mode (Phase 2D):** The M3.1C administrator identity and invitation descriptions below apply to `AUTH_IDENTITY_PROVIDER=legacy`. In Firebase mode, use the [Phase 2D contract](contracts.md) and [runbook](../development/firebase-phase-2d.md): Firebase owns passwords and authentication email, Core retains authorization and audit, and invitation acceptance uses `/auth/firebase/invitations/accept`. Role/status/moderation behavior below remains unchanged.
+
 ## M3.2.5 current admin contract (2026-11-06)
 
 This section supersedes older reason requirements and list descriptions below. All paths are relative to `/api/v1`. Existing Sanctum session, email verification, live role/state checks, CSRF on writes, admin throttles, private `no-store` responses, transaction locks and audit rules remain in force. Moderators may read operational and moderation data; only administrators receive user counts or user-management access. Restricted privileged accounts may read but cannot mutate.

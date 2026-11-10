@@ -2,21 +2,21 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Http\Middleware\EnsureRole;
+use App\Models\User;
 use Illuminate\Database\QueryException;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Http\Request;
 use Tests\TestCase;
+use Tests\UsesPostgresSafeRefreshDatabase;
 
 class AccessFoundationTest extends TestCase
 {
-    use RefreshDatabase;
+    use UsesPostgresSafeRefreshDatabase;
 
     public function test_defaults_and_database_constraints(): void
     {
@@ -105,6 +105,7 @@ class AccessFoundationTest extends TestCase
         Http::preventStrayRequests();
         Http::fake(function () use ($user) {
             DB::table('users')->where('id', $user->id)->update(['account_status' => User::STATUS_BANNED]);
+
             return Http::response(['data' => [['tmdb_id' => 550, 'title' => 'Fixture', 'poster_path' => null,
                 'backdrop_path' => null, 'overview' => null, 'release_date' => null, 'tmdb_rating' => 7.5,
                 'tmdb_vote_count' => 100]], 'meta' => ['requested_count' => 1, 'returned_count' => 1, 'missing_tmdb_ids' => []]]);
@@ -141,6 +142,7 @@ class AccessFoundationTest extends TestCase
         $run = function (User $actor, string $role, string $method = 'GET') {
             $request = Request::create('/api/v1/admin/check', $method);
             $request->setUserResolver(fn () => $actor);
+
             return app(EnsureRole::class)->handle($request, fn () => response()->noContent(), $role);
         };
         $this->assertSame(403, $run($user, User::ROLE_MODERATOR)->getStatusCode());
