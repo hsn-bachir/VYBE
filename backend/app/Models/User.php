@@ -14,18 +14,24 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 
 #[Fillable(['username', 'email', 'password'])]
-#[Hidden(['password', 'remember_token', 'password_session_version'])]
+#[Hidden(['password', 'remember_token', 'password_session_version', 'firebase_uid'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
     public const ROLE_USER = 'user';
+
     public const ROLE_MODERATOR = 'moderator';
+
     public const ROLE_ADMIN = 'admin';
+
     public const STATUS_ACTIVE = 'active';
+
     public const STATUS_RESTRICTED = 'restricted';
+
     public const STATUS_BANNED = 'banned';
+
     public const STATUS_DEACTIVATED = 'deactivated';
 
     public function canAccessAccount(): bool

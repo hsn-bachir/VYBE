@@ -12,10 +12,11 @@ class AccountInvitationMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public string $username, string $email, string $token)
+    public function __construct(public string $username, string $email, string $token, public bool $existingIdentity = false)
     {
         $this->activationUrl = rtrim(config('app.frontend_url'), '/')
-            .'/invitation/accept#email='.rawurlencode($email).'&token='.rawurlencode($token);
+            .'/invitation/accept#email='.rawurlencode($email).'&token='.rawurlencode($token)
+            .($existingIdentity ? '&existing=1' : '');
     }
 
     public string $activationUrl;
