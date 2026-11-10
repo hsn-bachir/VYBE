@@ -13,13 +13,18 @@ import { AccountBadge, AdminNotice, AdminShell } from '../components/AdminShell'
 import { PasswordManagementDialog } from '../components/PasswordManagementDialog'
 import { useModerationActions } from '../../moderation/hooks/useModeration'
 import { useAdminUser, useAdminUserChange, useChangeAdminPassword, useResendAdminInvitation, useSendAdminPasswordReset } from '../hooks/useAdminUsers'
+import { useAdminIdentityMethods } from '../hooks/useAdminUsers'
+import { freshFirebaseIdentityToken } from '../../auth/api/firebaseSocial'
 
 type Mode = 'edit' | 'role' | 'status'
 const statuses: AccountStatus[] = ['active', 'restricted', 'banned', 'deactivated']
-function ChangeDialog({ mode, user, onClose, onDone, change, pending }: {
+function ChangeDialog({ mode, user, onClose, onDone, change, pending, adminEmail }: {
   mode: Mode; user: AdminUser; onClose: () => void; onDone: (message: string) => void
-  change: (value: UserChange) => Promise<AdminUser>; pending: boolean
+  change: (value: UserChange) => Promise<AdminUser>; pending: boolean; adminEmail?: string
 }) {
+  const firebaseMode = import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase'
+  const [method, setMethod] = useState<'password' | 'google.com' | 'github.com'>('password')
+  const [adminPassword, setAdminPassword] = useState('')
   const [username, setUsername] = useState(user.username)
   const [email, setEmail] = useState(user.email)
   const [role, setRole] = useState<'user' | 'moderator'>(user.role === 'moderator' ? 'user' : 'moderator')
@@ -32,7 +37,13 @@ function ChangeDialog({ mode, user, onClose, onDone, change, pending }: {
     if (pending) return
     setFailure(''); setFields({})
     try {
-      const operation: UserChange = mode === 'edit' ? { kind: 'edit', id: user.id, values: { username, email } }
+      const emailChanged = email.trim().toLowerCase() !== user.email
+      const adminIdToken = mode === 'edit' && emailChanged && firebaseMode
+        ? await freshFirebaseIdentityToken(method, adminEmail ?? '', adminPassword) : undefined
+      const operation: UserChange = mode === 'edit' ? { kind: 'edit', id: user.id, values: {
+        username,
+        ...(emailChanged ? { email, ...(adminIdToken ? { admin_id_token: adminIdToken } : {}) } : {}),
+      } }
         : mode === 'role' ? { kind: 'role', id: user.id, values: { role } }
           : { kind: 'status', id: user.id, values: { account_status: status, ...(status !== 'active' ? { reason: reason.trim() } : {}) } }
       await change(operation)
@@ -50,6 +61,7 @@ function ChangeDialog({ mode, user, onClose, onDone, change, pending }: {
         <Input label="Username" name="username" value={username} onChange={e => setUsername(e.target.value)} error={fields.username?.[0]} maxLength={30} required />
         <Input label="Email" name="email" type="email" value={email} onChange={e => setEmail(e.target.value)} error={fields.email?.[0]} maxLength={255} required />
         {email.trim().toLowerCase() !== user.email && <p className="admin-hint">Changing email clears verification and signs out this account until it verifies the new address.</p>}
+        {firebaseMode && email.trim().toLowerCase() !== user.email && <><div className="field"><label htmlFor="email-confirm-method">Confirm your identity with</label><select id="email-confirm-method" value={method} onChange={e => setMethod(e.target.value as typeof method)}><option value="password">Email and password</option><option value="google.com">Google</option><option value="github.com">GitHub</option></select></div>{method === 'password' && <Input label="Your administrator password" name="admin_password" type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} autoComplete="current-password" required />}</>}
       </> : mode === 'role' ? <div className="field"><label htmlFor="change-role">New role</label><select id="change-role" value={role} onChange={e => setRole(e.target.value as 'user' | 'moderator')}><option value="user">User</option><option value="moderator">Moderator</option></select></div>
         : <><div className="field"><label htmlFor="change-status">New status</label><select id="change-status" value={status} onChange={e => setStatus(e.target.value as AccountStatus)}>{statuses.map(value => <option key={value} value={value}>{value[0].toUpperCase() + value.slice(1)}</option>)}</select></div><p className="admin-hint">{status === 'active' ? 'Restoring access allows this account to sign in again.' : status === 'restricted' ? 'The account keeps personal library access but cannot write community content.' : 'The account loses authenticated VYBE access. Existing movies and reviews remain.'}</p></>}
       {mode === 'status' && status !== 'active' && <div className="field"><label htmlFor="change-reason">Reason for account sanction</label><textarea id="change-reason" value={reason} onChange={e => setReason(e.target.value)} maxLength={1000} required aria-invalid={!!fields.reason} aria-describedby={fields.reason ? 'change-reason-error' : undefined} />{fields.reason && <p id="change-reason-error" className="field-error">{fields.reason[0]}</p>}</div>}
@@ -66,6 +78,10 @@ export default function AdminUserDetailsPage() {
   const access = useOutletContext<Access>()
   const client = useQueryClient()
   const query = useAdminUser(auth.data?.id ?? 0, targetId)
+  const identity = useAdminIdentityMethods(auth.data?.id ?? 0, targetId,
+    access.role === 'admin' && access.account_status === 'active' && !!query.data && query.data.id !== auth.data?.id
+      && query.data.role !== 'admin' && !query.data.invitation_pending)
+  const firebaseMode = import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase'
   const history = useModerationActions(auth.data?.id ?? 0, 1, { target_type: 'user', target_id: String(targetId) })
   const mutation = useAdminUserChange(auth.data?.id ?? 0)
   const resend = useResendAdminInvitation(auth.data?.id ?? 0)
@@ -81,6 +97,7 @@ export default function AdminUserDetailsPage() {
   const user = query.data
   const isSelf = user?.id === auth.data?.id
   const canManagePassword = access.account_status === 'active' && user && !isSelf && user.role !== 'admin' && !user.invitation_pending
+  const hasPassword = !firebaseMode || identity.data?.includes('password')
   const done = (message: string) => {
     if (client.getQueryData<User | null>(authKey)?.id !== auth.data?.id) return
     setMode(null); setPasswordMode(null); setNoticeError(false); setNotice(message)
@@ -98,13 +115,13 @@ export default function AdminUserDetailsPage() {
               catch (error) { if (client.getQueryData<User | null>(authKey)?.id === auth.data?.id) { setNoticeError(true); setNotice(adminError(error).message) } }
             }}>{resend.isPending ? 'Sending…' : 'Resend invitation'}</Button>}</div></section>
             <section className="admin-panel"><h2>Access</h2><div className="admin-access-row"><span>Role</span><AccountBadge value={user.role} /></div><div className="admin-access-row"><span>Status</span><AccountBadge value={user.account_status} /></div><p className="admin-hint">Changes take effect on the server. Active sessions for the affected account are revoked.</p><div className="admin-access-actions"><Button disabled={user.role === 'admin' || isSelf || access.account_status !== 'active'} onClick={() => { setNotice(''); setMode('role') }}>Change role</Button><Button disabled={isSelf || access.account_status !== 'active'} onClick={() => { setNotice(''); setMode('status') }}>{user.account_status === 'active' ? 'Change status' : 'Restore account'}</Button></div>{user.role === 'admin' && <p className="admin-hint">Administrator roles are managed through trusted server provisioning.</p>}</section>
-            {canManagePassword && <section className="admin-panel"><h2>Password management</h2><p className="admin-hint">Help this person regain access. A password change signs out their existing sessions; a reset link lets them choose a new password.</p><div className="admin-access-actions"><Button onClick={() => { setNotice(''); setPasswordMode('change') }}>Change password</Button><Button onClick={() => { setNotice(''); setPasswordMode('reset') }}>Send password reset</Button></div></section>}
+            {canManagePassword && <section className="admin-panel"><h2>Password management</h2><p className="admin-hint">Help this person regain access. A password change signs out their existing sessions; a reset link lets them choose a new password.</p>{firebaseMode && identity.isError && <AdminNotice error>{adminError(identity.error).message}</AdminNotice>}{firebaseMode && !identity.isPending && !identity.isError && !hasPassword && <p className="admin-hint">This account uses Google or GitHub without an email/password method. A password must be added explicitly by the account owner.</p>}<div className="admin-access-actions"><Button disabled={firebaseMode && !hasPassword} onClick={() => { setNotice(''); setPasswordMode('change') }}>Change password</Button><Button disabled={firebaseMode && !hasPassword} onClick={() => { setNotice(''); setPasswordMode('reset') }}>Send password reset</Button></div></section>}
           </div>
           <div className="admin-section-heading"><h2>Recent administrative activity</h2><Link to={`/admin/actions?target_type=user&target_id=${user.id}`}>View history</Link></div>
           {history.isPending ? <AdminNotice>Loading account history…</AdminNotice> : history.isError ? <AdminNotice error>{adminError(history.error).message}</AdminNotice> : !history.data?.data.length ? <AdminNotice>No administrative changes recorded for this account.</AdminNotice>
             : <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Date</th><th>Action</th><th>Administrator</th><th>Reason</th></tr></thead><tbody>{history.data.data.slice(0, 5).map(item => <tr key={item.id}><td data-label="Date">{new Date(item.created_at).toLocaleString()}</td><td data-label="Action">{item.action.replace(/[._]/g, ' ')}</td><td data-label="Administrator">{item.actor ? `@${item.actor.username}` : 'Deleted account'}</td><td data-label="Reason">{item.reason || '—'}</td></tr>)}</tbody></table></div>}
-          {mode && <ChangeDialog key={`${mode}-${user.id}`} mode={mode} user={user} onClose={() => setMode(null)} onDone={done} change={operation => mutation.mutateAsync(operation)} pending={mutation.isPending} />}
-          {passwordMode && canManagePassword && <PasswordManagementDialog key={`${passwordMode}-${user.id}`} mode={passwordMode} user={user} onClose={() => setPasswordMode(null)} onDone={done} onChange={values => passwordChange.mutateAsync({ id: user.id, values })} onReset={reason => passwordReset.mutateAsync({ id: user.id, reason })} pending={passwordChange.isPending || passwordReset.isPending} />}
+          {mode && <ChangeDialog key={`${mode}-${user.id}`} mode={mode} user={user} adminEmail={auth.data?.email} onClose={() => setMode(null)} onDone={done} change={operation => mutation.mutateAsync(operation)} pending={mutation.isPending} />}
+          {passwordMode && canManagePassword && <PasswordManagementDialog key={`${passwordMode}-${user.id}`} mode={passwordMode} user={user} adminEmail={auth.data?.email} onClose={() => setPasswordMode(null)} onDone={done} onChange={values => passwordChange.mutateAsync({ id: user.id, values })} onReset={reason => passwordReset.mutateAsync({ id: user.id, reason })} pending={passwordChange.isPending || passwordReset.isPending} />}
         </>}
   </AdminShell>
 }

@@ -6,6 +6,11 @@ import { LoginPage } from './features/auth/pages/LoginPage'
 import { RegisterPage } from './features/auth/pages/RegisterPage'
 import { GuestOnly, PublicOrVerified, RequireAuth, RequireAdmin, RequireUserManager } from './features/auth/guards/AuthGuards'
 import { VerificationPage } from './features/auth/pages/VerificationPage'
+import { FirebaseVerificationActionPage } from './features/auth/pages/FirebaseVerificationActionPage'
+import { FirebaseEmailActionPage } from './features/auth/pages/FirebaseEmailActionPage'
+import { ForgotPasswordPage } from './features/auth/pages/ForgotPasswordPage'
+import { SocialUsernamePage } from './features/auth/pages/SocialUsernamePage'
+import { ProviderConnectionsPage } from './features/auth/pages/ProviderConnectionsPage'
 import { PopularMoviesPage } from './features/movies/pages/PopularMoviesPage'
 import { DiscoverPage } from './features/movies/pages/DiscoverPage'
 import { MovieState } from './features/movies/components/MovieState'
@@ -43,6 +48,7 @@ export default function App() {
           </Route>
         </Route>
         <Route path="/profile" element={<Suspense fallback={<p role="status">Opening your profile…</p>}><ProfilePage /></Suspense>} />
+        {import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase' && <Route path="/account/connections" element={<ProviderConnectionsPage />} />}
         <Route path="/library" element={<Navigate to="/library/watchlist" replace />} />
         <Route path="/library/watchlist" element={<Suspense fallback={<p role="status">Opening your library…</p>}><LibraryPage key="watchlist" kind="watchlist" /></Suspense>} />
         <Route path="/library/watched" element={<Suspense fallback={<p role="status">Opening your library…</p>}><LibraryPage key="watched" kind="watched" /></Suspense>} />
@@ -54,10 +60,14 @@ export default function App() {
     <Route element={<GuestOnly />}><Route element={<AuthLayout />}>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      {import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase' && <Route path="/auth/social/username" element={<SocialUsernamePage />} />}
     </Route></Route>
     <Route element={<AuthLayout />}>
       <Route path="/invitation/accept" element={<Suspense fallback={<p role="status">Opening invitation…</p>}><InvitationAcceptancePage /></Suspense>} />
       <Route path="/password/reset" element={<Suspense fallback={<p role="status">Opening password reset…</p>}><PasswordResetPage /></Suspense>} />
+      {import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase' && <Route path="/password/forgot" element={<ForgotPasswordPage />} />}
+      {import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase' && <Route path="/verify-email/action" element={<FirebaseVerificationActionPage />} />}
+      {import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase' && <Route path="/auth/action" element={<FirebaseEmailActionPage />} />}
       <Route path="/verify-email" element={<VerificationPage state="pending" />} />
       <Route path="/verify-email/success" element={<VerificationPage state="success" />} />
       <Route path="/verify-email/error" element={<VerificationPage state="error" />} />

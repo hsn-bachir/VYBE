@@ -1,5 +1,13 @@
 # Milestone 1 database schema and ownership
 
+Phase 3 PostgreSQL compatibility keeps the same two database owners and API contracts. Catalog's additive `2026_11_10_000001_expand_movie_numeric_columns.php` widens `runtime` to an unsigned MySQL integer / signed PostgreSQL integer and `tmdb_vote_count` to an unsigned MySQL bigint / signed PostgreSQL bigint. Named checks on MySQL and PostgreSQL preserve the accepted ranges (0–65535 minutes and 0–4294967295 votes). No existing movie row is removed; rollback refuses to narrow columns when values exceed the former engine-specific limits. See [the Phase 3 report](../development/neon-phase-3-report.md) for disposable test setup and verification.
+
+Phase 2C Google/GitHub sign-in reuses `users.firebase_uid` and the existing username/email constraints. It adds no provider table or migration. Provider linking changes a Firebase identity's sign-in methods and preserves its mapped SQL user ID and relationships.
+
+Phase 2D administrator identity operations add no migration. A newly provisioned Firebase-mode invitee has a reserved `firebase_uid`; an invitee who already owns an unlinked Firebase identity has `firebase_uid=NULL` until dual-proof acceptance. Both have `password=NULL`, `invitation_pending=true`, and no verified SQL email until one-use invitation acceptance. The existing `account_invitations` hash/expiry table and `password_session_version` support activation and revocation. Existing numeric IDs and user relationships remain intact. Provisioning failures leave a visible pending SQL reservation for authorized resend/reconciliation; no Firebase identity is deleted automatically.
+
+Phase 2A adds nullable, unique `vybe_core.users.firebase_uid VARCHAR(128)`. Existing integer user IDs and all relationships remain unchanged. Firebase-only users have a null SQL password; neither Firebase passwords nor refresh tokens are stored in Core. The additive migration does not link existing users by email or change Catalog data. Phase 2B needs no further schema change: registration uses this UID column, trusted Firebase email and verification sync use existing `email`/`email_verified_at`, and password-reset session revocation rotates existing `password_session_version`. Explicit linking preserves existing primary keys and relationships.
+
 **Status:** Approved schema. Core users adjustments are implemented as an additive migration. The two Laravel apps never query each other's database. M2.1 adds Core watchlist_entries/watched_movies; M2.2 adds collections/collection_movies; M2.3 adds movie_ratings with independent owner/movie uniqueness and a checked 1–5 range; M2.4 adds independent reviews with owner/movie uniqueness, spoiler flag and movie/creation ordering index. See the [M2 schema](milestone-2-schema.md) for implemented migrations and constraints.
 
 ```mermaid
@@ -24,11 +32,11 @@ erDiagram
     VARCHAR poster_path "nullable"
     VARCHAR backdrop_path "nullable"
     DATE release_date "nullable"
-    SMALLINT runtime "nullable"
+    INT runtime "nullable; 0..65535"
     VARCHAR original_language "nullable"
     JSON genres "nullable"
     DECIMAL tmdb_rating "nullable"
-    INT tmdb_vote_count "nullable"
+    BIGINT tmdb_vote_count "nullable; 0..4294967295"
     TIMESTAMP metadata_fetched_at "nullable"
     TIMESTAMP created_at
     TIMESTAMP updated_at
@@ -65,11 +73,11 @@ Keep standard Laravel sessions, password-reset, cache and jobs tables as actuall
 | `overview` | TEXT NULL |
 | `poster_path`, `backdrop_path` | VARCHAR(255) NULL, TMDB-relative paths |
 | `release_date` | DATE NULL |
-| `runtime` | SMALLINT unsigned NULL (minutes) |
+| `runtime` | MySQL INT unsigned / PostgreSQL INT NULL; checked 0–65535 minutes |
 | `original_language` | VARCHAR(10) NULL |
 | `genres` | JSON NULL; array of `{id, name}` objects |
 | `tmdb_rating` | DECIMAL(4,2) NULL (0–10 provider range) |
-| `tmdb_vote_count` | INT unsigned NULL |
+| `tmdb_vote_count` | MySQL BIGINT unsigned / PostgreSQL BIGINT NULL; checked 0–4294967295 |
 | `metadata_fetched_at` | TIMESTAMP NULL; only for *full detail hydration* |
 | `created_at`, `updated_at` | TIMESTAMP |
 

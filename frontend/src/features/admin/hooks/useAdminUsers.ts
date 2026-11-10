@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { authKey } from '../../auth/hooks/useAuth'
 import { accessKey } from '../../auth/hooks/useAccess'
 import type { User } from '../../auth/types/auth.types'
-import { adminUser, adminUsers, changeAdminUser, changeAdminPassword, createAdminUser, resendAdminInvitation, sendAdminPasswordReset, type PasswordChange, type UserChange, type UserFilters } from '../api/adminUsersApi'
+import { adminIdentityMethods, adminUser, adminUsers, changeAdminUser, changeAdminPassword, createAdminUser, resendAdminInvitation, sendAdminPasswordReset, type PasswordChange, type UserChange, type UserFilters } from '../api/adminUsersApi'
 
 export const adminKeys = {
   root: (owner: number) => ['admin', owner] as const,
@@ -36,6 +36,13 @@ export function useAdminUser(owner: number, id: number) {
   useAdminAccessError(result.error, owner)
   return result
 }
+export function useAdminIdentityMethods(owner: number, id: number, actionVisible: boolean) {
+  const result = useQuery({ queryKey: [...adminKeys.user(owner, id), 'identity-methods'], queryFn: ({ signal }) => adminIdentityMethods(id, signal),
+    enabled: import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase' && owner > 0 && id > 0 && actionVisible,
+    retry: false, staleTime: 60_000 })
+  useAdminAccessError(result.error, owner)
+  return result
+}
 export function useAdminUserChange(owner: number) {
   const client = useQueryClient()
   const current = () => client.getQueryData<User | null>(authKey)?.id === owner
@@ -56,7 +63,7 @@ export function useAdminUserChange(owner: number) {
 export function useCreateAdminUser(owner: number) {
   const client = useQueryClient()
   const current = () => client.getQueryData<User | null>(authKey)?.id === owner
-  const result = useMutation({ retry: false, mutationFn: (values: { username: string; email: string }) => createAdminUser(values, current),
+  const result = useMutation({ retry: false, mutationFn: (values: { username: string; email: string; role?: 'user' | 'moderator' }) => createAdminUser(values, current),
     onSuccess: async () => { if (current()) await client.invalidateQueries({ queryKey: adminKeys.root(owner) }) },
   })
   useAdminAccessError(result.error, owner)

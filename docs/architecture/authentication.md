@@ -1,8 +1,20 @@
 # Core SPA authentication
 
+## Firebase identity (optional mode, Phases 2A–2C)
+
+Phase 2C adds Google and GitHub through the same Firebase identity project and Core session boundary. Social exchange checks the signed provider claim and existing UID mapping before creating a Laravel session. New social users choose a username through the existing registration endpoint; the social check does not auto-provision a generated username. Existing users can explicitly link another Firebase provider after fresh same-UID reauthentication from a verified VYBE session. No provider tokens or new SQL provider table are stored. See the [Phase 2C runbook](../development/firebase-phase-2c.md).
+
+`AUTH_IDENTITY_PROVIDER=legacy` remains the default during migration. With `firebase`, the SPA uses the modular Firebase email/password SDK to get a short-lived ID token in memory, sends it once to `POST /api/v1/auth/firebase/session`, and clears its temporary Firebase state. Core verifies the token, revocation and disabled state, expected project, and a sign-in time within five minutes. Core maps the UID to a local SQL user and starts the existing rotated Laravel web session. Subsequent API calls use only Sanctum's session cookie. Existing SQL roles, account restrictions, email verification gate, and logout remain in force.
+
+Firebase registration supplies a chosen username; session exchange can provision a compliant generated username. Both store a null SQL password. Existing local users are never linked by email: an unlinked account owning the email returns `409 IDENTITY_CONFLICT`. An operator can explicitly link a verified Firebase UID with `vybe:firebase-link` after confirming ownership. Firebase is authoritative for mapped email and verification state at exchange and explicit verification-status checks. A conflicting email never overwrites another local account. Banned/deactivated users receive a session and the existing account-status 403 on `/auth/me`; logout remains available. Restricted users retain existing access limits.
+
+In Firebase mode, legacy login, registration, invitation acceptance, and password reset are closed. Firebase-specific administrator identity operations now use the existing SQL authorization and audit boundary; only credential and authentication-email actions call Firebase. Existing local-only sessions are rejected. Firebase registration, email action handling, verification resend/status, and password reset are active. A successful Firebase reset revokes Firebase refresh tokens and prior Laravel sessions; normal API calls remain session-only. Deploy the mode switch with coordinated frontend/backend configuration and a Firebase custom action URL pointing to the SPA's `/auth/action`. See the [Firebase runbook](../development/firebase-phase-2a.md) and [administrator runbook](../development/firebase-phase-2d.md).
+
 Email/password authentication is implemented in Core and React. Catalog is not involved.
 
-## Username and verification
+## Legacy username and verification
+
+The following Laravel notification, password and signed-link details apply when `AUTH_IDENTITY_PROVIDER=legacy`. Firebase mode uses the flows above.
 
 Registration now accepts `username` in place of `name`. Usernames are trimmed, lowercased, restricted to 3–30 ASCII letters, digits and underscores, and checked against reserved names. A database unique index enforces uniqueness. The additive username migration derives usernames from legacy names in ID order, adds an ID suffix on collisions, then drops `name`. Existing user IDs, emails, hashes and verification timestamps remain intact. The migration cannot reconstruct old display names on rollback; retain a backup before applying it.
 

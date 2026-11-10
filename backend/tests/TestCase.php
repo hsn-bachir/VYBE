@@ -25,11 +25,18 @@ abstract class TestCase extends BaseTestCase
         if ($driver === 'sqlite' && config('database.connections.sqlite.database') === ':memory:') {
             return;
         }
-        $name = (string) config("database.connections.{$driver}.database");
-        if ($driver === 'mysql' && app()->environment('testing') && str_ends_with($name, '_test') && env('VYBE_DISPOSABLE_TEST_DB') === '1') {
+        $connection = config("database.connections.{$driver}");
+        $name = (string) ($connection['database'] ?? '');
+        $host = (string) ($connection['host'] ?? '');
+        if (in_array($driver, ['mysql', 'pgsql'], true)
+            && app()->environment('testing')
+            && str_ends_with($name, '_test')
+            && in_array($host, ['127.0.0.1', 'localhost', '::1'], true)
+            && empty($connection['url'])
+            && env('VYBE_DISPOSABLE_TEST_DB') === '1') {
             return;
         }
 
-        throw new \RuntimeException('Database tests require in-memory SQLite or an explicitly disposable MySQL *_test database.');
+        throw new \RuntimeException('Database tests require in-memory SQLite or an explicitly disposable local MySQL/PostgreSQL *_test database.');
     }
 }
