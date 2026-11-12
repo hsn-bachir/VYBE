@@ -44,6 +44,17 @@ export function usePopularFeed() {
   }, initialDataUpdatedAt: () => client.getQueryState(popularOptions(1).queryKey)?.dataUpdatedAt })
 }
 
+export const searchFeedOptions = (query: string, startPage = 1) => infiniteQueryOptions({
+  ...movieQuery, queryKey: ['movies', 'search-feed', normalizeQuery(query), startPage], initialPageParam: startPage,
+  gcTime: 10 * 60_000, refetchOnMount: false,
+  queryFn: ({ pageParam, signal }) => searchMovies(normalizeQuery(query), pageParam, signal),
+  getNextPageParam: (last: MovieListResponse) => last.data.length && last.meta.page < Math.min(500, last.meta.total_pages) ? last.meta.page + 1 : undefined,
+})
+export function useSearchFeed(query: string, startPage: number | null) {
+  const normalized = normalizeQuery(query)
+  return useInfiniteQuery({ ...searchFeedOptions(normalized, startPage ?? 1), enabled: startPage !== null && normalized.length > 0 && normalized.length <= 200 })
+}
+
 export function useDiscoveryPicks(enabled: boolean) {
   const client = useQueryClient()
   return useQuery({ ...popularOptions(1), enabled, refetchOnMount: false,

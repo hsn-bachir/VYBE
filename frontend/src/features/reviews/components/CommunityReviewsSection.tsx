@@ -1,7 +1,11 @@
 import { useIsMutating, useQuery } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import CommunityRatingSection from '../../ratings/components/CommunityRatingSection'
+import { Dialog } from '../../../components/ui/Dialog'
+import { SectionSkeleton } from '../../../components/ui/SectionSkeleton'
 import { Button } from '../../../components/ui/Button'
+import { Alert } from '../../../components/ui/Alert'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { useAccess } from '../../auth/hooks/useAccess'
 import { reviewError } from '../api/reviewsApi'
@@ -32,7 +36,7 @@ function ReviewsExperience({ movie, title, auth }: { movie: number; title: strin
   const manageButton = useRef<HTMLButtonElement>(null)
   const deleteTrigger = useRef<HTMLElement | null>(null)
   const listHeading = useRef<HTMLHeadingElement>(null)
-  const focusManage = () => requestAnimationFrame(() => manageButton.current?.focus({ preventScroll: true }))
+  const focusManage = () => requestAnimationFrame(() => (manageButton.current ?? listHeading.current)?.focus({ preventScroll: true }))
   const mutation = useReviewMutation(owner, movie, operation => {
     setEditor(null); setDeleting(null)
     setFeedback(operation.action === 'delete' ? 'Your review was deleted.' : operation.action === 'edit' ? 'Your review was updated.' : 'Your review is published.')
@@ -48,28 +52,31 @@ function ReviewsExperience({ movie, title, auth }: { movie: number; title: strin
   }
   function askDelete(review: Review) { if (ready && !pending) { deleteTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; mutation.reset(); setFeedback(''); setDeleting(review) } }
   const changePage = (next: number) => { setPage(next); listHeading.current?.focus({ preventScroll: true }) }
+  const listed = result.data?.data ?? []
+  const reviews = own.data && !listed.some(review => review.id === own.data?.id) ? [own.data, ...listed] : listed
   return <section className="community-reviews" aria-labelledby="community-reviews-heading">
-    <div className="section-heading"><div><p className="eyebrow">Beyond the final frame</p><h2 id="community-reviews-heading">Community Reviews<span className="accent-period">.</span></h2></div></div>
-    <p className="reviews-intro">Share your take. Leave the plot twists under wraps.</p>
-    <div className="review-personal-panel">
-      {auth.isPending ? <p role="status">Checking your account…</p> : auth.isError ? <div role="alert"><p>We couldn’t check your account. Your draft stays here.</p><Button onClick={() => void auth.refetch()}>Retry account for reviews</Button></div>
+    <div className="section-heading"><div><p className="eyebrow">Beyond the final frame</p><h2 id="community-reviews-heading">Your take<span className="accent-period">.</span></h2></div></div>
+    <p className="reviews-intro">One film. Many perspectives.</p>
+    <CommunityRatingSection movie={movie} embedded reviewAction={<div className="review-compose"><h3>Your review</h3>
+      {auth.isPending ? <div className="take-action-skeleton skeleton" role="status" aria-label="Checking your account" /> : auth.isError ? <div role="alert"><p>We couldn’t check your account. Your draft stays here.</p><Button onClick={() => void auth.refetch()}>Retry account for reviews</Button></div>
         : !auth.data ? <Link className="button" to="/login" state={{ from: location.pathname }}>Sign in to write a review</Link>
           : !owner ? <Link className="button" to="/verify-email">Verify email to write reviews</Link>
-            : own.isPending ? <p role="status">Loading your review…</p>
+            : own.isPending ? <div className="take-action-skeleton skeleton" role="status" aria-label="Loading your review" />
               : own.isError && own.data === undefined ? <div role="alert"><p>{reviewError(own.error)}</p><Button onClick={() => void own.refetch()}>Retry your review</Button></div>
-                : <div className="review-personal-actions"><div><h3>Your perspective</h3><p>{own.data?.visibility === 'hidden' ? 'Your review is hidden from the community. You can edit or delete it.' : own.data ? 'Your review is published. You can update it anytime.' : 'One review, all your thoughts. A rating is optional.'}</p></div><div className="review-manage-actions"><Button ref={manageButton} disabled={pending} onClick={() => startEdit(own.data ?? null)}>{own.data ? 'Edit your review' : 'Write a review'}</Button>{own.data && <Button disabled={pending} onClick={() => askDelete(own.data!)}>Delete your review</Button>}</div></div>}
-      {editor && owner > 0 && <ReviewEditor key={editor.review ? `edit:${editor.review.id}` : 'create'} title={title} initialValues={editor.values} review={editor.review} existingReview={own.data} pending={pending} disabled={!ready} error={mutation.isError ? mutation.error : null}
-        onSubmit={values => mutation.mutate(editor.review ? { action: 'edit', id: editor.review.id, values } : { action: 'create', values })}
+                : !own.data && !editor && <div className="review-personal-actions"><p>A few words, a fresh perspective.</p><Button ref={manageButton} className="primary" disabled={pending} onClick={() => startEdit(null)}>Write a review</Button></div>}
+      {own.data && !editor && <div className="review-personal-actions"><p>Your words are part of the conversation.</p><Button ref={manageButton} className="primary" disabled={pending} onClick={() => startEdit(own.data)}>Edit your review</Button></div>}
+    </div>} />
+    {editor && owner > 0 && <Dialog title={editor.review ? "Edit your review" : "Your take"} busy={pending} onClose={() => { setEditor(null); mutation.reset(); focusManage() }}><ReviewEditor key={editor.review ? `edit:${editor.review.id}` : 'create'} title={title} initialValues={editor.values} review={editor.review} existingReview={own.data} pending={pending} disabled={!ready} error={mutation.isError ? mutation.error : null}
+        onDraftChange={values => { if (!editor.review) setDraft(values) }} onSubmit={values => mutation.mutate(editor.review ? { action: 'edit', id: editor.review.id, values } : { action: 'create', values })}
         onCancel={values => { if (!editor.review) setDraft(values); setEditor(null); mutation.reset(); focusManage() }}
-        onEditExisting={values => { setDraft(values); if (own.data) startEdit(own.data) }} onCheckExisting={() => void own.refetch()} />}
-      <p className="review-feedback" role="status">{feedback}</p>
-    </div>
-    <div className="reviews-list-heading"><h3 ref={listHeading} tabIndex={-1}>The conversation{result.data ? <span> · {result.data.meta.total_results.toLocaleString()} {result.data.meta.total_results === 1 ? 'review' : 'reviews'}</span> : ''}</h3>{result.isFetching && !result.isPending && <span role="status">Refreshing reviews…</span>}</div>
-    {result.isPending ? <div className="review-loading" role="status">Loading community reviews…<div className="review-skeleton skeleton" aria-hidden="true" /></div>
+        onEditExisting={values => { setDraft(values); if (own.data) startEdit(own.data) }} onCheckExisting={() => void own.refetch()} /></Dialog>}
+    {feedback && <Alert variant="success">{feedback}</Alert>}
+    <div className="reviews-list-heading"><h3 ref={listHeading} tabIndex={-1}>Community Reviews{result.data ? <span> · {result.data.meta.total_results.toLocaleString()} {result.data.meta.total_results === 1 ? 'review' : 'reviews'}</span> : ''}</h3>{result.isFetching && !result.isPending && <span role="status">Refreshing reviews…</span>}</div>
+    {result.isPending ? <div className="review-loading"><SectionSkeleton label="Loading community reviews" rows={2} /><SectionSkeleton label="Loading more review entries" rows={2} /></div>
       : result.isError && !result.data ? <div className="review-empty" role="alert"><p>Community reviews are temporarily unavailable.</p><Button disabled={result.isFetching} onClick={() => void result.refetch()}>Retry community reviews</Button></div>
         : result.data && <>
           {result.isError && <div className="review-refresh-error" role="alert"><p>Reviews could not be refreshed. The last loaded reviews are shown.</p><Button onClick={() => void result.refetch()}>Retry community reviews</Button></div>}
-          {result.data.data.length ? <div className="review-list">{result.data.data.map(review => <ReviewCard key={review.id} review={review} busy={pending} onEdit={ready && review.author.id === owner ? () => startEdit(review) : undefined} onDelete={ready && review.author.id === owner ? () => askDelete(review) : undefined} onReport={canReport && review.author.id !== owner ? () => { setFeedback(''); setReporting(review) } : undefined} />)}</div>
+          {reviews.length ? <div className="review-list">{reviews.map(review => <ReviewCard key={review.id} review={review} busy={pending} onEdit={ready && review.author.id === owner ? () => startEdit(review) : undefined} onDelete={ready && review.author.id === owner ? () => askDelete(review) : undefined} onReport={canReport && review.author.id !== owner ? () => { setFeedback(''); setReporting(review) } : undefined} />)}</div>
             : <div className="review-empty"><p>{result.data.meta.total_results === 0 ? 'No reviews yet. Be the first to share your thoughts.' : 'There are no reviews on this page.'}</p>{page > 1 && <Button onClick={() => changePage(1)}>Back to first reviews</Button>}</div>}
           {(result.data.meta.total_pages > 1 || page > 1) && <nav className="review-pagination" aria-label="Review pages"><Button disabled={page <= 1 || result.isFetching} onClick={() => changePage(page - 1)}>Previous reviews</Button><span aria-live="polite">Page {page} of {Math.max(1, result.data.meta.total_pages)}</span><Button disabled={page >= result.data.meta.total_pages || result.isFetching} onClick={() => changePage(page + 1)}>Next reviews</Button></nav>}
         </>}

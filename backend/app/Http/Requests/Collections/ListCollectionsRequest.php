@@ -15,6 +15,7 @@ class ListCollectionsRequest extends ListLibraryRequest
     {
         return parent::rules() + ($this->route('id') !== null
             ? ['id' => ShowCollectionRequest::ID_RULES]
-            : ['contains_tmdb_id' => ['sometimes', ...ShowCollectionRequest::ID_RULES]]);
+            : ['contains_tmdb_id' => ['sometimes', ...ShowCollectionRequest::ID_RULES],
+                'include_previews' => ['sometimes', 'boolean']]);
     }
 }

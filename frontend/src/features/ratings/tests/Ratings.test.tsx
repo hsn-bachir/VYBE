@@ -18,6 +18,14 @@ function cache() { const client = new QueryClient({ defaultOptions: { queries: {
 function render(client: QueryClient) { return renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><CommunityRatingSection movie={550} /></MemoryRouter></QueryClientProvider>) }
 beforeEach(() => vi.restoreAllMocks())
 
+it('releases a confirmed rating before background refetches finish', async () => {
+  const client = cache()
+  const invalidate = vi.spyOn(client, 'invalidateQueries').mockImplementation(() => new Promise(() => {}))
+  await expect(synchronizeRating(client, 7, 550, saved)).resolves.toBe(true)
+  expect(client.getQueryData(ratingKeys.own(7, 550))).toEqual(saved)
+  expect(invalidate).toHaveBeenCalledTimes(2)
+})
+
 it('uses Core endpoints with AbortSignal and distinct public/personal DTOs', async () => {
   const get = vi.spyOn(api, 'get').mockResolvedValue({ data: { data: stats } })
   const signal = new AbortController().signal

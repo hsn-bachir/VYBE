@@ -10,7 +10,7 @@ import { MovieGridSkeleton } from '../components/MovieGrid'
 import { MovieImage } from '../components/MovieImage'
 import { MoviePagination } from '../components/MoviePagination'
 import { MovieSearch, SEARCH_DEBOUNCE_MS } from '../components/MovieSearch'
-import { detailOptions, normalizeQuery, pageNumber, popularOptions, popularFeedOptions, searchOptions, uniqueMovies, validMovieId } from '../hooks/useMovies'
+import { detailOptions, normalizeQuery, pageNumber, popularOptions, popularFeedOptions, searchFeedOptions, searchOptions, uniqueMovies, validMovieId } from '../hooks/useMovies'
 import { PopularMoviesPage } from '../pages/PopularMoviesPage'
 import { DiscoverPage } from '../pages/DiscoverPage'
 import { MovieDetailsPage } from '../pages/MovieDetailsPage'
@@ -134,7 +134,7 @@ describe('movie presentation and navigation', () => {
   it('renders an empty query and no-results search state', () => {
     expect(render(<DiscoverPage />)).toContain('Movies worth discovering.')
     const cache = client()
-    cache.setQueryData(['movies', 'search', 'unmatched', 1], { data: [], meta: { page: 1, total_pages: 0, total_results: 0 } })
+    cache.setQueryData(searchFeedOptions('unmatched').queryKey, { pages: [{ data: [], meta: { page: 1, total_pages: 0, total_results: 0 } }], pageParams: [1] })
     expect(render(<DiscoverPage />, cache, '/discover?query=unmatched')).toContain('No matches. More possibilities.')
   })
   it('renders safe error feedback with a real retry action', async () => {
@@ -190,7 +190,7 @@ describe('homepage refinement', () => {
   it('prioritizes search results over discovery picks without changing the provider order', () => {
     const cache = client()
     cache.setQueryData(popularOptions(1).queryKey, list)
-    cache.setQueryData(searchOptions('space', 1).queryKey, { ...list, data: [{ ...summary, title: 'Search only' }] })
+    cache.setQueryData(searchFeedOptions('space').queryKey, { pages: [{ ...list, data: [{ ...summary, title: 'Search only' }] }], pageParams: [1] })
     const html = render(<DiscoverPage />, cache, '/discover?query=space')
     expect(html).toContain('Search only')
     expect(html).not.toContain('Movies worth discovering.')

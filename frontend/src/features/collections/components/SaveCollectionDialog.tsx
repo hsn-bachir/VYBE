@@ -29,7 +29,7 @@ export default function SaveCollectionDialog({ owner, movie, title, onClose }: {
   const [created, setCreated] = useState<Collection | null>(null)
   const [feedback, setFeedback] = useState('')
   const listHeading = useRef<HTMLParagraphElement>(null)
-  const result = useQuery({ ...collectionsOptions(owner, page, movie), refetchOnMount: 'always' })
+  const result = useQuery(collectionsOptions(owner, page, movie, false))
   useLibraryAccessError(result.error, owner)
   const saveNew = useCollectionMutation(owner, () => {
     setCreated(old => old ? { ...old, contains_movie: true, movie_count: 1 } : old)
@@ -44,7 +44,7 @@ export default function SaveCollectionDialog({ owner, movie, title, onClose }: {
       saveNew.mutate({ action: 'membership', id: c.id, tmdbId: movie, add: true })
     }} /></div> : <>
       <p ref={listHeading} tabIndex={-1} className="collection-dialog-copy">Choose your collections. Each change saves separately.</p>
-      {result.isPending ? <p role="status" className="collection-dialog-copy">Loading collections…</p>
+      {result.isPending ? <ul role="status" aria-label="Loading collections" className="collection-choices collection-choice-skeletons">{[0, 1, 2].map(i => <li key={i} className="skeleton" aria-hidden="true" />)}</ul>
         : result.isError ? <div className="collection-dialog-copy" role="alert"><p>{collectionError(result.error)}</p><Button onClick={() => void result.refetch()}>Retry collections</Button></div>
           : <>
             {choices.length ? <ul className="collection-choices">{choices.map(c => <CollectionChoice key={c.id} owner={owner} movie={movie} collection={c} savingNew={created?.id === c.id && saveNew.isPending} onConfirmed={add => {

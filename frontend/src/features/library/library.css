@@ -26,6 +26,9 @@
 .membership-button { background: color-mix(in srgb, var(--color-background) 65%, transparent); font-size: .85rem; min-height: 48px; }
 .membership-button svg { width: 20px; height: 20px; }
 .membership-button.is-saved { border-color: color-mix(in srgb, var(--color-primary) 65%, var(--color-border)); color: color-mix(in srgb, var(--color-primary) 45%, var(--color-foreground)); }
+.favorite-button > span { font-size: 1.4rem; line-height: 1; }
+.library-overview .library-heading { padding-bottom: 1rem; }
+.library-overview-grid { margin-block: 1.5rem 2rem; }
 .membership-pulse { animation: bookmark-pulse 300ms var(--ease-smooth-out); }
 .action-feedback { min-height: 1.6rem; max-width: 260px; font-size: .72rem; margin-top: .5rem; color: var(--color-muted); }
 .action-feedback[role=alert] { color: var(--color-danger); }

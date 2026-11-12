@@ -10,7 +10,7 @@ import { MovieState } from '../../movies/components/MovieState'
 import { collectionError } from '../api/collectionsApi'
 import { collectionsOptions } from '../hooks/useCollections'
 import type { Collection } from '../types/collection.types'
-import { CollectionCard } from '../components/CollectionCard'
+import { CollectionCard, CollectionCardSkeleton } from '../components/CollectionCard'
 import { CollectionEditor } from '../components/CollectionEditor'
 import { DeleteCollectionDialog } from '../components/DeleteCollectionDialog'
 import '../collections.css'
@@ -37,11 +37,11 @@ function CollectionsContent({ owner }: { owner: number }) {
     <LibraryHeader />
     <div className="section-heading collection-section-heading"><div><h2 ref={heading} tabIndex={-1}>Your collections<span className="accent-period">.</span></h2><p>Organize the movies you love, your way.</p></div><Button className="primary" onClick={() => setEditor('new')}>＋ New collection</Button></div>
     {!valid ? <MovieState title="That page is out of frame."><Link to="/library/collections">Go to the first page</Link></MovieState>
-      : result.isPending ? <div className="collection-grid" role="status" aria-label="Loading collections">{[1, 2, 3].map(i => <div key={i} className="collection-skeleton skeleton" />)}</div>
+      : result.isPending ? <ul className="collection-grid" aria-label="Loading collections">{[1, 2, 3].map(i => <CollectionCardSkeleton key={i} />)}</ul>
         : result.isError ? <MovieState title="Your collections are taking an intermission." retry={() => void result.refetch()}>{collectionError(result.error)}</MovieState>
           : <>
             {result.data.data.length === 0 ? <MovieState title={page > 1 ? 'No collections on this page.' : 'Make room for your favorites.'}>{page > 1 ? <Link to="/library/collections">Go to the first page</Link> : <>Group films by mood, genre, or the people you watch with. Every collection is private. <Button className="primary" onClick={() => setEditor('new')}>Create your first collection</Button></>}</MovieState>
-              : <ul className="collection-grid">{result.data.data.map(c => <CollectionCard key={c.id} collection={c} onEdit={() => setEditor(c)} onDelete={() => setDeleting(c)} />)}</ul>}
+              : <ul className="collection-grid">{result.data.data.map(c => <CollectionCard key={c.id} collection={c} onEdit={c.system_key ? undefined : () => setEditor(c)} onDelete={c.system_key ? undefined : () => setDeleting(c)} />)}</ul>}
             <MoviePagination page={page} totalPages={result.data.meta.total_pages} />
           </>}
     {editor && <CollectionEditor owner={owner} collection={editor === 'new' ? undefined : editor} onClose={() => setEditor(null)} onSaved={() => { setFeedback(editor === 'new' ? 'Collection created.' : 'Collection updated.'); setEditor(null); if (editor === 'new') setParams({}) }} />}

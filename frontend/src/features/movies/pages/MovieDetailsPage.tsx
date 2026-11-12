@@ -1,8 +1,9 @@
 ﻿import axios from 'axios'
 import { lazy, Suspense, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
-import { VybeLoader } from '../../../components/branding/VybeLoader'
 import { Button } from '../../../components/ui/Button'
+import { DeferredSection } from '../../../components/ui/DeferredSection'
+import { SectionSkeleton } from '../../../components/ui/SectionSkeleton'
 import AnimatedContent from '../../../components/react-bits/AnimatedContent'
 import { LibraryActions } from '../../library/components/LibraryActions'
 import { movieError } from '../api/moviesApi'
@@ -10,6 +11,7 @@ import { releaseYear } from '../api/images'
 import { MovieCast } from '../components/MovieCast'
 import { MovieImage } from '../components/MovieImage'
 import { MovieGrid } from '../components/MovieGrid'
+import { MovieDetailsSkeleton } from '../components/MovieDetailsSkeleton'
 import { MovieRating } from '../components/MovieRating'
 import { MovieState } from '../components/MovieState'
 import { useMovieDetails, useMovieExperience, validMovieId } from '../hooks/useMovies'
@@ -19,7 +21,6 @@ import '../details.css'
 import '../../library/library.css'
 
 const TrailerDialog = lazy(() => import('../components/TrailerDialog'))
-const CommunityRatingSection = lazy(() => import('../../ratings/components/CommunityRatingSection'))
 const CommunityReviewsSection = lazy(() => import('../../reviews/components/CommunityReviewsSection'))
 
 function CinematicDetails({ movie, stale, back }: { movie: MovieDetails; stale: boolean; back: string }) {
@@ -57,14 +58,13 @@ function CinematicDetails({ movie, stale, back }: { movie: MovieDetails; stale: 
     </AnimatedContent>
     <section className="film-media" aria-labelledby="trailer-heading">
       <div className="section-heading"><div><p className="eyebrow">A glimpse of the world</p><h2 id="trailer-heading">Before the lights go down<span className="accent-period">.</span></h2></div></div>
-      {experience.isPending ? <div className="trailer-placeholder skeleton" role="status">Loading trailer and credits…</div>
+      {experience.isPending ? <div className="trailer-preview trailer-skeleton skeleton" role="status" aria-label="Loading trailer"><div className="trailer-preview-copy" aria-hidden="true"><div className="trailer-skeleton-line short" /><div className="trailer-skeleton-line" /><div className="trailer-skeleton-button" /></div></div>
         : experience.isError ? <div className="trailer-placeholder"><p>Trailers and credits are temporarily unavailable.</p><Button onClick={() => void experience.refetch()} disabled={experience.isFetching}>Retry movie extras</Button></div>
           : trailer ? <div className="trailer-preview"><div className="trailer-still" aria-hidden="true"><MovieImage path={movie.backdrop_path ?? movie.poster_path} title={movie.title} variant="backdrop" /></div><div className="trailer-preview-copy"><p className="eyebrow">{trailer.official ? 'Official ' : ''}{trailer.type} · YouTube</p><h3>{trailer.name}</h3><Button className="trailer-cta" onClick={() => setPlaying(true)} aria-label={`Play ${movie.title} ${trailer.type.toLowerCase()}`}><span aria-hidden="true">▶</span> Play {trailer.type.toLowerCase()}</Button><p>YouTube loads only when you press play.</p></div></div>
             : <div className="trailer-placeholder"><span className="eyebrow">Off screen, for now</span><p>No trailer is available for this movie.</p></div>}
     </section>
-    {data && <MovieCast cast={data.cast} />}
-    <Suspense fallback={<p role="status">Loading community ratings…</p>}><CommunityRatingSection movie={movie.tmdb_id} /></Suspense>
-    <Suspense fallback={<p role="status">Loading community reviews…</p>}><CommunityReviewsSection movie={movie.tmdb_id} title={movie.title} /></Suspense>
+    {experience.isPending ? <div className="cast-skeleton" role="status" aria-label="Loading cast"><div className="detail-skeleton-heading skeleton" /><div className="cast-strip" aria-hidden="true">{[0, 1, 2, 3].map(i => <div className="cast-skeleton-card skeleton" key={i} />)}</div></div> : data && <MovieCast cast={data.cast} />}
+    <DeferredSection fallback={<SectionSkeleton label="Community opinions" />}><Suspense fallback={<SectionSkeleton label="Loading community opinions" />}><CommunityReviewsSection movie={movie.tmdb_id} title={movie.title} /></Suspense></DeferredSection>
     {!!data?.related.length && <section className="film-related" aria-labelledby="related-heading"><div className="section-heading"><div><p className="eyebrow">Keep the story going</p><h2 id="related-heading">More to discover<span className="accent-period">.</span></h2></div></div><p className="related-credit">Related films from TMDB</p><MovieGrid movies={data.related} /></section>}
     {playing && trailer && <Suspense fallback={<p role="status">Opening trailer…</p>}><TrailerDialog trailer={trailer} title={movie.title} onClose={() => setPlaying(false)} /></Suspense>}
   </article>
@@ -77,7 +77,7 @@ export function MovieDetailsPage() {
   const from: unknown = location.state?.from
   const back = typeof from === 'string' && /^\/(?:discover(?:\?|$)|library\/(?:watchlist|watched)(?:\?|$)|\?|$)/.test(from) ? from : '/discover'
   if (!validMovieId(tmdbId)) return <MovieState title="This film is out of frame."><Link to="/discover">Back to discovery</Link></MovieState>
-  if (result.isPending) return <div className="detail-loading"><VybeLoader label="Setting the scene…" /><div className="detail-skeleton skeleton" aria-hidden="true" /></div>
+  if (result.isPending) return <MovieDetailsSkeleton />
   if (result.isError && !result.data) {
     const missing = axios.isAxiosError(result.error) && result.error.response?.status === 404
     return <MovieState title={missing ? 'This film is out of frame.' : 'A brief intermission.'} retry={missing ? undefined : () => void result.refetch()}>{movieError(result.error)} <Link to={back}>Back to discovery</Link></MovieState>

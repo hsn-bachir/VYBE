@@ -1,9 +1,12 @@
 import type { MovieSummary } from '../types/movie.types'
 import { MovieCard } from './MovieCard'
 
-export function MovieGrid({ movies }: { movies: MovieSummary[] }) {
-  return <ul className="movie-grid">{movies.map(movie => <MovieCard key={movie.tmdb_id} movie={movie} />)}</ul>
+export function MovieGrid({ movies, pendingCount = 0, pendingLabel = 'Loading more movies' }: { movies: MovieSummary[]; pendingCount?: number; pendingLabel?: string }) {
+  return <><ul className="movie-grid">{movies.map(movie => <MovieCard key={movie.tmdb_id} movie={movie} />)}<MovieSkeletonCards count={pendingCount} /></ul>{pendingCount > 0 && <span className="sr-only" role="status">{pendingLabel}</span>}</>
 }
-export function MovieGridSkeleton({ count = 12 }: { count?: number }) {
-  return <div role="status" aria-label="Loading movies"><span className="sr-only">Loading movies…</span><div className="movie-grid" aria-hidden="true">{Array.from({ length: count }, (_, i) => <div className="movie-skeleton" key={i}><div className="skeleton-poster skeleton" /><div className="skeleton-title skeleton" /><div className="skeleton-meta skeleton" /></div>)}</div></div>
+function MovieSkeletonCards({ count }: { count: number }) {
+  return Array.from({ length: count }, (_, i) => <li className="movie-skeleton" key={`pending:${i}`} aria-hidden="true"><div className="skeleton-poster skeleton" /><div className="skeleton-title skeleton" /><div className="skeleton-card-meta"><span className="skeleton" /><span className="skeleton" /></div></li>)
+}
+export function MovieGridSkeleton({ count = 12, label = 'Loading movies' }: { count?: number; label?: string }) {
+  return <div role="status" aria-label={label}><span className="sr-only">{label}…</span><ul className="movie-grid"><MovieSkeletonCards count={count} /></ul></div>
 }

@@ -17,7 +17,13 @@
 .header-search svg { width: 21px; height: 21px; }
 .header-search:hover { background: var(--color-surface); color: var(--color-foreground); }
 .header-search:active { transform: scale(.97); }
-.account-nav { gap: 1rem; }
+.account-nav { flex-wrap: nowrap; gap: .55rem; }
+.app-header .header-search:hover, .app-header .account-nav a:hover, .app-header .account-nav button:hover { text-decoration: none; }
+.header-admin { display: inline-flex; align-items: center; min-height: 38px; padding: .4rem .7rem; border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--color-border)); border-radius: 8px; color: var(--color-foreground); font-size: .78rem; font-weight: 650; background: color-mix(in srgb, var(--color-primary) 9%, transparent); }
+.header-admin:hover, .header-admin[aria-current=page] { background: color-mix(in srgb, var(--color-primary) 19%, var(--color-surface)); }
+.account-profile { padding: .2rem .35rem; border-radius: 8px; }
+.account-profile:hover { background: var(--color-surface); }
+.header-signout { color: var(--color-muted); }
 .account-nav > a.button { border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border)); background: color-mix(in srgb, var(--color-primary) 15%, var(--color-background)); }
 .account-nav > a.button:hover { background: color-mix(in srgb, var(--color-primary) 25%, var(--color-background)); }
 .brand-hero { position: relative; isolation: isolate; display: flex; align-items: center; min-height: clamp(540px, 74svh, 700px); margin: calc(-1 * var(--header-height) - 1.5rem) calc(-1 * var(--page-gutter)) 0; padding: calc(var(--header-height) + 2rem) var(--page-gutter) 3rem; background: var(--color-background); overflow: hidden; }
@@ -44,6 +50,14 @@
 .hero-search { animation-delay: 440ms; }
 .hero-search-hint { animation-delay: 500ms; }
 .spotlight-section { margin-top: 2.75rem; }
+.spotlight-skeleton .spotlight-copy { opacity: 1; transform: none; gap: 1rem; width: 100%; }
+.spotlight-skeleton .spotlight-stage { background: radial-gradient(ellipse at 80% 40%, color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)), var(--color-background)); }
+.spotlight-skeleton .skeleton { background-color: color-mix(in srgb, var(--color-foreground) 7%, var(--color-surface)); }
+.spotlight-skeleton-meta { width: 130px; height: 14px; border-radius: 4px; }
+.spotlight-skeleton-title { width: 85%; height: 42px; border-radius: 6px; }
+.spotlight-skeleton-title.short { width: 55%; }
+.spotlight-skeleton-description { width: 95%; height: 70px; border-radius: 5px; margin-block: .5rem; }
+.spotlight-skeleton-action { width: 165px; height: 44px; border-radius: 6px; }
 .spotlight-edition { font-size: .6rem; letter-spacing: .15em; color: var(--color-muted); }
 .spotlight { overflow: hidden; border-radius: 10px; background: var(--color-surface); position: relative; }
 .spotlight-stage { position: relative; height: clamp(500px, calc(36vw + 72px), 547px); isolation: isolate; }
@@ -79,6 +93,8 @@
 .popular-section { margin-top: 3.5rem; }
 .load-more-area { display: flex; flex-direction: column; align-items: center; margin-top: 2.5rem; min-height: 125px; gap: .8rem; overflow-anchor: none; }
 .load-more-area > p, .end-of-reel { font-size: .7rem; color: var(--color-muted); margin: 0; }
+.load-more-fallback { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.load-more-fallback:focus-visible { position: static; width: auto; height: auto; padding: .55rem 1rem; margin: 0; overflow: visible; clip: auto; }
 .load-more-button { min-width: 220px; gap: 2rem; background: color-mix(in srgb, var(--color-primary) 8%, var(--color-background)); font-size: .8rem; }
 .search-results { scroll-margin-top: calc(var(--header-height) + 1.5rem); outline: none; }
 .movie-card h3 { transition: color var(--duration-quick); }
@@ -105,6 +121,8 @@
   .discovery-nav a { padding-bottom: .8rem; }
   .nav-indicator { bottom: 0; }
   .account-nav { font-size: .72rem; }
+  .header-admin { min-height: 34px; padding: .35rem .5rem; font-size: .7rem; }
+  .header-signout { padding-inline: .45rem; }
   .account-name { max-width: 86px; }
   .brand-hero { min-height: 550px; margin-top: calc(-1 * var(--header-height) - 1rem); padding-top: calc(var(--header-height) + 2rem); padding-bottom: 2.5rem; align-items: start; }
   .brand-hero-copy { padding-block: 1.2rem; }

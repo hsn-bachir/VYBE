@@ -1,3 +1,4 @@
+import { SectionSkeleton } from '../../../components/ui/SectionSkeleton'
 import { useState } from 'react'
 import { Link, useOutletContext, useParams } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
@@ -29,7 +30,7 @@ export default function ReportDetailsPage() {
     change.mutate(operation, { onSuccess: () => { setChoice(null); setNotice('Decision saved and recorded in moderation history.') } })
   }
   return <AdminShell><Link className="admin-back" to="/admin/reports">← Back to reports</Link>
-    {query.isPending ? <AdminNotice>Loading report…</AdminNotice> : query.isError || !item ? <div><AdminNotice error>{moderationError(query.error)}</AdminNotice><Button onClick={() => void query.refetch()}>Try again</Button></div>
+    {query.isPending ? <SectionSkeleton label="Loading report" rows={5} /> : query.isError || !item ? <div><AdminNotice error>{moderationError(query.error)}</AdminNotice><Button onClick={() => void query.refetch()}>Try again</Button></div>
       : <><div className="admin-heading"><div><p className="eyebrow">Reported review / #{item.id}</p><h1>Investigate report</h1><p className="text-muted">Submitted {new Date(item.created_at).toLocaleString()}</p></div><AccountBadge value={item.status} /></div>
         {notice && <AdminNotice>{notice}</AdminNotice>}
         <div className="admin-detail-grid"><section className="admin-panel"><h2>Report</h2><dl><dt>Reason</dt><dd>{item.reason}</dd><dt>Reporter</dt><dd>{item.reporter ? `@${item.reporter.username}` : 'Deleted account'}</dd><dt>Details</dt><dd>{item.description || 'No additional details.'}</dd><dt>Status</dt><dd>{item.status}</dd>{item.resolved_at && <><dt>Decision</dt><dd>{item.resolution_action || 'Dismissed'} by user #{item.resolved_by ?? 'deleted'}</dd><dt>Note</dt><dd>{item.resolution_note}</dd></>}</dl></section>

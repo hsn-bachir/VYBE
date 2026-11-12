@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 #[Fillable(['username', 'email', 'password'])]
@@ -19,6 +21,20 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    protected static function booted(): void
+    {
+        static::created(function (User $user): void {
+            // Backfill handles users created before this migration. The table
+            // guard also keeps rolling migrations safe during deployment.
+            if (Schema::hasTable('collections') && Schema::hasColumn('collections', 'system_key')) {
+                DB::table('collections')->insertOrIgnore([
+                    'user_id' => $user->id, 'name' => 'Favorites', 'system_key' => Collection::FAVORITES,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        });
+    }
 
     public const ROLE_USER = 'user';
 

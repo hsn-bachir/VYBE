@@ -6,6 +6,7 @@ use App\Models\Movie;
 use App\Services\MovieService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -111,6 +112,35 @@ class MovieApiTest extends TestCase
         Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.themoviedb.org/3/movie/550?')
             && $request['language'] === 'en-US' && $request['append_to_response'] === 'videos,credits,recommendations'
             && $request->hasHeader('Authorization', 'Bearer test-provider') && ! $request->hasHeader('X-VYBE-Service-Token'));
+    }
+
+    public function test_persisted_details_are_shared_after_rebuilding_service_and_clearing_ephemeral_cache(): void
+    {
+        Http::fake(['*' => Http::response($this->detail())]);
+        $this->getJson('/api/internal/v1/movies/550')->assertOk();
+        Cache::flush();
+        app()->forgetInstance(MovieService::class);
+        $this->withHeader('X-Viewer', 'another-account')->getJson('/api/internal/v1/movies/550')
+            ->assertOk()->assertJsonPath('data.title', 'Fixture movie');
+        Http::assertSentCount(1);
+        $this->assertDatabaseCount('movies', 1);
+    }
+
+    public function test_ranking_persists_equal_shape_summaries_in_one_upsert(): void
+    {
+        $rows = array_map(fn ($id) => ['id' => $id, 'title' => 'Movie '.$id, 'poster_path' => '/poster.jpg'], range(1, 20));
+        Http::fake(['*' => Http::response($this->listing($rows))]);
+        DB::enableQueryLog();
+        try {
+            $this->getJson('/api/internal/v1/movies/popular')->assertOk();
+            $writes = array_filter(DB::getQueryLog(), fn ($query) => str_contains(strtolower($query['query']), 'insert into')
+                && str_contains(strtolower($query['query']), 'movies'));
+            $this->assertCount(1, $writes);
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+        $this->assertDatabaseCount('movies', 20);
     }
 
     public function test_freshness_expires_at_configured_boundary_and_refreshes_existing_row(): void

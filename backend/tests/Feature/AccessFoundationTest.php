@@ -83,7 +83,8 @@ class AccessFoundationTest extends TestCase
             $this->getJson('/api/v1/me/access')->assertForbidden()->assertJsonPath('code', $code);
             $this->getJson('/api/v1/movies/550/ratings')->assertOk();
         }
-        $this->assertDatabaseCount('collections', 0);
+        $this->assertDatabaseCount('collections', 1);
+        $this->assertDatabaseHas('collections', ['user_id' => $user->id, 'system_key' => 'favorites']);
         $this->postJson('/api/v1/auth/logout')->assertNoContent();
     }
 

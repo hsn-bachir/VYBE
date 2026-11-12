@@ -25,7 +25,8 @@ export async function synchronizeRating(client: QueryClient, owner: number, id: 
   await Promise.all([client.cancelQueries({ queryKey: ratingKeys.own(owner, id), exact: true }), client.cancelQueries({ queryKey: ratingKeys.statistics(id), exact: true })])
   if (!isCurrent(client, owner)) return false
   client.setQueryData(ratingKeys.own(owner, id), result)
-  await Promise.all([client.invalidateQueries({ queryKey: ratingKeys.own(owner, id), exact: true }), client.invalidateQueries({ queryKey: ratingKeys.statistics(id), exact: true })])
+  void client.invalidateQueries({ queryKey: ratingKeys.own(owner, id), exact: true })
+  void client.invalidateQueries({ queryKey: ratingKeys.statistics(id), exact: true })
   return isCurrent(client, owner)
 }
 
