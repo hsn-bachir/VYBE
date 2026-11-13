@@ -62,6 +62,15 @@ class TmdbClient
         return $this->get('movie/'.$id, ['append_to_response' => 'videos,credits,recommendations'], true);
     }
 
+    public function recommendationPage(array $query): array
+    {
+        if (isset($query['reference'])) {
+            return $this->get('movie/'.$query['reference'].'/recommendations', ['page' => $query['page']]);
+        }
+
+        return $this->get('discover/movie', $query + ['include_adult' => 'false', 'include_video' => 'false', 'sort_by' => 'popularity.desc', 'vote_count.gte' => 100]);
+    }
+
     private function get(string $path, array $query, bool $detail = false): array
     {
         $token = config('catalog.tmdb_token');

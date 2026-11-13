@@ -12,6 +12,7 @@ import { MovieState } from './features/movies/components/MovieState'
 import { VybeLoader } from './components/branding/VybeLoader'
 import { MovieDetailsSkeleton } from './features/movies/components/MovieDetailsSkeleton'
 const LibraryPage = lazy(() => import('./features/library/pages/LibraryPage'))
+const ForYouPage = lazy(() => import('./features/recommendations/ForYouPage'))
 const LibraryOverviewPage = lazy(() => import('./features/library/pages/LibraryOverviewPage'))
 const FirebaseVerificationActionPage = lazy(() => import('./features/auth/pages/FirebaseVerificationActionPage').then(module => ({ default: module.FirebaseVerificationActionPage })))
 const FirebaseEmailActionPage = lazy(() => import('./features/auth/pages/FirebaseEmailActionPage').then(module => ({ default: module.FirebaseEmailActionPage })))
@@ -39,6 +40,7 @@ export default function App() {
       <Route path="/discover" element={<DiscoverPage />} />
       <Route path="/movies/:tmdbId" element={<Suspense fallback={<MovieDetailsSkeleton />}><MovieDetailsPage /></Suspense>} />
       <Route element={<RequireAuth />}>
+        <Route path="/for-you" element={<Suspense fallback={<VybeLoader label="Finding your next story…" />}><ForYouPage /></Suspense>} />
         <Route element={<RequireAdmin />}>
           <Route path="/admin" element={<Suspense fallback={<VybeLoader label="Opening administration…" />}><AdminPage /></Suspense>} />
           <Route path="/admin/reports" element={<Suspense fallback={<VybeLoader label="Opening reports…" />}><ReportsPage /></Suspense>} />

@@ -78,3 +78,5 @@ Core's HTTP adapter is implemented independently of the Catalog. Core should all
 Separate MySQL migration test jobs for Core and Catalog, plus PHP tests. PHPUnit may still default to SQLite `:memory:`; a MySQL migration job is not proof the entire PHPUnit suite uses MySQL. Add integration coverage deliberately. No dangerous database reset outside disposable test DBs.
 
 Read [public/internal contracts](../api/contracts.md) and [database ownership](../database/schema.md).
+
+M3.3 For You is implemented by Core preference/scoring/section services and one bounded Catalog candidate endpoint. See [recommendation ownership, contracts and cache policy](../api/recommendations.md). No new database tables or services are introduced.

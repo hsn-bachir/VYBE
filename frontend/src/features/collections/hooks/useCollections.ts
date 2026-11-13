@@ -4,6 +4,7 @@ import type { User } from '../../auth/types/auth.types'
 import { libraryKeys, useLibraryAccessError } from '../../library/hooks/useLibrary'
 import { changeCollection, collectionDetails, collectionMovies, collectionsPage } from '../api/collectionsApi'
 import type { Collection, CollectionOperation, CollectionsResponse } from '../types/collection.types'
+import { refreshRecommendations } from '../../recommendations/recommendations'
 
 export const collectionKeys = {
   lists: (owner: number) => [...libraryKeys.owner(owner), 'collections'] as const,
@@ -26,6 +27,7 @@ export const collectionMoviesOptions = (owner: number, id: number, page: number)
 export async function synchronizeCollections(client: ReturnType<typeof useQueryClient>, owner: number, operation: CollectionOperation, result: Collection | null) {
   const current = () => client.getQueryData<User | null>(authKey)?.id === owner
   if (!current()) return false
+  void refreshRecommendations(client, owner, operation.action === 'membership' && operation.add ? operation.tmdbId : undefined)
   await client.cancelQueries({ queryKey: collectionKeys.lists(owner) })
   if (!current()) return false
   if (operation.action === 'membership') {

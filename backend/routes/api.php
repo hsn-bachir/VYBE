@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\MovieController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\RatingController;
+use App\Http\Controllers\Api\V1\RecommendationController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Middleware\EnsureAccountAccess;
@@ -68,6 +69,7 @@ Route::prefix('v1/me')->withoutMiddleware(EnsureFrontendRequestsAreStateful::cla
         Route::get('access', fn (Request $request) => response()->json(['data' => [
             'role' => $request->user()->role, 'account_status' => $request->user()->account_status,
         ]]))->middleware('throttle:library-read');
+        Route::get('recommendations', RecommendationController::class)->middleware('throttle:library-read');
         foreach (['watchlist', 'watched'] as $library) {
             Route::get($library, [LibraryController::class, 'index'])->defaults('library', $library)->middleware('throttle:library-read');
             Route::post($library, [LibraryController::class, 'store'])->defaults('library', $library)->middleware('throttle:library-write');
