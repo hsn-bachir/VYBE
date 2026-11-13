@@ -1,5 +1,7 @@
 # VYBE Milestone 1 — browser-facing and internal API contracts
 
+M3.3 adds the authenticated [For You recommendation contract](recommendations.md), including the additive internal candidate endpoint. Existing movie summary DTOs remain unchanged.
+
 **Status:** Core auth, public Core movies and internal Catalog endpoints are implemented and tested. Core and Catalog preserve the same normalized movie DTOs. M2.1 adds the [personal library contracts](milestone-2-contracts.md) and additive [movie experience](movie-experience.md) endpoint without changing these DTOs. M2.2 collections, M2.3 ratings and M2.4 reviews are implemented in the [M2 contracts](milestone-2-contracts.md); public review authors expose only id/username/avatar_url.
 
 ## A. Public Core API — `http://localhost:8000/api/v1`

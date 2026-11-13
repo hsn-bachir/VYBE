@@ -1,0 +1,10 @@
+.for-you-page{min-width:0;padding-block:3rem}
+.for-you-intro{max-width:46rem;margin-bottom:3rem}
+.for-you-intro h1{font-size:clamp(2.8rem,7vw,5rem);line-height:1.05;margin:.7rem 0 1rem}
+.for-you-intro>p:not(.eyebrow),.recommendation-section .section-heading p:not(.eyebrow){color:var(--color-muted)}
+.for-you-intro .text-link{display:inline-block;margin-top:1rem}
+.recommendation-section{margin-bottom:4rem}
+.recommendation-actions{display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.5rem}
+.recommendation-actions .button{font-size:.72rem;padding:.35rem .45rem;min-height:2rem}
+.recommendation-actions p{font-size:.8rem}
+@media(max-width:600px){.for-you-page{padding-block:2rem}.for-you-intro{margin-bottom:2rem}.recommendation-section{margin-bottom:2.5rem}}

@@ -105,6 +105,14 @@ class MovieService
             'meta' => ['page' => $filters['page'], 'total_pages' => (int) ceil($total / 20), 'total_results' => $total]];
     }
 
+    public function recommendationListing(array $query): array
+    {
+        ksort($query);
+        $key = 'catalog:candidate-page:v1:'.hash('sha256', json_encode($query));
+
+        return $this->cachedListing($key, $query['page'], fn () => $this->client->recommendationPage($query), captureTrending: true);
+    }
+
     private function cachedListing(string $key, int $page, callable $fetch, bool $upcoming = false, bool $captureTrending = false): array
     {
         return Cache::remember($key, config('catalog.ranking_ttl_seconds'), function () use ($page, $fetch, $upcoming, $captureTrending): array {
@@ -116,21 +124,32 @@ class MovieService
             }
             $movies = [];
             $candidates = [];
+            $genreCache = [];
             foreach ($data['results'] as $row) {
                 if (! is_array($row)) {
                     throw new UpstreamUnavailable;
+                }
+                if ($captureTrending && ($row['adult'] ?? false) === true) {
+                    continue;
                 }
                 $movie = $this->normalizer->normalize($row);
                 if ($upcoming && (empty($movie['poster_path']) || empty($movie['release_date']) || $movie['release_date'] <= now('UTC')->toDateString())) {
                     continue;
                 }
                 $movies[] = $movie;
+                if (! empty($row['genre_ids']) && is_array($row['genre_ids'])) {
+                    $genreIds = array_values(array_filter($row['genre_ids'], fn ($id) => is_int($id) && $id > 0));
+                    $genreCache['catalog:recommendation-genres:'.$movie['tmdb_id']] = $genreIds;
+                }
                 if ($captureTrending) {
                     $genres = $row['genre_ids'] ?? [];
                     $candidates[] = ['movie' => $movie,
                         'genres' => is_array($genres) && array_is_list($genres) ? array_values(array_filter($genres, fn ($id) => is_int($id) && $id > 0)) : [],
                         'language' => is_string($row['original_language'] ?? null) ? $row['original_language'] : null];
                 }
+            }
+            if ($genreCache) {
+                Cache::putMany($genreCache, config('catalog.metadata_ttl_seconds'));
             }
             // A multi-row upsert needs the same columns for every row. Group by the
             // fields actually supplied so an absent summary value cannot clear a

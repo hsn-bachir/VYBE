@@ -5,6 +5,7 @@ import { authKey } from '../../auth/hooks/useAuth'
 import type { User } from '../../auth/types/auth.types'
 import { changeRating, personalRating, ratingStatistics } from '../api/ratingsApi'
 import type { PersonalRating, RatingOperation } from '../types/rating.types'
+import { refreshRecommendations } from '../../recommendations/recommendations'
 
 export const ratingKeys = {
   statistics: (id: number) => ['movies', 'ratings', id] as const,
@@ -25,6 +26,7 @@ export async function synchronizeRating(client: QueryClient, owner: number, id: 
   await Promise.all([client.cancelQueries({ queryKey: ratingKeys.own(owner, id), exact: true }), client.cancelQueries({ queryKey: ratingKeys.statistics(id), exact: true })])
   if (!isCurrent(client, owner)) return false
   client.setQueryData(ratingKeys.own(owner, id), result)
+  void refreshRecommendations(client, owner, result ? id : undefined)
   void client.invalidateQueries({ queryKey: ratingKeys.own(owner, id), exact: true })
   void client.invalidateQueries({ queryKey: ratingKeys.statistics(id), exact: true })
   return isCurrent(client, owner)

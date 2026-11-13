@@ -6,6 +6,7 @@ import type { User } from '../../auth/types/auth.types'
 import { changeMembership, libraryPage, libraryState } from '../api/libraryApi'
 import type { LibraryKind, LibraryState } from '../types/library.types'
 import { profileKey } from '../../profile/hooks/profileKeys'
+import { refreshRecommendations } from '../../recommendations/recommendations'
 
 export const libraryKeys = {
   owner: (userId: number) => ['library', userId] as const,
@@ -53,6 +54,7 @@ export function useMembership(userId: number, kind: LibraryKind, id: number, onC
         ...old, ...(kind === 'watchlist' ? { in_watchlist: add } : { watched_at: entry?.watched_at ?? null }),
       } : undefined)
       onConfirmed?.()
+      void refreshRecommendations(client, userId, add ? id : undefined)
       // The server has confirmed this write and the visible state is updated.
       // Refresh other views without keeping the button pending for their network requests.
       void client.invalidateQueries({ queryKey: libraryKeys.list(userId, kind) })
