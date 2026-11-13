@@ -21,6 +21,42 @@ class TmdbClient
         return $this->get('search/movie', ['query' => $query, 'page' => $page, 'include_adult' => 'false']);
     }
 
+    /** Provider filters are built only from the validated discovery contract. */
+    public function discover(array $filters): array
+    {
+        if ($filters['category'] === 'trending') {
+            return $this->get('trending/movie/week', ['page' => $filters['page']]);
+        }
+        $params = ['page' => $filters['page'], 'sort_by' => $filters['sort'], 'include_adult' => 'false', 'include_video' => 'false'];
+        if (! empty($filters['genres'])) {
+            $params['with_genres'] = implode($filters['genre_match'] === 'all' ? ',' : '|', $filters['genres']);
+        }
+        foreach (['rating_min' => 'vote_average.gte', 'runtime_min' => 'with_runtime.gte', 'runtime_max' => 'with_runtime.lte', 'original_language' => 'with_original_language'] as $field => $provider) {
+            if (isset($filters[$field])) {
+                $params[$provider] = $filters[$field];
+            }
+        }
+        $from = isset($filters['year_from']) ? $filters['year_from'].'-01-01' : null;
+        $to = isset($filters['year_to']) ? $filters['year_to'].'-12-31' : null;
+        if ($filters['category'] === 'upcoming') {
+            $from = max($from ?? '', now('UTC')->addDay()->toDateString());
+        } elseif ($filters['category'] === 'now_playing') {
+            $from = max($from ?? '', now('UTC')->subDays(42)->toDateString());
+            $to = min($to ?? '9999-12-31', now('UTC')->toDateString());
+        }
+        if ($from !== null) {
+            $params['primary_release_date.gte'] = $from;
+        }
+        if ($to !== null) {
+            $params['primary_release_date.lte'] = $to;
+        }
+        if ($filters['category'] === 'top_rated' || $filters['sort'] === 'vote_average.desc') {
+            $params['vote_count.gte'] = 300;
+        }
+
+        return $this->get('discover/movie', $params);
+    }
+
     public function details(int $id): array
     {
         return $this->get('movie/'.$id, ['append_to_response' => 'videos,credits,recommendations'], true);

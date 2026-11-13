@@ -6,6 +6,7 @@ import { MovieState } from '../components/MovieState'
 import { BrandHero } from '../components/BrandHero'
 import { Spotlight } from '../components/Spotlight'
 import { SpotlightSkeleton } from '../components/SpotlightSkeleton'
+import { UpcomingMovies } from '../components/UpcomingMovies'
 import { selectSpotlightMovies } from '../lib/spotlight'
 import { uniqueMovies, usePopularFeed } from '../hooks/useMovies'
 import { useInfiniteMovieScroll } from '../hooks/useInfiniteMovieScroll'
@@ -22,6 +23,7 @@ export function PopularMoviesPage() {
   return <>
     <BrandHero />
     {result.isPending ? <SpotlightSkeleton /> : featured.length > 0 && <Spotlight movies={featured} />}
+    <UpcomingMovies />
     <section className="movie-section popular-section" aria-labelledby="popular-heading"><AnimatedContent className="section-heading"><div><p className="eyebrow">The collective pulse</p><h2 id="popular-heading">Popular right now<span className="accent-period">.</span></h2></div><Link className="text-link" to="/discover">Find your film <span aria-hidden="true">↗</span></Link></AnimatedContent>
       {result.isPending ? <MovieGridSkeleton /> : result.isError && !result.data ? <MovieState title="A brief intermission." retry={() => void result.refetch()}>{movieError(result.error)}</MovieState> : result.data && <>
         {result.isError && !result.isFetchNextPageError && <p role="status" className="freshness-note">Showing the last available results. <button onClick={() => void result.refetch()}>Refresh</button></p>}

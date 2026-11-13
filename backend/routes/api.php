@@ -32,6 +32,7 @@ Route::prefix('v1/movies')->group(function (): void {
     Route::get('{tmdb_id}/ratings', [RatingController::class, 'statistics'])->middleware('throttle:community-read');
     Route::get('{tmdb_id}/reviews', [ReviewController::class, 'index'])->middleware('throttle:community-read', PreventAuthCaching::class);
     Route::get('popular', [MovieController::class, 'popular']);
+    Route::get('discover', [MovieController::class, 'discover']);
     Route::get('search', [MovieController::class, 'search']);
     Route::get('{tmdb_id}', [MovieController::class, 'show']);
     Route::get('{tmdb_id}/experience', [MovieController::class, 'experience']);

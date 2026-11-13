@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Internal\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Movies\DiscoverMoviesRequest;
 use App\Http\Requests\Movies\ListMoviesRequest;
 use App\Http\Requests\Movies\MovieSummariesRequest;
 use App\Http\Requests\Movies\SearchMoviesRequest;
@@ -28,6 +29,13 @@ class MovieController extends Controller
     public function popular(ListMoviesRequest $request): AnonymousResourceCollection
     {
         $result = $this->movies->ranking((int) $request->validated('page', 1));
+
+        return MovieSummaryResource::collection($result['movies'])->additional(['meta' => $result['meta']]);
+    }
+
+    public function discover(DiscoverMoviesRequest $request): AnonymousResourceCollection
+    {
+        $result = $this->movies->discover($request->discovery());
 
         return MovieSummaryResource::collection($result['movies'])->additional(['meta' => $result['meta']]);
     }

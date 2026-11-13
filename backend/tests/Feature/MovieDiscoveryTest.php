@@ -26,6 +26,44 @@ class MovieDiscoveryTest extends TestCase
         return ['data' => $movies, 'meta' => ['page' => $page, 'total_pages' => 3, 'total_results' => 60]];
     }
 
+    public function test_discovery_forwards_only_canonical_allowlisted_parameters(): void
+    {
+        Http::fake(['*' => Http::response($this->listing([$this->summary(900), $this->summary(1)], 2))]);
+        $this->getJson('/api/v1/movies/discover?category=upcoming&genres[]=35&genres[]=18&genres[]=35&genre_match=all&year_from=2026&year_to=2028&rating_min=7.5&runtime_min=90&runtime_max=180&original_language=fr&sort=title.asc&page=2&api_key=ignored&token=ignored')
+            ->assertOk()->assertJsonPath('data.0.tmdb_id', 900)->assertJsonPath('meta.page', 2);
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/api/internal/v1/movies/discover?')
+                && $request->data() === ['category' => 'upcoming', 'page' => 2, 'sort' => 'title.asc', 'genres' => [18, 35], 'genre_match' => 'all',
+                    'year_from' => 2026, 'year_to' => 2028, 'runtime_min' => 90, 'runtime_max' => 180, 'rating_min' => 7.5, 'original_language' => 'fr']
+                && $request->hasHeader('X-VYBE-Service-Token', 'server-only-secret');
+        });
+        Http::assertSentCount(1);
+    }
+
+    public function test_discovery_defaults_and_empty_results(): void
+    {
+        Http::fake(['*' => Http::response($this->listing([]))]);
+        $this->getJson('/api/v1/movies/discover')->assertOk()->assertJsonCount(0, 'data');
+        Http::assertSent(fn ($request) => $request->data() === ['category' => 'popular', 'page' => 1, 'sort' => 'popularity.desc']);
+    }
+
+    public function test_trending_filters_forward_without_runtime_or_sort(): void
+    {
+        Http::fake(['*' => Http::response($this->listing([$this->summary()]))]);
+        $this->getJson('/api/v1/movies/discover?category=trending&genres[]=18&genre_match=all&year_from=2020&rating_min=7&original_language=fr')
+            ->assertOk()->assertJsonPath('data.0.tmdb_id', 550);
+        Http::assertSent(fn ($request) => $request->data() === ['category' => 'trending', 'page' => 1, 'genres' => [18],
+            'genre_match' => 'all', 'year_from' => 2020, 'rating_min' => 7.0, 'original_language' => 'fr']);
+        Http::assertSentCount(1);
+    }
+
+    public function test_discovery_service_failure_is_safe(): void
+    {
+        Http::fake(['*' => Http::response(['message' => 'server-only-secret'], 503)]);
+        $this->getJson('/api/v1/movies/discover?category=upcoming')->assertStatus(503)->assertExactJson(['message' => 'Movie service unavailable', 'code' => 'UPSTREAM_UNAVAILABLE']);
+        Http::assertSentCount(1);
+    }
+
     public function test_guest_popular_preserves_order_and_only_forwards_server_service_credential(): void
     {
         $body = $this->listing([$this->summary(900), $this->summary(1)]);
@@ -56,7 +94,11 @@ class MovieDiscoveryTest extends TestCase
     {
         return [['popular?page=0'], ['popular?page=501'], ['popular?page=1.2'], ['popular?page[]=1'],
             ['search'], ['search?query=%20%20'], ['search?query[]=test'], ['search?query='.str_repeat('a', 201)],
-            ['search?query=a&page=-1'], ['0'], ['-1'], ['bad'], ['01'], ['2147483648']];
+            ['search?query=a&page=-1'], ['0'], ['-1'], ['bad'], ['01'], ['2147483648'],
+            ['discover?category=bad'], ['discover?category[]=upcoming'], ['discover?sort=evil'], ['discover?genres=18'], ['discover?genres[]=999'],
+            ['discover?genre_match=none'], ['discover?year_from=1887'], ['discover?year_to=2101'], ['discover?year_from=2030&year_to=2020'],
+            ['discover?rating_min=10.1'], ['discover?runtime_min=-1'], ['discover?runtime_max=601'], ['discover?runtime_min=180&runtime_max=90'],
+            ['discover?original_language=eng'], ['discover?query=title'], ['discover?category=trending&sort=title.asc'], ['discover?page=501']];
     }
 
     #[DataProvider('invalidRequests')]
