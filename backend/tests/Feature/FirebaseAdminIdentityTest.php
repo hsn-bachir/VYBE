@@ -25,12 +25,21 @@ class FirebaseAdminIdentityTest extends TestCase
     use RefreshDatabase;
 
     protected function setUp(): void
-    {
-        parent::setUp();
-        config()->set('firebase_auth.mode', 'firebase');
-        config()->set('firebase_auth.project_id', 'vybe-test');
-        Mail::fake();
-    }
+{
+    parent::setUp();
+
+    config()->set('firebase_auth.mode', 'firebase');
+    config()->set('firebase_auth.project_id', 'vybe-test');
+
+    // Prevent tests from constructing the real Firebase Admin SDK.
+    // Individual tests can replace this with their own strict mock.
+    $this->app->instance(
+        Auth::class,
+        Mockery::mock(Auth::class)
+    );
+
+    Mail::fake();
+}
 
     private function admin(string $role = 'admin', string $status = 'active'): User
     {
