@@ -6,6 +6,8 @@ import { errorDetails } from '../../../lib/api/client'
 import { cancelSocialLink, linkSocialProvider, reauthenticateForLink, type SocialProvider } from '../api/firebaseSocial'
 import { verificationStatus } from '../api/authApi'
 import { authKey, useAuth } from '../hooks/useAuth'
+import { ProviderIcon } from '../components/ProviderIcon'
+import { Alert } from '../../../components/ui/Alert'
 import { useQueryClient } from '@tanstack/react-query'
 
 export function ProviderConnectionsPage() {
@@ -53,17 +55,17 @@ export function ProviderConnectionsPage() {
     <p className="eyebrow">Account security</p>
     <h1>Connect sign-in methods</h1>
     <p className="text-muted">Confirm an existing Firebase sign-in method for this VYBE account, then connect Google or GitHub. Your VYBE profile and activity stay with the same account.</p>
-    {failure && <p role="alert" className="form-error">{failure}</p>}
-    {feedback && <p role="status">{feedback}</p>}
+    {failure && <Alert variant="error">{failure}</Alert>}
+    {feedback && <Alert variant="success">{feedback}</Alert>}
     {!ready ? <>
       <form onSubmit={submitPassword} aria-label="Confirm email password">
         <Input label="Current Firebase password" name="password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required disabled={pending} />
         <Button type="submit" disabled={pending || !auth.data}>Confirm with password</Button>
       </form>
       <p className="text-muted">Or confirm with a provider already connected to this Firebase account:</p>
-      <div className="oauth-options"><Button type="button" disabled={pending || !auth.data} onClick={() => void confirm('google.com')}>Confirm with Google</Button><Button type="button" disabled={pending || !auth.data} onClick={() => void confirm('github.com')}>Confirm with GitHub</Button></div>
+      <div className="oauth-options"><Button type="button" disabled={pending || !auth.data} onClick={() => void confirm('google.com')}><span className="provider-label"><ProviderIcon provider="google.com" />Confirm with Google</span></Button><Button type="button" disabled={pending || !auth.data} onClick={() => void confirm('github.com')}><span className="provider-label"><ProviderIcon provider="github.com" />Confirm with GitHub</span></Button></div>
     </> : <>
-      <div className="oauth-options"><Button type="button" disabled={pending} onClick={() => void connect('google.com')}>Connect Google</Button><Button type="button" disabled={pending} onClick={() => void connect('github.com')}>Connect GitHub</Button></div>
+      <div className="oauth-options"><Button type="button" disabled={pending} onClick={() => void connect('google.com')}><span className="provider-label"><ProviderIcon provider="google.com" />Connect Google</span></Button><Button type="button" disabled={pending} onClick={() => void connect('github.com')}><span className="provider-label"><ProviderIcon provider="github.com" />Connect GitHub</span></Button></div>
       <Button type="button" disabled={pending} onClick={() => { void cancelSocialLink(); setReady(false); setFeedback('Connection cancelled.') }}>Cancel</Button>
     </>}
     <p className="auth-switch"><Link to="/profile">Back to profile</Link></p>

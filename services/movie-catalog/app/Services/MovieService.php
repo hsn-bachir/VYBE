@@ -54,11 +54,21 @@ class MovieService
                 }
                 $movies[] = $this->normalizer->normalize($row);
             }
-            DB::transaction(function () use ($movies): void {
-                foreach ($movies as $movie) {
-                    // Exclude absent/null summary fields from UPDATE; never touch detail freshness.
-                    $values = array_filter($movie, fn ($value) => $value !== null);
-                    Movie::upsert([$values], ['tmdb_id'], array_diff(array_keys($values), ['tmdb_id']));
+            // A multi-row upsert needs the same columns for every row. Group by the
+            // fields actually supplied so an absent summary value cannot clear a
+            // previously hydrated detail field. Keep provider order in $movies.
+            $batches = [];
+            foreach ($movies as $movie) {
+                $values = array_filter($movie, fn ($value) => $value !== null);
+                $columns = array_keys($values);
+                sort($columns);
+                $signature = implode('|', $columns);
+                $batches[$signature]['columns'] = $columns;
+                $batches[$signature]['rows'][$values['tmdb_id']] = $values;
+            }
+            DB::transaction(function () use ($batches): void {
+                foreach ($batches as $batch) {
+                    Movie::upsert(array_values($batch['rows']), ['tmdb_id'], array_diff($batch['columns'], ['tmdb_id']));
                 }
             });
 

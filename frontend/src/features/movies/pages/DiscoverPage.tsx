@@ -4,17 +4,21 @@ import AnimatedContent from '../../../components/react-bits/AnimatedContent'
 import SpotlightCard from '../../../components/react-bits/SpotlightCard'
 import { movieError } from '../api/moviesApi'
 import { MovieGrid, MovieGridSkeleton } from '../components/MovieGrid'
-import { MoviePagination } from '../components/MoviePagination'
+import { Button } from '../../../components/ui/Button'
 import { MovieSearch } from '../components/MovieSearch'
 import { MovieState } from '../components/MovieState'
-import { normalizeQuery, pageNumber, useDiscoveryPicks, useMovieSearch } from '../hooks/useMovies'
+import { normalizeQuery, pageNumber, uniqueMovies, useDiscoveryPicks, useSearchFeed } from '../hooks/useMovies'
+import { useInfiniteMovieScroll } from '../hooks/useInfiniteMovieScroll'
 import { useReducedMotion } from '../hooks/useMotionPreference'
 
 export function DiscoverPage() {
   const [params, setParams] = useSearchParams()
   const query = normalizeQuery(params.get('query') ?? '')
   const page = pageNumber(params.get('page'))
-  const search = useMovieSearch(query, page)
+  const search = useSearchFeed(query, page)
+  const sentinel = useInfiniteMovieScroll(search)
+  const movies = uniqueMovies(search.data?.pages ?? [])
+  const totalResults = search.data?.pages[0]?.meta.total_results
   const picks = useDiscoveryPicks(!query)
   const results = useRef<HTMLElement>(null)
   const previous = useRef({ query, page })
@@ -39,16 +43,22 @@ export function DiscoverPage() {
     <section ref={results} tabIndex={-1} className="movie-section search-results discover-results" aria-label="Movie search results">
       <AnimatedContent className="section-heading discover-results-heading" distance={14}>
         <div>{!query && <p className="eyebrow">Start exploring</p>}<h2 id="results-heading">{query ? <>Results for “{query}”</> : 'Movies worth discovering.'}</h2>{!query && <p className="discovery-caption">A few films from the current popular lineup.</p>}</div>
-        {query ? search.data && <p className="text-muted" role="status">{search.data.meta.total_results.toLocaleString()} {search.data.meta.total_results === 1 ? 'film' : 'films'} found</p> : <Link to="/" className="text-link">Explore the lineup ↗</Link>}
+        {query ? totalResults !== undefined && <p className="text-muted" role="status">{totalResults.toLocaleString()} {totalResults === 1 ? 'film' : 'films'} found</p> : <Link to="/" className="text-link">Explore the lineup ↗</Link>}
       </AnimatedContent>
       {!query ? picks.isPending ? <MovieGridSkeleton count={6} /> : picks.isError && !picks.data ? <MovieState title="A brief intermission." retry={() => void picks.refetch()}>{movieError(picks.error)}</MovieState> : picks.data?.data.length ? <MovieGrid movies={picks.data.data.slice(0, 6)} /> : <MovieState title="Nothing in this edition yet.">Search for a movie title above.</MovieState>
         : page === null || query.length > 200 ? <MovieState title="Let’s adjust the search.">Use a query up to 200 characters and a page from 1 to 500.</MovieState>
         : search.isPending ? <MovieGridSkeleton />
         : search.isError && !search.data ? <MovieState title="The search needs another take." retry={() => void search.refetch()}>{movieError(search.error)}</MovieState>
         : search.data && <>
-          {search.isError && <p role="status" className="freshness-note">Showing the last available results. <button onClick={() => void search.refetch()}>Refresh</button></p>}
-          {search.data.data.length ? <MovieGrid movies={search.data.data} /> : <MovieState title="No matches. More possibilities.">We couldn’t find “{query}”. Try another title or check the spelling.</MovieState>}
-          <MoviePagination page={page} totalPages={search.data.meta.total_pages} /></>}
+          {search.isError && !search.isFetchNextPageError && <p role="status" className="freshness-note">Showing the last available results. <button onClick={() => void search.refetch()}>Refresh</button></p>}
+          {movies.length ? <MovieGrid movies={movies} pendingCount={search.isFetchingNextPage ? Math.min(20, Math.max(1, (totalResults ?? movies.length + 20) - movies.length)) : 0} pendingLabel="Loading more search results" /> : <MovieState title="No matches. More possibilities.">We couldn’t find “{query}”. Try another title or check the spelling.</MovieState>}
+          {page > 1 && <Link className="text-link" to={`/discover?query=${encodeURIComponent(query)}`}>Start at the first page</Link>}
+          <div className="load-more-area" ref={sentinel}>
+            <p role="status" aria-live="polite">{search.isFetchNextPageError ? 'More results could not load. Your current movies are still here.' : search.isFetchingNextPage ? 'Finding more films…' : `${movies.length} films in view`}</p>
+            {search.hasNextPage && <Button className={search.isFetchNextPageError ? 'load-more-button' : 'load-more-fallback'} disabled={search.isFetching} onClick={() => { if (!search.isFetching) void search.fetchNextPage() }}>{search.isFetchNextPageError ? 'Try loading more' : 'Load more movies manually'}</Button>}
+            {!search.hasNextPage && movies.length > 0 && <span className="end-of-reel">You’re all caught up.</span>}
+          </div>
+        </>}
     </section>
   </div>
 }

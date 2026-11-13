@@ -1,3 +1,4 @@
+import { SectionSkeleton } from '../../../components/ui/SectionSkeleton'
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
@@ -33,11 +34,11 @@ export function VerificationPage({ state }: { state: 'pending' | 'success' | 'er
     window.setTimeout(() => window.clearInterval(timer), 60_000)
   } })
 
-  if (auth.isPending) return <p role="status">Checking verification status…</p>
-  if (state === 'success' && auth.isFetching) return <p role="status">Checking verification status…</p>
+  if (auth.isPending) return <SectionSkeleton label="Checking verification status" />
+  if (state === 'success' && auth.isFetching) return <SectionSkeleton label="Checking verification status" />
   if (auth.isError) return <div role="alert">Could not check your account. <Button onClick={() => void auth.refetch()}>Retry</Button></div>
   if (state === 'pending' && !auth.data) return <Navigate to="/login" replace />
-  if (firebaseMode && auth.data && verification.isPending) return <p role="status">Checking verification status…</p>
+  if (firebaseMode && auth.data && verification.isPending) return <SectionSkeleton label="Checking verification status" />
   if (firebaseMode && verification.isError) return <div role="alert">Could not check your verification status. <Button onClick={() => void verification.refetch()}>Retry</Button></div>
   const verified = Boolean(current?.email_verified_at)
   const reason = params.get('reason')

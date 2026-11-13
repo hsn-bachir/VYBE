@@ -53,11 +53,11 @@ export function useMembership(userId: number, kind: LibraryKind, id: number, onC
         ...old, ...(kind === 'watchlist' ? { in_watchlist: add } : { watched_at: entry?.watched_at ?? null }),
       } : undefined)
       onConfirmed?.()
-      await Promise.all([
-        client.invalidateQueries({ queryKey: libraryKeys.list(userId, kind) }),
-        client.invalidateQueries({ queryKey: libraryKeys.state(userId, id) }),
-        client.invalidateQueries({ queryKey: profileKey(userId) }),
-      ])
+      // The server has confirmed this write and the visible state is updated.
+      // Refresh other views without keeping the button pending for their network requests.
+      void client.invalidateQueries({ queryKey: libraryKeys.list(userId, kind) })
+      void client.invalidateQueries({ queryKey: libraryKeys.state(userId, id) })
+      void client.invalidateQueries({ queryKey: profileKey(userId) })
     },
     onError: error => {
       if (!isCurrent()) return

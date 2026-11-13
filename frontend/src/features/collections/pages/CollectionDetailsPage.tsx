@@ -37,20 +37,20 @@ function CollectionDetailsContent({ owner, id }: { owner: number; id: number }) 
   const validPage = /^[1-9]\d*$/.test(rawPage) && Number(rawPage) <= 10000
   const page = validPage ? Number(rawPage) : 1
   const detail = useQuery(collectionOptions(owner, id))
-  const movies = useQuery({ ...collectionMoviesOptions(owner, id, page), enabled: owner > 0 && id > 0 && validPage && detail.isSuccess })
+  const movies = useQuery({ ...collectionMoviesOptions(owner, id, page), enabled: owner > 0 && id > 0 && validPage })
   useLibraryAccessError(detail.error ?? movies.error, owner)
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [feedback, setFeedback] = useState('')
   const heading = useRef<HTMLHeadingElement>(null)
   const c = detail.data
-  return <section className="personal-library collection-detail"><LibraryHeader /><Link className="text-link collection-back" to="/library/collections">← Back to collections</Link>
+  return <section className="personal-library collection-detail"><LibraryHeader /><Link className="text-link collection-back" to={c?.system_key ? '/library' : '/library/collections'}>← Back to collections</Link>
     {!id ? <MovieState title="This collection is out of frame.">Choose a collection from your library.</MovieState>
       : detail.isPending ? <div className="collection-skeleton skeleton" role="status">Opening collection…</div>
         : detail.isError ? <MovieState title="Collection unavailable" retry={() => void detail.refetch()}>{collectionError(detail.error)}</MovieState>
           : c && <>
             <div className="collection-detail-heading"><p className="eyebrow">Private collection · {c.id}</p><h2 ref={heading} tabIndex={-1}>{c.name}</h2>{c.description && <p className="collection-description">{c.description}</p>}<p className="collection-count">{c.movie_count} {c.movie_count === 1 ? 'movie' : 'movies'}</p>
-              <div className="collection-card-actions"><Button onClick={() => setEditing(true)}>Edit collection</Button><Button onClick={() => setDeleting(true)}>Delete collection</Button></div>
+              {!c.system_key && <div className="collection-card-actions"><Button onClick={() => setEditing(true)}>Edit collection</Button><Button className="destructive" onClick={() => setDeleting(true)}>Delete collection</Button></div>}
             </div>
             {!validPage ? <MovieState title="That page is out of frame."><Link to={`/library/collections/${id}`}>Go to the first page</Link></MovieState>
               : movies.isPending ? <MovieGridSkeleton count={6} />
@@ -63,8 +63,8 @@ function CollectionDetailsContent({ owner, id }: { owner: number; id: number }) 
                       }} />)}</ul>}
                     <MoviePagination page={page} totalPages={movies.data.meta.total_pages} />
                   </>}
-            {editing && <CollectionEditor owner={owner} collection={c} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); setFeedback('Collection updated.') }} />}
-            {deleting && <DeleteCollectionDialog owner={owner} collection={c} onClose={() => setDeleting(false)} onDeleted={() => navigate('/library/collections', { replace: true, state: { collectionFeedback: 'Collection deleted. Your other library memberships are unchanged.' } })} />}
+            {editing && !c.system_key && <CollectionEditor owner={owner} collection={c} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); setFeedback('Collection updated.') }} />}
+            {deleting && !c.system_key && <DeleteCollectionDialog owner={owner} collection={c} onClose={() => setDeleting(false)} onDeleted={() => navigate('/library/collections', { replace: true, state: { collectionFeedback: 'Collection deleted. Your other library memberships are unchanged.' } })} />}
           </>}
     <div className="library-feedback" role="status">{feedback && <>{feedback}<button aria-label="Dismiss notification" onClick={() => setFeedback('')}>×</button></>}</div>
   </section>

@@ -23,8 +23,9 @@ export async function synchronizeReview(client: QueryClient, owner: number, movi
   await Promise.all([client.cancelQueries({ queryKey: reviewKeys.own(owner, movie), exact: true }), client.cancelQueries({ queryKey: reviewKeys.lists(movie) })])
   if (!isCurrent(client, owner)) return false
   client.setQueryData(reviewKeys.own(owner, movie), result)
-  await Promise.all([client.invalidateQueries({ queryKey: reviewKeys.own(owner, movie), exact: true }), client.invalidateQueries({ queryKey: reviewKeys.lists(movie) })])
-  await client.invalidateQueries({ queryKey: profileKey(owner), exact: true })
+  void client.invalidateQueries({ queryKey: reviewKeys.own(owner, movie), exact: true })
+  void client.invalidateQueries({ queryKey: reviewKeys.lists(movie) })
+  void client.invalidateQueries({ queryKey: profileKey(owner), exact: true })
   return isCurrent(client, owner)
 }
 export function useReviewAccessError(error: unknown, owner: number) {

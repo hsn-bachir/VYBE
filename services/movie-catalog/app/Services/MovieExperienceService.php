@@ -17,10 +17,18 @@ class MovieExperienceService
     public function capture(array $raw, int $id): array
     {
         $data = $this->normalizer->normalize($raw, $id);
-        DB::transaction(function () use ($data): void {
-            foreach ($data['related'] as $movie) {
-                $values = array_filter($movie, fn ($value) => $value !== null);
-                Movie::upsert([$values], ['tmdb_id'], array_diff(array_keys($values), ['tmdb_id']));
+        $batches = [];
+        foreach ($data['related'] as $movie) {
+            $values = array_filter($movie, fn ($value) => $value !== null);
+            $columns = array_keys($values);
+            sort($columns);
+            $signature = implode('|', $columns);
+            $batches[$signature]['columns'] = $columns;
+            $batches[$signature]['rows'][$values['tmdb_id']] = $values;
+        }
+        DB::transaction(function () use ($batches): void {
+            foreach ($batches as $batch) {
+                Movie::upsert(array_values($batch['rows']), ['tmdb_id'], array_diff($batch['columns'], ['tmdb_id']));
             }
         });
         Cache::put('catalog:experience:v1:'.$id, ['data' => $data, 'fetched_at' => now()->timestamp], 2592000);

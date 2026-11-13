@@ -2,34 +2,66 @@
 
 namespace App\Services;
 
+use App\Integrations\MovieCatalog\CatalogFailure;
+use App\Integrations\MovieCatalog\MovieCatalogClient;
 use App\Models\Collection;
 use App\Models\CollectionMovie;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class CollectionService
 {
-    public function __construct(private LibraryMetadata $metadata) {}
+    public function __construct(private LibraryMetadata $metadata, private MovieCatalogClient $catalog) {}
 
     public function owned(User $user, int $id): Collection
     {
         return $user->collections()->whereKey($id)->first() ?? abort(404, 'Not found.');
     }
 
-    public function listing(User $user, int $page, int $perPage, ?int $movie): array
+    public function listing(User $user, int $page, int $perPage, ?int $movie, bool $includePreviews = true): array
     {
         $query = $user->collections()->withCount('movies');
+        if ($includePreviews) {
+            $query->with(['movies' => fn ($q) => $q->orderByDesc('created_at')->orderByDesc('id')->limit(3)]);
+        }
         if ($movie !== null) {
             $query->withExists(['movies as contains_movie' => fn ($q) => $q->where('tmdb_id', $movie)]);
         }
-        $rows = $query->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage, ['*'], 'page', $page);
+        $rows = $query->orderByRaw("CASE WHEN system_key = 'favorites' THEN 0 ELSE 1 END")
+            ->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage, ['*'], 'page', $page);
+        $ids = $includePreviews ? $rows->getCollection()->flatMap(fn (Collection $collection) => $collection->movies->pluck('tmdb_id'))
+            ->unique()->values()->all() : [];
+        $summaries = [];
+        $unavailable = false;
+        foreach (array_chunk($ids, 50) as $chunk) {
+            try {
+                foreach ($this->catalog->summaries($chunk)['data'] as $movieRow) {
+                    $summaries[$movieRow['tmdb_id']] = $movieRow;
+                }
+            } catch (CatalogFailure) {
+                $unavailable = true;
+            }
+        }
+        foreach ($rows as $collection) {
+            $collection->setAttribute('preview_movies', $includePreviews ? $collection->movies->map(fn ($entry) => [
+                'tmdb_id' => $entry->tmdb_id,
+                'title' => $summaries[$entry->tmdb_id]['title'] ?? null,
+                'poster_path' => $summaries[$entry->tmdb_id]['poster_path'] ?? null,
+            ])->all() : []);
+            if ($includePreviews) {
+                $collection->unsetRelation('movies');
+            }
+        }
 
         return ['entries' => $rows->getCollection(), 'meta' => ['page' => $page, 'per_page' => $perPage,
-            'total_pages' => (int) ceil($rows->total() / $perPage), 'total_results' => $rows->total()]];
+            'total_pages' => (int) ceil($rows->total() / $perPage), 'total_results' => $rows->total(),
+            'preview_metadata_unavailable' => $unavailable]];
     }
 
     public function create(User $user, array $values): Collection
     {
+        $this->guardReservedName($values);
         return DB::transaction(function () use ($user, $values): Collection {
             AccountAccess::lock($user);
             return $user->collections()->create($values)->loadCount('movies');
@@ -38,9 +70,11 @@ class CollectionService
 
     public function update(User $user, int $id, array $values): Collection
     {
+        $this->guardReservedName($values);
         return DB::transaction(function () use ($user, $id, $values) {
             AccountAccess::lock($user);
             $collection = $user->collections()->whereKey($id)->lockForUpdate()->first() ?? abort(404, 'Not found.');
+            abort_if($collection->system_key !== null, 403, 'Built-in collections cannot be edited.');
             $collection->update($values);
 
             return $collection->loadCount('movies');
@@ -51,7 +85,9 @@ class CollectionService
     {
         DB::transaction(function () use ($user, $id): void {
             AccountAccess::lock($user);
-            abort_unless($user->collections()->whereKey($id)->delete(), 404, 'Not found.');
+            $collection = $user->collections()->whereKey($id)->lockForUpdate()->first() ?? abort(404, 'Not found.');
+            abort_if($collection->system_key !== null, 403, 'Built-in collections cannot be deleted.');
+            $collection->delete();
         }, 3);
     }
 
@@ -88,5 +124,12 @@ class CollectionService
             $collection = $user->collections()->whereKey($id)->lockForUpdate()->first() ?? abort(404, 'Not found.');
             $collection->movies()->where('tmdb_id', $movie)->delete();
         }, 3);
+    }
+
+    private function guardReservedName(array $values): void
+    {
+        if (isset($values['name']) && mb_strtolower(trim($values['name'])) === 'favorites') {
+            throw ValidationException::withMessages(['name' => ['Favorites is reserved for your built-in collection.']]);
+        }
     }
 }

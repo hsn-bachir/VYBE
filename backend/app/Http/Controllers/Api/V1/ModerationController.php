@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\ModerationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 
 class ModerationController extends Controller
 {
@@ -23,20 +24,31 @@ class ModerationController extends Controller
 
     public function overview(ModerationRequest $request): JsonResponse
     {
-        $reviews = Review::query()->selectRaw("COUNT(CASE WHEN visibility = 'hidden' THEN 1 END) AS hidden_reviews, COUNT(CASE WHEN moderator_spoiler THEN 1 END) AS enforced_spoilers")->first();
-        $reports = Report::query()->selectRaw("COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending_reports, COUNT(CASE WHEN status = 'resolved' OR status = 'dismissed' THEN 1 END) AS handled_reports")->first();
+        $admin = $request->user()->role === User::ROLE_ADMIN;
+        // Aggregate independent tables in one round trip. The recent queue remains
+        // a separate bounded query so it can use its ordering index.
+        $counts = DB::selectOne("SELECT reviews.hidden_reviews, reviews.enforced_spoilers,
+                reports.pending_reports, reports.handled_reports".($admin ? ", users.total_users,
+                users.restricted_users, users.banned_users, users.deactivated_users" : '')."
+            FROM (SELECT COUNT(CASE WHEN visibility = 'hidden' THEN 1 END) AS hidden_reviews,
+                COUNT(CASE WHEN moderator_spoiler THEN 1 END) AS enforced_spoilers FROM reviews) reviews
+            CROSS JOIN (SELECT COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending_reports,
+                COUNT(CASE WHEN status IN ('resolved', 'dismissed') THEN 1 END) AS handled_reports FROM reports) reports".
+            ($admin ? " CROSS JOIN (SELECT COUNT(*) AS total_users,
+                COUNT(CASE WHEN account_status = 'restricted' THEN 1 END) AS restricted_users,
+                COUNT(CASE WHEN account_status = 'banned' THEN 1 END) AS banned_users,
+                COUNT(CASE WHEN account_status = 'deactivated' THEN 1 END) AS deactivated_users FROM users) users" : ''));
         $recent = Report::query()->select(['id', 'target_id', 'reason', 'status', 'created_at'])
             ->orderByDesc('created_at')->orderByDesc('id')->limit(5)->get()->map(fn (Report $report) => [
                 'id' => $report->id, 'review_id' => $report->target_id, 'reason' => $report->reason,
                 'status' => $report->status, 'created_at' => $report->created_at?->toISOString(),
             ]);
-        $data = ['pending_reports' => (int) $reports->pending_reports, 'handled_reports' => (int) $reports->handled_reports,
-            'hidden_reviews' => (int) $reviews->hidden_reviews, 'enforced_spoilers' => (int) $reviews->enforced_spoilers,
+        $data = ['pending_reports' => (int) $counts->pending_reports, 'handled_reports' => (int) $counts->handled_reports,
+            'hidden_reviews' => (int) $counts->hidden_reviews, 'enforced_spoilers' => (int) $counts->enforced_spoilers,
             'recent_reports' => $recent];
-        if ($request->user()->role === User::ROLE_ADMIN) {
-            $users = User::query()->selectRaw("COUNT(*) AS total_users, COUNT(CASE WHEN account_status = 'restricted' THEN 1 END) AS restricted_users, COUNT(CASE WHEN account_status = 'banned' THEN 1 END) AS banned_users, COUNT(CASE WHEN account_status = 'deactivated' THEN 1 END) AS deactivated_users")->first();
-            $data['users'] = ['total' => (int) $users->total_users, 'restricted' => (int) $users->restricted_users,
-                'banned' => (int) $users->banned_users, 'deactivated' => (int) $users->deactivated_users];
+        if ($admin) {
+            $data['users'] = ['total' => (int) $counts->total_users, 'restricted' => (int) $counts->restricted_users,
+                'banned' => (int) $counts->banned_users, 'deactivated' => (int) $counts->deactivated_users];
         }
 
         return response()->json(['data' => $data]);

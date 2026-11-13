@@ -13,6 +13,7 @@ import { firebaseLogin } from '../api/firebaseLogin'
 import { firebaseRegister } from '../api/firebaseRegistration'
 import { FirebaseEmailActionPage } from '../pages/FirebaseEmailActionPage'
 import { InvitationAcceptancePage } from '../pages/InvitationAcceptancePage'
+import { authKey, storeAuthenticatedUser } from '../hooks/useAuth'
 
 vi.mock('../api/firebaseLogin', () => ({ firebaseLogin: vi.fn() }))
 vi.mock('../api/firebaseRegistration', () => ({ firebaseRegister: vi.fn() }))
@@ -29,6 +30,22 @@ beforeEach(() => {
 })
 
 describe('authentication API and rendering', () => {
+  it('retains shared movie metadata while clearing another account’s private queries', async () => {
+    const client = new QueryClient()
+    const publicMovies = { data: [{ tmdb_id: 550 }] }
+    client.setQueryData(['movies', 'popular', 1], publicMovies)
+    client.setQueryData(['movies', 'search-feed', 'dune', 1], publicMovies)
+    client.setQueryData(['movies', 'detail', '550'], { data: { tmdb_id: 550 } })
+    client.setQueryData(['movies', 'reviews', 550, 1], { data: ['public author projection'] })
+    client.setQueryData(['library', 2, 'watchlist'], { data: ['private'] })
+    await storeAuthenticatedUser(client, user)
+    expect(client.getQueryData(['movies', 'popular', 1])).toEqual(publicMovies)
+    expect(client.getQueryData(['movies', 'search-feed', 'dune', 1])).toEqual(publicMovies)
+    expect(client.getQueryData(['movies', 'detail', '550'])).toBeDefined()
+    expect(client.getQueryData(['movies', 'reviews', 550, 1])).toBeUndefined()
+    expect(client.getQueryData(['library', 2, 'watchlist'])).toBeUndefined()
+    expect(client.getQueryData(authKey)).toEqual(user)
+  })
   it('uses the supplied full logo and compact symbol without repeating the wordmark', () => {
     const render = (variant: 'full' | 'symbol') => renderToStaticMarkup(<MemoryRouter><VybeLogo variant={variant} /></MemoryRouter>)
     expect(render('full')).toContain('vybe-logo-full')

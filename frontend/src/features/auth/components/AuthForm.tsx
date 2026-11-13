@@ -5,7 +5,9 @@ import { Input } from '../../../components/ui/Input'
 import { Button } from '../../../components/ui/Button'
 import { errorDetails } from '../../../lib/api/client'
 import { storeAuthenticatedUser, useAuthenticate } from '../hooks/useAuth'
-import { firebaseSocialSignIn, type SocialProvider } from '../api/firebaseSocial'
+import type { SocialProvider } from '../api/firebaseSocial'
+import { ProviderIcon } from './ProviderIcon'
+import { Alert } from '../../../components/ui/Alert'
 
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const registering = mode === 'register'
@@ -45,6 +47,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     if (socialPending || mutation.isPending) return
     setSocialPending(provider); setSocialFailure('')
     try {
+      const { firebaseSocialSignIn } = await import('../api/firebaseSocial')
       const result = await firebaseSocialSignIn(provider)
       if (result.kind === 'onboarding') {
         navigate('/auth/social/username')
@@ -65,7 +68,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     <h2>{registering ? 'Create your account' : 'Welcome back'}</h2>
     <p className="text-muted">{registering ? 'Join VYBE with your email.' : 'Sign in to your VYBE account.'}</p>
     <form onSubmit={submit} aria-label={registering ? 'Registration' : 'Login'}>
-      {error && <div className="form-error" role="alert">{error.message}</div>}
+      {error && <Alert variant="error">{error.message}</Alert>}
       {registering && <Input name="username" label="Username" autoComplete="username" required minLength={3} maxLength={30} pattern="[A-Za-z0-9_]+" hint="3–30 letters, numbers, or underscores." error={fields.username?.[0]} disabled={mutation.isPending} />}
       <Input name="email" label="Email address" type="email" autoComplete="email" required maxLength={255} error={fields.email?.[0]} disabled={mutation.isPending} />
       <Input name="password" label="Password" type="password" autoComplete={registering ? 'new-password' : 'current-password'} required minLength={registering ? 12 : undefined} maxLength={255} hint={registering ? 'At least 12 characters, including a letter and a number.' : undefined} error={fields.password?.[0]} disabled={mutation.isPending} />
@@ -73,9 +76,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       {registering && <Input name="password_confirmation" label="Confirm password" type="password" autoComplete="new-password" required maxLength={255} error={fields.password_confirmation?.[0]} disabled={mutation.isPending} />}
       <Button type="submit" className="primary w-full" disabled={mutation.isPending}>{mutation.isPending ? 'Please wait…' : registering ? 'Create account' : 'Sign in'}</Button>
     </form>
+    {socialFailure && <Alert variant="error" className="auth-social-alert">{socialFailure}</Alert>}
     <div className="divider">More ways to connect</div>
-    {socialFailure && <div className="form-error" role="alert">{socialFailure}</div>}
-    <div className="oauth-options">{([['Google', 'google.com'], ['GitHub', 'github.com']] as const).map(([label, provider]) => <Button key={provider} type="button" disabled={import.meta.env.VITE_AUTH_IDENTITY_PROVIDER !== 'firebase' || socialPending !== null || mutation.isPending} onClick={() => void socialSignIn(provider)}>{socialPending === provider ? `Connecting ${label}…` : label}{import.meta.env.VITE_AUTH_IDENTITY_PROVIDER !== 'firebase' && <span>Coming soon</span>}</Button>)}</div>
+    <div className="oauth-options">{([['Google', 'google.com'], ['GitHub', 'github.com']] as const).map(([label, provider]) => <Button key={provider} type="button" disabled={import.meta.env.VITE_AUTH_IDENTITY_PROVIDER !== 'firebase' || socialPending !== null || mutation.isPending} onClick={() => void socialSignIn(provider)}><span className="provider-label"><ProviderIcon provider={provider} />{socialPending === provider ? `Connecting ${label}…` : label}</span>{import.meta.env.VITE_AUTH_IDENTITY_PROVIDER !== 'firebase' && <span className="provider-availability">Coming soon</span>}</Button>)}</div>
     <p className="auth-switch">{registering ? 'Already have an account?' : 'New to VYBE?'}{' '}<Link to={registering ? '/login' : '/register'}>{registering ? 'Sign in' : 'Create an account'}</Link></p>
   </div>
 }
