@@ -2,6 +2,8 @@
 
 **Status:** Core authentication, public movie forwarding, the independent Catalog and React discovery are implemented.
 
+Advanced browse adds `GET /movies/discover` to both versioned movie surfaces. Separate FormRequests validate/normalize the same allowlisted contract in each service; Core forwards over the existing authenticated client. Catalog builds provider filters, reuses ranking normalization/batched persistence, and caches canonical filter/page snapshots. Plain Popular discovery shares the original popular ranking cache. No migration, shared database access or new dependency is introduced. See [discovery semantics, caching and future FYP reuse](../api/movie-discovery.md).
+
 ## Core API (`backend/`)
 
 Independently runnable Laravel application on `http://localhost:8000`, connected to `vybe_core`. It is the sole browser-facing API and owns Sanctum sessions and users. Its responsibilities are registration/login/logout/me, validation, authentication throttles, and a public movie façade that requests Catalog through a server-configured `MovieCatalogClient`.

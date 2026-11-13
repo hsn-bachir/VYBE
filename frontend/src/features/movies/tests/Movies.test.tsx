@@ -132,7 +132,7 @@ describe('movie presentation and navigation', () => {
     expect(render(<PopularMoviesPage />, cache)).toContain('Nothing in this frame yet.')
   })
   it('renders an empty query and no-results search state', () => {
-    expect(render(<DiscoverPage />)).toContain('Movies worth discovering.')
+    expect(render(<DiscoverPage />)).toContain('Popular Movies')
     const cache = client()
     cache.setQueryData(searchFeedOptions('unmatched').queryKey, { pages: [{ data: [], meta: { page: 1, total_pages: 0, total_results: 0 } }], pageParams: [1] })
     expect(render(<DiscoverPage />, cache, '/discover?query=unmatched')).toContain('No matches. More possibilities.')
@@ -176,16 +176,16 @@ describe('movie presentation and navigation', () => {
 })
 
 describe('homepage refinement', () => {
-  it('mounts official React Bits adaptations and reuses cached popular picks on Discover', () => {
+  it('mounts official React Bits adaptations and reuses the cached popular first page on Discover', () => {
     const cache = client()
     const rows = Array.from({ length: 8 }, (_, i) => ({ ...summary, tmdb_id: i + 1, title: `Popular pick ${i + 1}` }))
     cache.setQueryData(popularFeedOptions().queryKey, { pages: [{ ...list, data: rows }], pageParams: [1] })
     const html = render(<DiscoverPage />, cache, '/discover')
     expect(html).toContain('data-react-bits="animated-content"')
     expect(html).toContain('data-react-bits="spotlight-card"')
-    expect(html.match(/class="movie-card"/g)).toHaveLength(6)
+    expect(html.match(/class="movie-card"/g)).toHaveLength(8)
     expect(html).toContain('Popular pick 6')
-    expect(html).not.toContain('Popular pick 7')
+    expect(html).toContain('Popular pick 8')
   })
   it('prioritizes search results over discovery picks without changing the provider order', () => {
     const cache = client()

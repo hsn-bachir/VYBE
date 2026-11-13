@@ -66,6 +66,7 @@ Core validates Catalog envelopes and returns only the documented DTO fields and 
 | Route | Validation | Behavior |
 | --- | --- | --- |
 | `/movies/popular?page=1` | page positive, max TMDB supported page | Core forwards to Catalog; returns ordered summaries |
+| `/movies/discover?category=upcoming&page=1` | allowlisted category/filter/sort parameters | Shared advanced browse; see [discovery contract](movie-discovery.md) |
 | `/movies/search?query=...&page=1` | trimmed nonblank query, length <= 200, valid page | Core forwards, preserves rank |
 | `/movies/{tmdb_id}` | positive integer TMDB ID | Core returns normalized detail |
 
@@ -90,6 +91,7 @@ Called by **Core or another authorized backend** over HTTP. Each internal busine
 | Verb | Internal route | Catalog behavior |
 | --- | --- | --- |
 | GET | `/movies/popular?page=1` | Provider-ordered popular list, independent short cache |
+| GET | `/movies/discover` | Validated, cached provider discovery; see [discovery contract](movie-discovery.md) |
 | GET | `/movies/search?query=...&page=1` | Provider-ordered search, independent short cache |
 | POST | `/movies/summaries` | Bounded cache-only batch; see [batch summary contract](catalog-batch-summaries.md) |
 | GET | `/movies/{tmdb_id}` | Metadata cache and detail hydration |
@@ -99,7 +101,7 @@ The Catalog returns the same normalized movie DTO shapes as Core; Core validates
 
 ## Error contract
 
-Internal Catalog validation: `page` defaults to 1, integer 1–500; search query required, whitespace trimmed/collapsed, case preserved, length at most 200; `tmdb_id` canonical positive integer 1–2147483647. Invalid identifiers return 422 through request validation. Only `en-US` is supported; additional filters/languages are ignored rather than forwarded. Search excludes adult results. List `total_pages` is capped at 500; `total_results` is the provider total. A valid empty search returns `{"data":[],"meta":{"page":1,"total_pages":0,"total_results":0}}`.
+Internal Catalog validation: `page` defaults to 1, integer 1–500; search query required, whitespace trimmed/collapsed, case preserved, length at most 200; `tmdb_id` canonical positive integer 1–2147483647. Invalid identifiers return 422 through request validation. Responses use `en-US`; the dedicated Discover endpoint additionally supports validated original-language and other [browse filters](movie-discovery.md). Search remains title-only and ignores browse filters. Search excludes adult results. List `total_pages` is capped at 500; `total_results` is the provider total. A valid empty search returns `{"data":[],"meta":{"page":1,"total_pages":0,"total_results":0}}`.
 
 The list/detail examples above are also the exact internal envelopes. Ratings are JSON numbers (rounded to two decimal places), vote counts are integers, dates are `YYYY-MM-DD` or null, image paths are safe relative paths or null. Local primary keys, timestamps and provider-only fields are omitted.
 

@@ -14,6 +14,11 @@ class MovieCatalogClient
         return $this->listing('popular', ['page' => $page]);
     }
 
+    public function discover(array $params): array
+    {
+        return $this->listing('discover', $params);
+    }
+
     public function search(string $query, int $page): array
     {
         return $this->listing('search', ['query' => $query, 'page' => $page]);
@@ -198,7 +203,7 @@ class MovieCatalogClient
         }
         if ($method === 'GET' && $response->status() === 422 && is_array($body['errors'] ?? null)) {
             $errors = [];
-            foreach (['page', 'query', 'tmdb_id'] as $field) {
+            foreach (['page', 'query', 'tmdb_id', 'category', 'sort', 'genres', 'genre_match', 'year_from', 'year_to', 'rating_min', 'runtime_min', 'runtime_max', 'original_language'] as $field) {
                 if (array_key_exists($field, $body['errors'])) {
                     $errors[$field] = ['The '.$field.' field is invalid.'];
                 }

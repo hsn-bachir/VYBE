@@ -1,9 +1,13 @@
 import axios from 'axios'
 import { api } from '../../../lib/api/client'
 import type { MovieDetailResponse, MovieListResponse, MovieExperienceResponse } from '../types/movie.types'
+import type { DiscoveryFilters } from '../lib/discovery'
 
 export async function popularMovies(page: number, signal?: AbortSignal) {
   return (await api.get<MovieListResponse>('/api/v1/movies/popular', { params: { page }, signal })).data
+}
+export async function discoverMovies(filters: DiscoveryFilters, page: number, signal?: AbortSignal) {
+  return (await api.get<MovieListResponse>('/api/v1/movies/discover', { params: { ...filters, page }, signal })).data
 }
 export async function searchMovies(query: string, page: number, signal?: AbortSignal) {
   return (await api.get<MovieListResponse>('/api/v1/movies/search', { params: { query, page }, signal })).data

@@ -1,11 +1,27 @@
 import { infiniteQueryOptions, queryOptions, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { movieDetails, movieExperience, popularMovies, searchMovies } from '../api/moviesApi'
+import { discoverMovies, movieDetails, movieExperience, popularMovies, searchMovies } from '../api/moviesApi'
+import { normalizeDiscovery, type DiscoveryFilters } from '../lib/discovery'
 import type { MovieListResponse, MovieSummary } from '../types/movie.types'
 
 export const normalizeQuery = (query: string) => query.trim().replace(/\s+/gu, ' ')
 export const validMovieId = (id: string) => /^[1-9]\d*$/.test(id) && Number(id) <= 2147483647
 export const pageNumber = (value: string | null) => value === null ? 1 : (/^[1-9]\d*$/.test(value) && Number(value) <= 500 ? Number(value) : null)
 const movieQuery = { staleTime: 60_000, retry: false, refetchOnWindowFocus: false } as const
+export const discoveryOptions = (input: DiscoveryFilters, page = 1) => {
+  const filters = normalizeDiscovery(input)
+  const popular = filters.category === 'popular' && Object.keys(filters).length === 2 && filters.sort === 'popularity.desc'
+  const day = filters.category === 'upcoming' || filters.category === 'now_playing' ? new Date().toISOString().slice(0, 10) : null
+  return queryOptions({ ...movieQuery, gcTime: 10 * 60_000, queryKey: popular ? ['movies', 'popular', page] : ['movies', 'discover', filters, page, day], queryFn: ({ signal }) => popular ? popularMovies(page, signal) : discoverMovies(filters, page, signal) })
+}
+export function useDiscoverMovies(filters: DiscoveryFilters, page: number | null, enabled = true) {
+  const client = useQueryClient()
+  const options = discoveryOptions(filters, page ?? 1)
+  const popular = options.queryKey[1] === 'popular' && page === 1
+  return useQuery({ ...options, enabled: enabled && page !== null,
+    initialData: () => popular ? client.getQueryData(popularFeedOptions().queryKey)?.pages[0] : undefined,
+    initialDataUpdatedAt: () => popular ? client.getQueryState(popularFeedOptions().queryKey)?.dataUpdatedAt : undefined,
+  })
+}
 export const popularOptions = (page: number) => queryOptions({
   ...movieQuery, queryKey: ['movies', 'popular', page], queryFn: ({ signal }) => popularMovies(page, signal),
 })
