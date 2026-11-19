@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Collection extends Model
 {
-    protected $fillable = ['name', 'description'];
+    public const FAVORITES = 'favorites';
+
+    protected $fillable = ['name', 'description', 'system_key'];
 
     public function user(): BelongsTo
     {

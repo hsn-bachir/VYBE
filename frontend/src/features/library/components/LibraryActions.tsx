@@ -1,3 +1,4 @@
+import { SectionSkeleton } from '../../../components/ui/SectionSkeleton'
 import { Link, useLocation } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import { useAuth } from '../../auth/hooks/useAuth'
@@ -31,7 +32,7 @@ export function LibraryActions({ id, title = `TMDB ${id}` }: { id: number; title
   if (!auth.data) return <p className="library-signin"><Link className="button" to="/login" state={{ from: location.pathname }}>Sign in to save this movie</Link></p>
   if (!userId) return <Link className="button" to="/verify-email">Verify email to save movies</Link>
   if (state.isPending || state.isError) return <div className="library-actions">
-    {state.isPending ? <p className="library-state-loading" role="status">Checking your library…</p> : <div className="library-state-error" role="alert"><p>{libraryError(state.error)}</p><Button onClick={() => void state.refetch()} disabled={state.isFetching}>Retry library state</Button></div>}
+    {state.isPending ? <SectionSkeleton label="Checking your library" rows={1} /> : <div className="library-state-error" role="alert"><p>{libraryError(state.error)}</p><Button onClick={() => void state.refetch()} disabled={state.isFetching}>Retry library state</Button></div>}
     <SaveCollectionAction key={`${userId}:${id}:collections`} owner={userId} movie={id} title={title} />
   </div>
   return <div className="library-actions" aria-label="Your movie library">

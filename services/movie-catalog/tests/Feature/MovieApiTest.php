@@ -5,16 +5,17 @@ namespace Tests\Feature;
 use App\Models\Movie;
 use App\Services\MovieService;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
+use Tests\UsesPostgresSafeRefreshDatabase;
 
 class MovieApiTest extends TestCase
 {
-    use RefreshDatabase;
+    use UsesPostgresSafeRefreshDatabase;
 
     protected function setUp(): void
     {
@@ -43,6 +44,26 @@ class MovieApiTest extends TestCase
         return Movie::create(['tmdb_id' => 550, 'title' => 'Stored movie', 'runtime' => 139,
             'genres' => [['id' => 18, 'name' => 'Drama']], 'overview' => 'Stored overview',
             'metadata_fetched_at' => $hydrated ? now()->subDays(8) : null]);
+    }
+
+    public function test_maximum_accepted_movie_numbers_round_trip_through_detail_api(): void
+    {
+        $detail = $this->detail(2147483647);
+        $detail['runtime'] = 65535;
+        $detail['vote_count'] = 4294967295;
+        $detail['vote_average'] = 10.0;
+        Http::fake(['*' => Http::response($detail)]);
+
+        $this->getJson('/api/internal/v1/movies/2147483647')->assertOk()
+            ->assertJsonPath('data.tmdb_id', 2147483647)
+            ->assertJsonPath('data.runtime', 65535)
+            ->assertJsonPath('data.tmdb_vote_count', 4294967295);
+        $movie = Movie::query()->where('tmdb_id', 2147483647)->sole();
+        $this->assertSame(65535, $movie->runtime);
+        $this->assertSame(4294967295, $movie->tmdb_vote_count);
+        $this->assertSame('10.00', $movie->tmdb_rating);
+        $this->assertSame([['id' => 18, 'name' => 'Drama']], $movie->genres);
+        $this->assertNotNull($movie->metadata_fetched_at);
     }
 
     public static function routes(): array
@@ -91,6 +112,35 @@ class MovieApiTest extends TestCase
         Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://api.themoviedb.org/3/movie/550?')
             && $request['language'] === 'en-US' && $request['append_to_response'] === 'videos,credits,recommendations'
             && $request->hasHeader('Authorization', 'Bearer test-provider') && ! $request->hasHeader('X-VYBE-Service-Token'));
+    }
+
+    public function test_persisted_details_are_shared_after_rebuilding_service_and_clearing_ephemeral_cache(): void
+    {
+        Http::fake(['*' => Http::response($this->detail())]);
+        $this->getJson('/api/internal/v1/movies/550')->assertOk();
+        Cache::flush();
+        app()->forgetInstance(MovieService::class);
+        $this->withHeader('X-Viewer', 'another-account')->getJson('/api/internal/v1/movies/550')
+            ->assertOk()->assertJsonPath('data.title', 'Fixture movie');
+        Http::assertSentCount(1);
+        $this->assertDatabaseCount('movies', 1);
+    }
+
+    public function test_ranking_persists_equal_shape_summaries_in_one_upsert(): void
+    {
+        $rows = array_map(fn ($id) => ['id' => $id, 'title' => 'Movie '.$id, 'poster_path' => '/poster.jpg'], range(1, 20));
+        Http::fake(['*' => Http::response($this->listing($rows))]);
+        DB::enableQueryLog();
+        try {
+            $this->getJson('/api/internal/v1/movies/popular')->assertOk();
+            $writes = array_filter(DB::getQueryLog(), fn ($query) => str_contains(strtolower($query['query']), 'insert into')
+                && str_contains(strtolower($query['query']), 'movies'));
+            $this->assertCount(1, $writes);
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+        $this->assertDatabaseCount('movies', 20);
     }
 
     public function test_freshness_expires_at_configured_boundary_and_refreshes_existing_row(): void

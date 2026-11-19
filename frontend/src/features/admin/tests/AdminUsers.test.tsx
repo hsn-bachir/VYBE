@@ -1,12 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../../../lib/api/client'
 import { RequireUserManager } from '../../auth/guards/AuthGuards'
 import { accessKey } from '../../auth/hooks/useAccess'
 import { authKey } from '../../auth/hooks/useAuth'
-import { adminError, adminUser, adminUsers, changeAdminUser, changeAdminPassword, createAdminUser, resendAdminInvitation, sendAdminPasswordReset, type AdminUser, type UserFilters } from '../api/adminUsersApi'
+import { adminError, adminIdentityMethods, adminUser, adminUsers, changeAdminUser, changeAdminPassword, createAdminUser, resendAdminInvitation, sendAdminPasswordReset, type AdminUser, type UserFilters } from '../api/adminUsersApi'
 import { adminKeys } from '../hooks/useAdminUsers'
 import { PasswordManagementDialog } from '../components/PasswordManagementDialog'
 import AdminUsersPage from '../pages/AdminUsersPage'
@@ -15,6 +15,7 @@ import AdminUserDetailsPage from '../pages/AdminUserDetailsPage'
 const actor = { id: 4, username: 'admin_user', email: 'admin@example.test', email_verified_at: '2026-11-03T00:00:00Z', avatar_url: null }
 const target: AdminUser = { id: 9, username: 'cine_fan', email: 'fan@example.test', email_verified_at: null, role: 'user', account_status: 'active', invitation_pending: true, created_at: '2026-11-03T00:00:00Z', updated_at: '2026-11-03T00:00:00Z' }
 const filters: UserFilters = { page: 1, per_page: 20, q: '', role: '', account_status: '' }
+afterEach(() => vi.unstubAllEnvs())
 function render(path: string, role: 'admin' | 'moderator' = 'admin', entries: AdminUser[] = [target], detail: AdminUser = target, actorStatus: 'active' | 'restricted' = 'active') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
   client.setQueryData(authKey, actor)
@@ -112,5 +113,17 @@ describe('admin user management', () => {
     expect(await sendAdminPasswordReset(9, 'Recovery', () => true)).toBe('accepted')
     expect(post).toHaveBeenCalledWith('/api/v1/admin/users/9/password-reset', { reason: 'Recovery' })
     get.mockRestore(); put.mockRestore(); post.mockRestore()
+  })
+  it('uses a narrow Firebase methods read and renders administrator reauthentication choices', async () => {
+    vi.stubEnv('VITE_AUTH_IDENTITY_PROVIDER', 'firebase')
+    const get = vi.spyOn(api, 'get').mockResolvedValue({ data: { data: { methods: ['google.com'] } } })
+    expect(await adminIdentityMethods(9)).toEqual(['google.com'])
+    expect(get).toHaveBeenCalledWith('/api/v1/admin/users/9/identity-methods', { signal: undefined })
+    get.mockRestore()
+    const html = renderToStaticMarkup(<PasswordManagementDialog mode="change" user={{ ...target, invitation_pending: false }} adminEmail={actor.email}
+      pending={false} onClose={() => undefined} onDone={() => undefined} onChange={async () => undefined} onReset={async () => 'accepted'} />)
+    expect(html).toContain('Confirm your identity with')
+    expect(html).toContain('Google')
+    expect(html).toContain('GitHub')
   })
 })

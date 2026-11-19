@@ -5,7 +5,7 @@ export function MovieNavigation({ showLibrary = false }: { showLibrary?: boolean
   const { pathname } = useLocation()
   const nav = useRef<HTMLElement>(null)
   const indicator = useRef<HTMLSpanElement>(null)
-  const section = pathname === '/' ? 'home' : pathname.startsWith('/library') ? 'library' : pathname.startsWith('/discover') || pathname.startsWith('/movies/') ? 'discover' : null
+  const section = pathname === '/' ? 'home' : pathname === '/for-you' ? 'for-you' : pathname.startsWith('/library') ? 'library' : pathname.startsWith('/discover') || pathname.startsWith('/movies/') ? 'discover' : null
   const position = useCallback((snap = false) => {
     const bar = nav.current
     const line = indicator.current
@@ -29,6 +29,7 @@ export function MovieNavigation({ showLibrary = false }: { showLibrary?: boolean
     <span ref={indicator} className="nav-indicator" aria-hidden="true" />
     <Link to="/" aria-current={section === 'home' ? 'page' : undefined}>Home</Link>
     <Link to="/discover" aria-current={section === 'discover' ? 'page' : undefined}>Discover</Link>
+    {showLibrary && <Link to="/for-you" aria-current={section === 'for-you' ? 'page' : undefined}>For You</Link>}
     {showLibrary && <Link to="/library" aria-current={section === 'library' ? 'page' : undefined}>Library</Link>}
   </nav>
 }

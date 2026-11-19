@@ -17,6 +17,7 @@ class AuthController extends Controller
 {
     public function register(RegisterRequest $request)
     {
+        abort_if(config('firebase_auth.mode') === 'firebase', 409, 'Registration is being migrated to Firebase.');
         try {
             $user = User::create($request->safe()->only(['username', 'email', 'password']));
         } catch (UniqueConstraintViolationException) {
@@ -25,7 +26,9 @@ class AuthController extends Controller
 
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
-        if ($user->password_session_version !== null) $request->session()->put('password_session_version', $user->password_session_version);
+        if ($user->password_session_version !== null) {
+            $request->session()->put('password_session_version', $user->password_session_version);
+        }
         event(new Registered($user));
 
         return (new UserResource($user))->response()->setStatusCode(201);
@@ -33,6 +36,7 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request)
     {
+        abort_if(config('firebase_auth.mode') === 'firebase', 404);
         if (! Auth::guard('web')->attempt($request->validated())) {
             return response()->json(['message' => 'Invalid email or password.'], 401);
         }
@@ -48,7 +52,9 @@ class AuthController extends Controller
         $request->session()->regenerate();
 
         $user = Auth::guard('web')->user();
-        if ($user->password_session_version !== null) $request->session()->put('password_session_version', $user->password_session_version);
+        if ($user->password_session_version !== null) {
+            $request->session()->put('password_session_version', $user->password_session_version);
+        }
 
         return new UserResource($user);
     }

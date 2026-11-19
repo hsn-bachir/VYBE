@@ -1,5 +1,43 @@
 # VYBE local setup — Windows, XAMPP, two Laravel APIs
 
+## Disposable PostgreSQL compatibility tests
+
+The Phase 3 PostgreSQL tests use separate `*_test` databases and never use the current MySQL databases or Neon. See [Phase 3 verification](neon-phase-3-report.md) for results and safety limits. With Docker Desktop running, start the two local services from the repository root:
+
+```powershell
+docker compose -f compose.postgres-test.yml up -d --wait
+php -m | Select-String 'pdo_pgsql'
+```
+
+In the **same PowerShell process**, set `APP_ENV=testing`, `DB_CONNECTION=pgsql`, `DB_URL=''`, `DB_HOST=127.0.0.1`, `DB_USERNAME=vybe_test`, `DB_PASSWORD=local_test_only`, `DB_SSLMODE=disable`, and `VYBE_DISPOSABLE_TEST_DB=1`. Use port 55433 and `vybe_core_test` for Core, then port 55434 and `vybe_movies_test` for Catalog, as shown below. These are local test-only credentials. Tests refuse non-local hosts, non-`*_test` database names, or a nonempty `DB_URL`. Never use Neon credentials for this workflow. GitHub Actions runs the same two suites against disposable PostgreSQL services on port 5432.
+
+```powershell
+$env:APP_ENV = 'testing'
+$env:DB_CONNECTION = 'pgsql'
+$env:DB_URL = ''
+$env:DB_HOST = '127.0.0.1'
+$env:DB_USERNAME = 'vybe_test'
+$env:DB_PASSWORD = 'local_test_only'
+$env:DB_SSLMODE = 'disable'
+$env:VYBE_DISPOSABLE_TEST_DB = '1'
+
+$env:DB_PORT = '55433'
+$env:DB_DATABASE = 'vybe_core_test'
+Push-Location backend
+php artisan migrate --force
+php artisan test
+Pop-Location
+
+$env:DB_PORT = '55434'
+$env:DB_DATABASE = 'vybe_movies_test'
+Push-Location services/movie-catalog
+php artisan migrate --force
+php artisan test
+Pop-Location
+```
+
+Remote Neon application connections require separate Core and Catalog credentials and a verified TLS mode; use direct connections for migrations and data import, then evaluate pooling for runtime traffic. Leave the active MySQL `.env` values unchanged until an approved cutover.
+
 **Status:** Core auth and the independent Catalog movie API are implemented. Core movie forwarding and React discovery are implemented. Never commit `.env` files.
 
 ## Prerequisites

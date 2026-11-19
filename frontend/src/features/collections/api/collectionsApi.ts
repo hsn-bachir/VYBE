@@ -4,8 +4,8 @@ import type { LibraryResponse } from '../../library/types/library.types'
 import type { Collection, CollectionOperation, CollectionsResponse } from '../types/collection.types'
 
 const path = '/api/v1/me/collections'
-export async function collectionsPage(page: number, containsTmdbId?: number, signal?: AbortSignal) {
-  return (await api.get<CollectionsResponse>(path, { params: { page, per_page: 20, contains_tmdb_id: containsTmdbId }, signal })).data
+export async function collectionsPage(page: number, containsTmdbId?: number, signal?: AbortSignal, includePreviews = true) {
+  return (await api.get<CollectionsResponse>(path, { params: { page, per_page: 20, contains_tmdb_id: containsTmdbId, include_previews: includePreviews ? undefined : 0 }, signal })).data
 }
 export async function collectionDetails(id: number, signal?: AbortSignal) {
   return (await api.get<{ data: Collection }>(`${path}/${id}`, { signal })).data.data

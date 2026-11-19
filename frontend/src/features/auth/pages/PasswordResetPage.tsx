@@ -4,6 +4,7 @@ import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { errorDetails } from '../../../lib/api/client'
 import { completePasswordReset } from '../api/authApi'
+import { FirebasePasswordResetPage } from './FirebasePasswordResetPage'
 
 function resetLinkFromFragment() {
   const params = new URLSearchParams(window.location.hash.slice(1))
@@ -11,6 +12,11 @@ function resetLinkFromFragment() {
 }
 
 export function PasswordResetPage() {
+  if (import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase') return <FirebasePasswordResetPage />
+  return <LegacyPasswordResetPage />
+}
+
+function LegacyPasswordResetPage() {
   const [link, setLink] = useState(resetLinkFromFragment)
   const [email, setEmail] = useState(link.email)
   const [password, setPassword] = useState('')

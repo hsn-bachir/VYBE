@@ -61,17 +61,21 @@ class CollectionsTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_crud_preserves_case_allows_exact_duplicates_and_never_exposes_owner(): void
+    public function test_crud_preserves_case_allows_custom_duplicates_and_reserves_favorites(): void
     {
-        $this->signIn();
+        $user = $this->signIn();
+        $favorite = $user->collections()->where('system_key', 'favorites')->sole();
+        $this->postJson(self::URL, ['name' => ' Favorites '])->assertUnprocessable()->assertJsonValidationErrors('name');
+        $this->patchJson(self::URL.'/'.$favorite->id, ['name' => 'Other'])->assertForbidden();
+        $this->deleteJson(self::URL.'/'.$favorite->id)->assertForbidden();
         $ids = [];
-        foreach (['Favorites', 'favorites', 'FAVORITES', 'Favorites', 'Sci-Fi Favorites'] as $name) {
+        foreach (['Sci-Fi', 'sci-fi', 'SCI-FI', 'Sci-Fi', 'Sci-Fi Favorites'] as $name) {
             $ids[] = $this->postJson(self::URL, ['name' => '  '.$name.'  ', 'description' => '  Notes  '])
                 ->assertCreated()->assertJsonPath('data.name', $name)->assertJsonPath('data.description', 'Notes')
                 ->assertJsonPath('data.movie_count', 0)->assertJsonMissingPath('data.user_id')->json('data.id');
         }
         $this->assertCount(5, array_unique($ids));
-        $this->getJson(self::URL.'/'.$ids[0])->assertOk()->assertJsonPath('data.name', 'Favorites');
+        $this->getJson(self::URL.'/'.$ids[0])->assertOk()->assertJsonPath('data.name', 'Sci-Fi');
         $this->patchJson(self::URL.'/'.$ids[0], ['name' => 'Weekend', 'description' => null])->assertOk()
             ->assertJsonPath('data.name', 'Weekend')->assertJsonPath('data.description', null);
         $this->patchJson(self::URL.'/'.$ids[0], ['description' => '  '])->assertOk()->assertJsonPath('data.description', null);
@@ -111,7 +115,7 @@ class CollectionsTest extends TestCase
             $hidden = $this->json($method, self::URL.'/'.$c->id.$suffix, $body)->assertNotFound()->json();
             $this->json($method, self::URL.'/99999'.$suffix, $body)->assertNotFound()->assertExactJson($hidden);
         }
-        $this->getJson(self::URL)->assertJsonPath('data', []);
+        $this->getJson(self::URL)->assertJsonCount(1, 'data')->assertJsonPath('data.0.system_key', 'favorites');
         Http::assertNothingSent();
     }
 
@@ -145,6 +149,21 @@ class CollectionsTest extends TestCase
         $this->assertDatabaseCount('collection_movies', 0);
     }
 
+    public function test_every_new_user_has_one_favorites_collection_with_independent_membership(): void
+    {
+        $user = $this->signIn();
+        $favorite = $user->collections()->where('system_key', 'favorites')->sole();
+        $custom = $user->collections()->create(['name' => 'Weekend']);
+        $this->catalog();
+        $this->postJson(self::URL.'/'.$favorite->id.'/movies', ['tmdb_id' => 550])->assertCreated();
+        $this->postJson(self::URL.'/'.$custom->id.'/movies', ['tmdb_id' => 550])->assertCreated();
+        $this->assertDatabaseHas('collection_movies', ['collection_id' => $favorite->id, 'tmdb_id' => 550]);
+        $this->assertDatabaseHas('collection_movies', ['collection_id' => $custom->id, 'tmdb_id' => 550]);
+        $this->deleteJson(self::URL.'/'.$favorite->id.'/movies/550')->assertNoContent();
+        $this->assertDatabaseHas('collection_movies', ['collection_id' => $custom->id, 'tmdb_id' => 550]);
+        $this->assertSame(1, $user->collections()->where('system_key', 'favorites')->count());
+    }
+
     public function test_database_membership_unique_constraint_is_authoritative(): void
     {
         $c = $this->signIn()->collections()->create(['name' => 'Unique memberships']);
@@ -163,18 +182,28 @@ class CollectionsTest extends TestCase
             }
         }
         User::factory()->create()->collections()->create(['name' => 'Other']);
+        $this->catalog();
         DB::enableQueryLog();
         DB::flushQueryLog();
         $this->getJson(self::URL.'?contains_tmdb_id=550')->assertOk()->assertJsonCount(20, 'data')
-            ->assertJsonPath('meta.total_results', 23)->assertJsonPath('data.0.contains_movie', true)
-            ->assertJsonPath('data.0.movie_count', 1)->assertJsonPath('data.1.contains_movie', false);
+            ->assertJsonPath('meta.total_results', 24)->assertJsonPath('data.0.system_key', 'favorites')
+            ->assertJsonPath('data.0.contains_movie', false)->assertJsonPath('data.1.contains_movie', true)
+            ->assertJsonPath('data.1.movie_count', 1)->assertJsonPath('data.1.preview_movies.0.tmdb_id', 550);
         $queries = array_filter(DB::getQueryLog(), fn ($q) => str_contains($q['query'], 'collections') || str_contains($q['query'], 'collection_movies'));
         DB::disableQueryLog();
-        $this->assertCount(2, $queries);
-        $this->getJson(self::URL.'?page=2')->assertJsonCount(3, 'data')->assertJsonMissingPath('data.0.contains_movie');
-        $this->getJson(self::URL.'?page=100')->assertJsonPath('data', [])->assertJsonPath('meta.total_results', 23);
-        $this->getJson(self::URL.'?per_page=50')->assertJsonCount(23, 'data');
-        Http::assertNothingSent();
+        $this->assertCount(3, $queries);
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->getJson(self::URL.'?contains_tmdb_id=550&include_previews=0')->assertOk()
+            ->assertJsonPath('data.1.contains_movie', true)->assertJsonPath('data.1.preview_movies', []);
+        $membershipQueries = array_filter(DB::getQueryLog(), fn ($q) => str_contains($q['query'], 'collections') || str_contains($q['query'], 'collection_movies'));
+        DB::disableQueryLog();
+        $this->assertCount(2, $membershipQueries);
+        Http::assertSentCount(1);
+        $this->getJson(self::URL.'?page=2')->assertJsonCount(4, 'data')->assertJsonMissingPath('data.0.contains_movie');
+        $this->getJson(self::URL.'?page=100')->assertJsonPath('data', [])->assertJsonPath('meta.total_results', 24);
+        $this->getJson(self::URL.'?per_page=50')->assertJsonCount(24, 'data');
+        Http::assertSentCount(2);
     }
 
     public function test_movie_pages_batch_once_preserve_missing_outage_order_counts_and_empty_pages(): void
@@ -231,7 +260,7 @@ class CollectionsTest extends TestCase
             $this->getJson(self::URL.'?contains_tmdb_id='.$id)->assertUnprocessable();
             $this->deleteJson(self::URL.'/'.$c->id.'/movies/'.$id)->assertUnprocessable();
         }
-        foreach (['page=0', 'page=10001', 'page[]=1', 'per_page=0', 'per_page=51', 'contains_tmdb_id[]=1'] as $query) {
+        foreach (['page=0', 'page=10001', 'page[]=1', 'per_page=0', 'per_page=51', 'contains_tmdb_id[]=1', 'include_previews=maybe'] as $query) {
             $this->getJson(self::URL.'?'.$query)->assertUnprocessable();
         }
         foreach (['page=0', 'per_page=51'] as $query) {

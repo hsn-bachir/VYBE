@@ -17,8 +17,10 @@
 .rating-bucket-count { text-align: right; font-variant-numeric: tabular-nums; }
 .rating-bucket-count small { color: var(--color-muted); font-size: .7rem; }
 .rating-statistics-error { grid-column: 1 / -1; color: var(--color-muted); }
-.personal-rating-panel { border-top: 1px solid var(--color-border); padding: 1.5rem clamp(1.25rem, 3vw, 2.5rem); }
-.personal-rating-panel > p { font-size: .8rem; color: var(--color-muted); margin-top: -.4rem; }
+.personal-rating-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: stretch; gap: 2rem; border-top: 1px solid var(--color-border); padding: 1.5rem clamp(1.25rem, 3vw, 2.5rem); }
+.personal-rating-content { min-width: 0; }
+.personal-rating-content > h3 + p { font-size: .8rem; color: var(--color-muted); margin-top: -.4rem; }
+.rating-review-action { display: flex; align-items: center; min-width: 0; padding-left: 2rem; border-left: 1px solid var(--color-border); }
 .peek-rating { margin: 1.5rem 0 .5rem; padding: 0; border: 0; min-width: 0; }
 .peek-stars { display: flex; gap: .25rem; width: fit-content; }
 .peek-option { position: relative; display: grid; place-items: center; width: 44px; height: 48px; cursor: pointer; }
@@ -38,3 +40,6 @@
 .rating-feedback:not(:empty) { margin-top: .75rem; }
 @media (max-width: 599px) { .community-rating-summary { grid-template-columns: 1fr; gap: 1.75rem; } .community-ratings { margin-bottom: 3rem; } .rating-distribution li { gap: .5rem; } }
 @media (prefers-reduced-motion: reduce) { .peek-glyph, .peek-option svg, .rating-track > span { transition: none; } .peek-confirmed { animation: none; } .peek-option.is-previewed .peek-glyph, .peek-option.is-previewed.is-target .peek-glyph { transform: none; } }
+.rating-stars-skeleton { width: 230px; height: 62px; border-radius: 6px; }
+.rating-summary-skeleton { width: 240px; height: 130px; border-radius: 6px; }
+@media (max-width: 767px) { .personal-rating-panel { grid-template-columns: 1fr; gap: 1rem; } .rating-review-action { padding: 1rem 0 0; border-left: 0; border-top: 1px solid var(--color-border); } }

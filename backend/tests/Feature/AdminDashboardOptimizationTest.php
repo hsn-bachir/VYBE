@@ -47,10 +47,16 @@ class AdminDashboardOptimizationTest extends TestCase
         $this->getJson('/api/v1/admin/overview')->assertUnauthorized();
         $this->actingAs(User::factory()->create(), 'web')->getJson('/api/v1/admin/overview')->assertForbidden();
         Auth::forgetGuards();
+        DB::enableQueryLog();
+        DB::flushQueryLog();
         $this->actingAs($moderator, 'web')->getJson('/api/v1/admin/overview')->assertOk()
             ->assertJsonPath('data.pending_reports', 1)->assertJsonPath('data.handled_reports', 1)
             ->assertJsonPath('data.hidden_reviews', 1)->assertJsonPath('data.enforced_spoilers', 1)
             ->assertJsonCount(2, 'data.recent_reports')->assertJsonMissingPath('data.users');
+        $aggregates = array_filter(DB::getQueryLog(), fn ($query) => str_contains($query['query'], 'hidden_reviews')
+            || str_contains($query['query'], 'pending_reports'));
+        $this->assertCount(1, $aggregates);
+        DB::disableQueryLog();
         $admin = User::factory()->create(['role' => 'admin']);
         Auth::forgetGuards();
         $this->actingAs($admin, 'web')->getJson('/api/v1/admin/overview')->assertOk()

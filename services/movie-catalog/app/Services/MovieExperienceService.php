@@ -17,10 +17,26 @@ class MovieExperienceService
     public function capture(array $raw, int $id): array
     {
         $data = $this->normalizer->normalize($raw, $id);
-        DB::transaction(function () use ($data): void {
-            foreach ($data['related'] as $movie) {
-                $values = array_filter($movie, fn ($value) => $value !== null);
-                Movie::upsert([$values], ['tmdb_id'], array_diff(array_keys($values), ['tmdb_id']));
+        $writers = [];
+        foreach ($raw['credits']['crew'] ?? [] as $person) {
+            if (is_array($person) && in_array($person['job'] ?? null, ['Writer', 'Screenplay', 'Story', 'Characters'], true)
+                && is_int($person['id'] ?? null) && $person['id'] > 0 && $person['id'] <= 2147483647 && is_string($person['name'] ?? null) && trim($person['name']) !== '') {
+                $writers[$person['id']] = ['tmdb_id' => $person['id'], 'name' => mb_substr($person['name'], 0, 255)];
+            }
+        }
+        Cache::put('catalog:recommendation-credits:'.$id, ['actors' => $data['cast'], 'directors' => $data['directors'], 'writers' => array_slice(array_values($writers), 0, 8)], 2592000);
+        $batches = [];
+        foreach ($data['related'] as $movie) {
+            $values = array_filter($movie, fn ($value) => $value !== null);
+            $columns = array_keys($values);
+            sort($columns);
+            $signature = implode('|', $columns);
+            $batches[$signature]['columns'] = $columns;
+            $batches[$signature]['rows'][$values['tmdb_id']] = $values;
+        }
+        DB::transaction(function () use ($batches): void {
+            foreach ($batches as $batch) {
+                Movie::upsert(array_values($batch['rows']), ['tmdb_id'], array_diff($batch['columns'], ['tmdb_id']));
             }
         });
         Cache::put('catalog:experience:v1:'.$id, ['data' => $data, 'fetched_at' => now()->timestamp], 2592000);

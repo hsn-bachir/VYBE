@@ -53,14 +53,12 @@ export function useModerationChange(owner: number) {
   const client = useQueryClient()
   const current = () => client.getQueryData<User | null>(authKey)?.id === owner
   const result = useMutation({ retry: false, mutationFn: (change: ModerationChange) => changeModeration(change, current),
-    onSuccess: async (_, change) => {
+    onSuccess: (_, change) => {
       if (!current()) return
-      await client.invalidateQueries({ queryKey: adminKeys.root(owner) })
+      void client.invalidateQueries({ queryKey: adminKeys.root(owner) })
       if (current() && 'movie' in change && change.movie) {
-        await Promise.all([
-          client.invalidateQueries({ queryKey: reviewKeys.lists(change.movie) }),
-          client.invalidateQueries({ queryKey: reviewKeys.own(owner, change.movie), exact: true }),
-        ])
+        void client.invalidateQueries({ queryKey: reviewKeys.lists(change.movie) })
+        void client.invalidateQueries({ queryKey: reviewKeys.own(owner, change.movie), exact: true })
       }
     },
   })

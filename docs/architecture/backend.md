@@ -2,6 +2,8 @@
 
 **Status:** Core authentication, public movie forwarding, the independent Catalog and React discovery are implemented.
 
+Advanced browse adds `GET /movies/discover` to both versioned movie surfaces. Separate FormRequests validate/normalize the same allowlisted contract in each service; Core forwards over the existing authenticated client. Catalog builds provider filters, reuses ranking normalization/batched persistence, and caches canonical filter/page snapshots. Plain Popular discovery shares the original popular ranking cache. No migration, shared database access or new dependency is introduced. See [discovery semantics, caching and future FYP reuse](../api/movie-discovery.md).
+
 ## Core API (`backend/`)
 
 Independently runnable Laravel application on `http://localhost:8000`, connected to `vybe_core`. It is the sole browser-facing API and owns Sanctum sessions and users. Its responsibilities are registration/login/logout/me, validation, authentication throttles, and a public movie façade that requests Catalog through a server-configured `MovieCatalogClient`.
@@ -76,3 +78,5 @@ Core's HTTP adapter is implemented independently of the Catalog. Core should all
 Separate MySQL migration test jobs for Core and Catalog, plus PHP tests. PHPUnit may still default to SQLite `:memory:`; a MySQL migration job is not proof the entire PHPUnit suite uses MySQL. Add integration coverage deliberately. No dangerous database reset outside disposable test DBs.
 
 Read [public/internal contracts](../api/contracts.md) and [database ownership](../database/schema.md).
+
+M3.3 For You is implemented by Core preference/scoring/section services and one bounded Catalog candidate endpoint. See [recommendation ownership, contracts and cache policy](../api/recommendations.md). No new database tables or services are introduced.

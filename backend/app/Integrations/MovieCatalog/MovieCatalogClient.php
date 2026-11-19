@@ -9,9 +9,47 @@ use InvalidArgumentException;
 
 class MovieCatalogClient
 {
+    public function recommendationCandidates(array $params): array
+    {
+        $body = $this->request('recommendation-candidates', $params, method: 'POST');
+        if (Validator::make($body, ['data' => ['present', 'array', 'max:200'], 'meta.partial' => ['required', 'boolean']])->fails()
+            || ! array_is_list($body['data']) || ! is_bool($body['meta']['partial'])) {
+            throw new CatalogFailure;
+        }
+        $result = [];
+        foreach ($body['data'] as $feature) {
+            if (! is_array($feature) || ! is_array($feature['movie'] ?? null)) {
+                throw new CatalogFailure;
+            }
+            $feature['movie'] = $this->movie($feature['movie']);
+            foreach (['genres' => 20, 'actors' => 12, 'writers' => 8, 'directors' => 4] as $kind => $max) {
+                if (Validator::make($feature, [$kind => ['present', 'array', 'max:'.$max], $kind.'.*.id' => ['required', 'integer', 'min:1', 'max:2147483647'], $kind.'.*.name' => ['required', 'string', 'max:255']])->fails()
+                    || ! array_is_list($feature[$kind])) {
+                    throw new CatalogFailure;
+                }
+                foreach ($feature[$kind] as $person) {
+                    if (! is_int($person['id'])) {
+                        throw new CatalogFailure;
+                    }
+                }
+            }
+            if (Validator::make($feature, ['sources' => ['present', 'array', 'max:8'], 'sources.*.kind' => ['required', 'in:genre,actor,writer,director,similar,quality'], 'sources.*.id' => ['required', 'integer', 'min:0', 'max:2147483647']])->fails() || ! array_is_list($feature['sources'])) {
+                throw new CatalogFailure;
+            }
+            $result[$feature['movie']['tmdb_id']] = array_intersect_key($feature, array_flip(['movie', 'genres', 'actors', 'writers', 'directors', 'sources']));
+        }
+
+        return ['data' => array_values($result), 'meta' => $body['meta']];
+    }
+
     public function popular(int $page): array
     {
         return $this->listing('popular', ['page' => $page]);
+    }
+
+    public function discover(array $params): array
+    {
+        return $this->listing('discover', $params);
     }
 
     public function search(string $query, int $page): array
@@ -185,7 +223,7 @@ class MovieCatalogClient
         try {
             $response = Http::acceptJson()->withHeaders(['X-VYBE-Service-Token' => $token])
                 ->connectTimeout(config('movie_catalog.connect_timeout'))
-                ->timeout($path === 'summaries' ? config('movie_catalog.summary_timeout') : config('movie_catalog.timeout'))->withoutRedirecting()
+                ->timeout($path === 'recommendation-candidates' ? 25 : ($path === 'summaries' ? config('movie_catalog.summary_timeout') : config('movie_catalog.timeout')))->withoutRedirecting()
                 ->send($method, rtrim($url, '/').'/api/internal/v1/movies/'.$path, [
                     $method === 'POST' ? 'json' : 'query' => $params,
                 ]);
@@ -198,7 +236,7 @@ class MovieCatalogClient
         }
         if ($method === 'GET' && $response->status() === 422 && is_array($body['errors'] ?? null)) {
             $errors = [];
-            foreach (['page', 'query', 'tmdb_id'] as $field) {
+            foreach (['page', 'query', 'tmdb_id', 'category', 'sort', 'genres', 'genre_match', 'year_from', 'year_to', 'rating_min', 'runtime_min', 'runtime_max', 'original_language'] as $field) {
                 if (array_key_exists($field, $body['errors'])) {
                     $errors[$field] = ['The '.$field.' field is invalid.'];
                 }

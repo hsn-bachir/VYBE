@@ -51,7 +51,7 @@ return new class extends Migration
             $table->dropIndex(['tmdb_id', 'visibility', 'created_at', 'id']);
         });
         if (DB::getDriverName() !== 'sqlite') {
-            DB::statement('ALTER TABLE reviews DROP CHECK reviews_visibility_check');
+            DB::statement('ALTER TABLE reviews DROP CONSTRAINT reviews_visibility_check');
         }
         Schema::table('reviews', fn (Blueprint $table) => $table->dropColumn(['visibility', 'moderator_spoiler']));
     }

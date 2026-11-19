@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { authKey } from '../../auth/hooks/useAuth'
 import { accessKey } from '../../auth/hooks/useAccess'
 import type { User } from '../../auth/types/auth.types'
-import { adminUser, adminUsers, changeAdminUser, changeAdminPassword, createAdminUser, resendAdminInvitation, sendAdminPasswordReset, type PasswordChange, type UserChange, type UserFilters } from '../api/adminUsersApi'
+import { adminIdentityMethods, adminUser, adminUsers, changeAdminUser, changeAdminPassword, createAdminUser, resendAdminInvitation, sendAdminPasswordReset, type PasswordChange, type UserChange, type UserFilters } from '../api/adminUsersApi'
 
 export const adminKeys = {
   root: (owner: number) => ['admin', owner] as const,
@@ -26,13 +26,20 @@ export function useAdminAccessError(error: unknown, owner: number) {
 }
 export function useAdminUsers(owner: number, filters: UserFilters) {
   const result = useQuery({ queryKey: adminKeys.users(owner, filters), queryFn: ({ signal }) => adminUsers(filters, signal),
-    enabled: owner > 0 && (!filters.q || filters.q.length >= 3), retry: false, staleTime: 0 })
+    enabled: owner > 0 && (!filters.q || filters.q.length >= 3), retry: false, staleTime: 30_000, refetchOnWindowFocus: false })
   useAdminAccessError(result.error, owner)
   return result
 }
 export function useAdminUser(owner: number, id: number) {
   const result = useQuery({ queryKey: adminKeys.user(owner, id), queryFn: ({ signal }) => adminUser(id, signal),
-    enabled: owner > 0 && id > 0, retry: false, staleTime: 0 })
+    enabled: owner > 0 && id > 0, retry: false, staleTime: 30_000, refetchOnWindowFocus: false })
+  useAdminAccessError(result.error, owner)
+  return result
+}
+export function useAdminIdentityMethods(owner: number, id: number, actionVisible: boolean) {
+  const result = useQuery({ queryKey: [...adminKeys.user(owner, id), 'identity-methods'], queryFn: ({ signal }) => adminIdentityMethods(id, signal),
+    enabled: import.meta.env.VITE_AUTH_IDENTITY_PROVIDER === 'firebase' && owner > 0 && id > 0 && actionVisible,
+    retry: false, staleTime: 60_000 })
   useAdminAccessError(result.error, owner)
   return result
 }
@@ -42,7 +49,8 @@ export function useAdminUserChange(owner: number) {
   const result = useMutation({ retry: false, mutationFn: (change: UserChange) => changeAdminUser(change, current),
     onSuccess: async (user) => {
       if (!current()) return
-      await client.invalidateQueries({ queryKey: adminKeys.root(owner) })
+      client.setQueryData(adminKeys.user(owner, user.id), user)
+      void client.invalidateQueries({ queryKey: adminKeys.root(owner) })
       if (!current()) return
       if (user.id === owner) {
         await client.invalidateQueries({ queryKey: authKey })
@@ -56,8 +64,8 @@ export function useAdminUserChange(owner: number) {
 export function useCreateAdminUser(owner: number) {
   const client = useQueryClient()
   const current = () => client.getQueryData<User | null>(authKey)?.id === owner
-  const result = useMutation({ retry: false, mutationFn: (values: { username: string; email: string }) => createAdminUser(values, current),
-    onSuccess: async () => { if (current()) await client.invalidateQueries({ queryKey: adminKeys.root(owner) }) },
+  const result = useMutation({ retry: false, mutationFn: (values: { username: string; email: string; role?: 'user' | 'moderator' }) => createAdminUser(values, current),
+    onSuccess: () => { if (current()) void client.invalidateQueries({ queryKey: adminKeys.root(owner) }) },
   })
   useAdminAccessError(result.error, owner)
   return result
@@ -66,7 +74,7 @@ export function useResendAdminInvitation(owner: number) {
   const client = useQueryClient()
   const current = () => client.getQueryData<User | null>(authKey)?.id === owner
   const result = useMutation({ retry: false, mutationFn: (id: number) => resendAdminInvitation(id, current),
-    onSuccess: async () => { if (current()) await client.invalidateQueries({ queryKey: adminKeys.root(owner) }) },
+    onSuccess: () => { if (current()) void client.invalidateQueries({ queryKey: adminKeys.root(owner) }) },
   })
   useAdminAccessError(result.error, owner)
   return result
@@ -75,7 +83,7 @@ export function useChangeAdminPassword(owner: number) {
   const client = useQueryClient()
   const current = () => client.getQueryData<User | null>(authKey)?.id === owner
   const result = useMutation({ retry: false, mutationFn: ({ id, values }: { id: number; values: PasswordChange }) => changeAdminPassword(id, values, current),
-    onSuccess: async () => { if (current()) await client.invalidateQueries({ queryKey: adminKeys.root(owner) }) },
+    onSuccess: () => { if (current()) void client.invalidateQueries({ queryKey: adminKeys.root(owner) }) },
   })
   useAdminAccessError(result.error, owner)
   return result
