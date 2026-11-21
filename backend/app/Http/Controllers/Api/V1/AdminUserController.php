@@ -4,16 +4,18 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminUserRequest;
+use App\Http\Requests\Admin\ChangeUserPasswordRequest;
 use App\Http\Requests\Admin\CreateAdminUserRequest;
 use App\Http\Requests\Admin\ResendInvitationRequest;
-use App\Http\Requests\Admin\ChangeUserPasswordRequest;
 use App\Http\Requests\Admin\SendPasswordResetRequest;
 use App\Http\Resources\AdminUserResource;
 use App\Models\User;
-use App\Services\AdminUserService;
 use App\Services\AccountInvitationService;
-use Illuminate\Support\Facades\Auth;
+use App\Services\AdminUserService;
+use App\Services\FirebaseAdminUserService;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class AdminUserController extends Controller
 {
@@ -24,8 +26,12 @@ class AdminUserController extends Controller
         $page = (int) $request->validated('page', 1);
         $perPage = (int) $request->validated('per_page', 20);
         $query = User::query()->select(['id', 'username', 'email', 'email_verified_at', 'role', 'account_status', 'invitation_pending', 'created_at', 'updated_at']);
-        if ($request->has('role')) $query->where('role', $request->validated('role'));
-        if ($request->has('account_status')) $query->where('account_status', $request->validated('account_status'));
+        if ($request->has('role')) {
+            $query->where('role', $request->validated('role'));
+        }
+        if ($request->has('account_status')) {
+            $query->where('account_status', $request->validated('account_status'));
+        }
         if ($request->has('q')) {
             $q = $request->validated('q');
             $prefix = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $q).'%';
@@ -33,6 +39,7 @@ class AdminUserController extends Controller
                 ->orWhereRaw("username LIKE ? ESCAPE '!'", [$prefix]));
         }
         $result = $query->orderBy('id')->paginate($perPage, ['*'], 'page', $page);
+
         return AdminUserResource::collection($result->items())->additional(['meta' => [
             'page' => $page, 'per_page' => $perPage, 'total_pages' => $result->lastPage(), 'total_results' => $result->total(),
         ]]);
@@ -46,6 +53,7 @@ class AdminUserController extends Controller
     public function store(CreateAdminUserRequest $request, AccountInvitationService $invitations)
     {
         $result = $invitations->create($request->user(), $request->validated());
+
         return response()->json(['data' => [
             'user' => (new AdminUserResource($result['user']))->toArray($request),
             'invitation_delivery' => $result['delivery'],
@@ -55,18 +63,30 @@ class AdminUserController extends Controller
     public function resend(ResendInvitationRequest $request, AccountInvitationService $invitations)
     {
         $result = $invitations->resend($request->user(), (int) $request->validated('id'));
+
         return response()->json(['data' => ['invitation_delivery' => $result['delivery']]], 202)
             ->header('Cache-Control', 'no-store, private');
     }
 
     public function update(AdminUserRequest $request): AdminUserResource
     {
-        $target = $this->users->update($request->user(), (int) $request->validated('id'), $request->safe()->only(['username', 'email']));
+        if (config('firebase_auth.mode') === 'firebase' && $request->has('email')
+            && $request->validated('email') !== User::query()->findOrFail((int) $request->validated('id'))->email) {
+            $token = $request->validated('admin_id_token');
+            if (! is_string($token) || $token === '') {
+                throw ValidationException::withMessages(['admin_id_token' => ['Confirm your Firebase identity to change an email.']]);
+            }
+            $target = app(FirebaseAdminUserService::class)->email($request->user(), (int) $request->validated('id'),
+                $token, $request->validated('email'), $request->validated('username'));
+        } else {
+            $target = $this->users->update($request->user(), (int) $request->validated('id'), $request->safe()->only(['username', 'email']));
+        }
         if ($target->id === $request->user()->id && ! $target->hasVerifiedEmail()) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         }
+
         return new AdminUserResource($target);
     }
 
@@ -85,13 +105,30 @@ class AdminUserController extends Controller
     public function password(ChangeUserPasswordRequest $request)
     {
         $values = $request->validated();
-        $this->users->password($request->user(), (int) $values['id'], $values['admin_current_password'], $values['password'], $values['reason'] ?? null);
+        if (config('firebase_auth.mode') === 'firebase') {
+            app(FirebaseAdminUserService::class)->password($request->user(), (int) $values['id'],
+                $values['admin_id_token'], $values['password'], $values['reason'] ?? null);
+        } else {
+            $this->users->password($request->user(), (int) $values['id'], $values['admin_current_password'], $values['password'], $values['reason'] ?? null);
+        }
+
         return response()->noContent()->header('Cache-Control', 'no-store, private');
     }
 
     public function passwordReset(SendPasswordResetRequest $request)
     {
-        $delivery = $this->users->initiatePasswordReset($request->user(), (int) $request->validated('id'), $request->validated('reason'));
+        $delivery = config('firebase_auth.mode') === 'firebase'
+            ? app(FirebaseAdminUserService::class)->reset($request->user(), (int) $request->validated('id'), $request->validated('reason'))
+            : $this->users->initiatePasswordReset($request->user(), (int) $request->validated('id'), $request->validated('reason'));
+
         return response()->json(['data' => ['reset_delivery' => $delivery]], 202)->header('Cache-Control', 'no-store, private');
+    }
+
+    public function methods(AdminUserRequest $request)
+    {
+        abort_unless(config('firebase_auth.mode') === 'firebase', 404);
+        $methods = app(FirebaseAdminUserService::class)->methods($request->user(), (int) $request->validated('id'));
+
+        return response()->json(['data' => ['methods' => $methods]])->header('Cache-Control', 'no-store, private');
     }
 }

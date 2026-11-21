@@ -4,16 +4,17 @@ import type { User } from '../../auth/types/auth.types'
 import { libraryKeys, useLibraryAccessError } from '../../library/hooks/useLibrary'
 import { changeCollection, collectionDetails, collectionMovies, collectionsPage } from '../api/collectionsApi'
 import type { Collection, CollectionOperation, CollectionsResponse } from '../types/collection.types'
+import { refreshRecommendations } from '../../recommendations/recommendations'
 
 export const collectionKeys = {
   lists: (owner: number) => [...libraryKeys.owner(owner), 'collections'] as const,
-  list: (owner: number, page: number, movie?: number) => [...libraryKeys.owner(owner), 'collections', { page, contains_tmdb_id: movie ?? null }] as const,
+  list: (owner: number, page: number, movie?: number, includePreviews = true) => [...libraryKeys.owner(owner), 'collections', { page, contains_tmdb_id: movie ?? null, include_previews: includePreviews }] as const,
   detail: (owner: number, id: number) => [...libraryKeys.owner(owner), 'collection', id] as const,
   membership: (owner: number, id: number, movie: number) => [...libraryKeys.owner(owner), 'collection-write', id, movie] as const,
 }
 const policy = { staleTime: 30_000, retry: false, refetchOnWindowFocus: false } as const
-export const collectionsOptions = (owner: number, page: number, movie?: number) => queryOptions({
-  ...policy, queryKey: collectionKeys.list(owner, page, movie), queryFn: ({ signal }) => collectionsPage(page, movie, signal), enabled: owner > 0,
+export const collectionsOptions = (owner: number, page: number, movie?: number, includePreviews = true) => queryOptions({
+  ...policy, queryKey: collectionKeys.list(owner, page, movie, includePreviews), queryFn: ({ signal }) => collectionsPage(page, movie, signal, includePreviews), enabled: owner > 0,
 })
 export const collectionOptions = (owner: number, id: number) => queryOptions({
   ...policy, queryKey: collectionKeys.detail(owner, id), queryFn: ({ signal }) => collectionDetails(id, signal), enabled: owner > 0 && id > 0,
@@ -26,6 +27,7 @@ export const collectionMoviesOptions = (owner: number, id: number, page: number)
 export async function synchronizeCollections(client: ReturnType<typeof useQueryClient>, owner: number, operation: CollectionOperation, result: Collection | null) {
   const current = () => client.getQueryData<User | null>(authKey)?.id === owner
   if (!current()) return false
+  void refreshRecommendations(client, owner, operation.action === 'membership' && operation.add ? operation.tmdbId : undefined)
   await client.cancelQueries({ queryKey: collectionKeys.lists(owner) })
   if (!current()) return false
   if (operation.action === 'membership') {
@@ -44,10 +46,10 @@ export async function synchronizeCollections(client: ReturnType<typeof useQueryC
     if (operation.action === 'delete') client.removeQueries({ queryKey: collectionKeys.detail(owner, operation.id) })
     else {
       if (result) client.setQueryData(collectionKeys.detail(owner, operation.id), result)
-      await client.invalidateQueries({ queryKey: collectionKeys.detail(owner, operation.id) })
+      void client.invalidateQueries({ queryKey: collectionKeys.detail(owner, operation.id) })
     }
   }
-  await client.invalidateQueries({ queryKey: collectionKeys.lists(owner) })
+  void client.invalidateQueries({ queryKey: collectionKeys.lists(owner) })
   return current()
 }
 

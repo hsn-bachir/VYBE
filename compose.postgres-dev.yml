@@ -1,0 +1,36 @@
+services:
+  core-postgres:
+    image: postgres:18-alpine
+    container_name: vybe-core-postgres-dev
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: vybe_core
+      POSTGRES_USER: vybe_dev
+      POSTGRES_PASSWORD: vybe_local_only
+
+    ports:
+      - "127.0.0.1:55435:5432"
+
+    volumes:
+      - core_pgdata:/var/lib/postgresql
+
+  catalog-postgres:
+    image: postgres:18-alpine
+    container_name: vybe-catalog-postgres-dev
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: vybe_movies
+      POSTGRES_USER: vybe_dev
+      POSTGRES_PASSWORD: vybe_local_only
+
+    ports:
+      - "127.0.0.1:55436:5432"
+
+    volumes:
+      - catalog_pgdata:/var/lib/postgresql
+
+volumes:
+  core_pgdata:
+  catalog_pgdata:

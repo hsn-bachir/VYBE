@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Movies\DiscoverMoviesRequest;
 use App\Http\Requests\Movies\ListMoviesRequest;
 use App\Http\Requests\Movies\SearchMoviesRequest;
 use App\Http\Requests\Movies\ShowMovieRequest;
@@ -16,6 +17,11 @@ class MovieController extends Controller
     public function popular(ListMoviesRequest $request): JsonResponse
     {
         return response()->json($this->catalog->popular((int) $request->validated('page', 1)));
+    }
+
+    public function discover(DiscoverMoviesRequest $request): JsonResponse
+    {
+        return response()->json($this->catalog->discover($request->discovery()));
     }
 
     public function search(SearchMoviesRequest $request): JsonResponse

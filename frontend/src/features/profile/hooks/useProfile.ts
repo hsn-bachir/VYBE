@@ -16,7 +16,7 @@ export async function synchronizeProfile(client: QueryClient, owner: number, pro
   await Promise.all([client.cancelQueries({ queryKey: authKey, exact: true }), client.cancelQueries({ queryKey: profileKey(owner), exact: true }), client.cancelQueries(authors)])
   if (!current(client, owner)) return false
   client.setQueryData(authKey, profile.user); client.setQueryData(profileKey(owner), profile)
-  await client.invalidateQueries(authors)
+  void client.invalidateQueries(authors)
   return current(client, owner)
 }
 export function useProfileAccess(error: unknown, owner: number) {

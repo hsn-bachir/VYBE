@@ -21,7 +21,8 @@ class CollectionController extends Controller
     public function index(ListCollectionsRequest $request): AnonymousResourceCollection
     {
         $result = $this->collections->listing($request->user(), (int) $request->validated('page', 1),
-            (int) $request->validated('per_page', 20), $request->has('contains_tmdb_id') ? (int) $request->validated('contains_tmdb_id') : null);
+            (int) $request->validated('per_page', 20), $request->has('contains_tmdb_id') ? (int) $request->validated('contains_tmdb_id') : null,
+            $request->boolean('include_previews', true));
 
         return CollectionResource::collection($result['entries'])->additional(['meta' => $result['meta']]);
     }

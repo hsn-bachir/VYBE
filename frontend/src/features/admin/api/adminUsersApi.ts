@@ -12,10 +12,10 @@ export type CreatedAdminUser = { user: AdminUser; invitation_delivery: Invitatio
 export type UserFilters = { page: number; per_page: number; q: string; role: Role | ''; account_status: AccountStatus | '' }
 export type UserPage = { data: AdminUser[]; meta: { page: number; per_page: number; total_pages: number; total_results: number } }
 export type UserChange =
-  | { kind: 'edit'; id: number; values: { username?: string; email?: string } }
+  | { kind: 'edit'; id: number; values: { username?: string; email?: string; admin_id_token?: string } }
   | { kind: 'role'; id: number; values: { role: 'user' | 'moderator'; reason?: string } }
   | { kind: 'status'; id: number; values: { account_status: AccountStatus; reason?: string } }
-export type PasswordChange = { admin_current_password: string; password: string; password_confirmation: string; reason?: string }
+export type PasswordChange = { admin_current_password?: string; admin_id_token?: string; password: string; password_confirmation: string; reason?: string }
 export type ResetDelivery = 'accepted' | 'pending'
 
 const path = '/api/v1/admin/users'
@@ -35,10 +35,13 @@ export async function changeAdminUser(change: UserChange, isCurrent: () => boole
     : await api.put<{ data: AdminUser }>(`${url}/${change.kind}`, change.values)
   return result.data.data
 }
-export async function createAdminUser(values: { username: string; email: string }, isCurrent: () => boolean): Promise<CreatedAdminUser> {
+export async function createAdminUser(values: { username: string; email: string; role?: 'user' | 'moderator' }, isCurrent: () => boolean): Promise<CreatedAdminUser> {
   await api.get('/sanctum/csrf-cookie')
   if (!isCurrent()) throw new Error('The signed-in account changed. Please sign in again.')
   return (await api.post<{ data: CreatedAdminUser }>(path, values)).data.data
+}
+export async function adminIdentityMethods(id: number, signal?: AbortSignal): Promise<Array<'password' | 'google.com' | 'github.com'>> {
+  return (await api.get<{ data: { methods: Array<'password' | 'google.com' | 'github.com'> } }>(`${path}/${id}/identity-methods`, { signal })).data.data.methods
 }
 export async function resendAdminInvitation(id: number, isCurrent: () => boolean): Promise<InvitationDelivery> {
   await api.get('/sanctum/csrf-cookie')

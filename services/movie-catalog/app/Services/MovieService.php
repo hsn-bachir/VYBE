@@ -40,29 +40,136 @@ class MovieService
     {
         $key = 'catalog:ranking:v1:'.hash('sha256', json_encode([$query === null ? 'popular' : 'search', $page, $query, 'en-US', false]));
 
-        return Cache::remember($key, config('catalog.ranking_ttl_seconds'), function () use ($page, $query): array {
-            $data = $query === null ? $this->client->popular($page) : $this->client->search($query, $page);
+        return $this->cachedListing($key, $page, fn () => $query === null ? $this->client->popular($page) : $this->client->search($query, $page));
+    }
+
+    public function discover(array $filters): array
+    {
+        if ($filters['category'] === 'trending') {
+            return $this->trending($filters);
+        }
+        // An unfiltered popular browse shares the original provider snapshot.
+        if ($filters === ['category' => 'popular', 'page' => $filters['page'], 'sort' => 'popularity.desc']) {
+            return $this->ranking($filters['page']);
+        }
+        // Date-sensitive categories roll over at UTC midnight, even inside the TTL.
+        $day = in_array($filters['category'], ['upcoming', 'now_playing'], true) ? now('UTC')->toDateString() : null;
+        $key = 'catalog:discover:v1:'.hash('sha256', json_encode([$filters, $day, 'en-US', false]));
+
+        return $this->cachedListing($key, $filters['page'], fn () => $this->client->discover($filters), $filters['category'] === 'upcoming');
+    }
+
+    private function trending(array $filters): array
+    {
+        $key = 'catalog:trending:pool:v1:'.now('UTC')->format('o-W');
+        $pool = Cache::remember($key, config('catalog.ranking_ttl_seconds'), function () use ($key): array {
+            $candidates = [];
+            $seen = [];
+            for ($page = 1; $page <= 3; $page++) {
+                $listing = $this->cachedListing('catalog:trending:page:v1:'.$key.':'.$page, $page,
+                    fn () => $this->client->discover(['category' => 'trending', 'page' => $page]), captureTrending: true);
+                foreach ($listing['candidates'] as $candidate) {
+                    $id = $candidate['movie']['tmdb_id'];
+                    if (! isset($seen[$id])) {
+                        $seen[$id] = true;
+                        $candidates[] = $candidate;
+                    }
+                }
+                if ($page >= $listing['meta']['total_pages'] || $listing['movies'] === []) {
+                    break;
+                }
+            }
+
+            return $candidates;
+        });
+        $matches = array_values(array_filter($pool, function (array $candidate) use ($filters): bool {
+            $movie = $candidate['movie'];
+            if (! empty($filters['genres'])) {
+                $overlap = array_intersect($filters['genres'], $candidate['genres']);
+                if ($filters['genre_match'] === 'all' ? count($overlap) !== count($filters['genres']) : $overlap === []) {
+                    return false;
+                }
+            }
+            $year = $movie['release_date'] ? (int) substr($movie['release_date'], 0, 4) : null;
+            if ((isset($filters['year_from']) && ($year === null || $year < $filters['year_from']))
+                || (isset($filters['year_to']) && ($year === null || $year > $filters['year_to']))) {
+                return false;
+            }
+
+            return (! isset($filters['rating_min']) || ($movie['tmdb_rating'] !== null && $movie['tmdb_rating'] >= $filters['rating_min']))
+                && (! isset($filters['original_language']) || $candidate['language'] === $filters['original_language']);
+        }));
+        $total = count($matches);
+
+        return ['movies' => array_column(array_slice($matches, ($filters['page'] - 1) * 20, 20), 'movie'),
+            'meta' => ['page' => $filters['page'], 'total_pages' => (int) ceil($total / 20), 'total_results' => $total]];
+    }
+
+    public function recommendationListing(array $query): array
+    {
+        ksort($query);
+        $key = 'catalog:candidate-page:v1:'.hash('sha256', json_encode($query));
+
+        return $this->cachedListing($key, $query['page'], fn () => $this->client->recommendationPage($query), captureTrending: true);
+    }
+
+    private function cachedListing(string $key, int $page, callable $fetch, bool $upcoming = false, bool $captureTrending = false): array
+    {
+        return Cache::remember($key, config('catalog.ranking_ttl_seconds'), function () use ($page, $fetch, $upcoming, $captureTrending): array {
+            $data = $fetch();
             if (($data['page'] ?? null) !== $page || ! is_array($data['results'] ?? null) || ! array_is_list($data['results'])
                 || ! is_int($data['total_pages'] ?? null) || $data['total_pages'] < 0
                 || ! is_int($data['total_results'] ?? null) || $data['total_results'] < 0) {
                 throw new UpstreamUnavailable;
             }
             $movies = [];
+            $candidates = [];
+            $genreCache = [];
             foreach ($data['results'] as $row) {
                 if (! is_array($row)) {
                     throw new UpstreamUnavailable;
                 }
-                $movies[] = $this->normalizer->normalize($row);
+                if ($captureTrending && ($row['adult'] ?? false) === true) {
+                    continue;
+                }
+                $movie = $this->normalizer->normalize($row);
+                if ($upcoming && (empty($movie['poster_path']) || empty($movie['release_date']) || $movie['release_date'] <= now('UTC')->toDateString())) {
+                    continue;
+                }
+                $movies[] = $movie;
+                if (! empty($row['genre_ids']) && is_array($row['genre_ids'])) {
+                    $genreIds = array_values(array_filter($row['genre_ids'], fn ($id) => is_int($id) && $id > 0));
+                    $genreCache['catalog:recommendation-genres:'.$movie['tmdb_id']] = $genreIds;
+                }
+                if ($captureTrending) {
+                    $genres = $row['genre_ids'] ?? [];
+                    $candidates[] = ['movie' => $movie,
+                        'genres' => is_array($genres) && array_is_list($genres) ? array_values(array_filter($genres, fn ($id) => is_int($id) && $id > 0)) : [],
+                        'language' => is_string($row['original_language'] ?? null) ? $row['original_language'] : null];
+                }
             }
-            DB::transaction(function () use ($movies): void {
-                foreach ($movies as $movie) {
-                    // Exclude absent/null summary fields from UPDATE; never touch detail freshness.
-                    $values = array_filter($movie, fn ($value) => $value !== null);
-                    Movie::upsert([$values], ['tmdb_id'], array_diff(array_keys($values), ['tmdb_id']));
+            if ($genreCache) {
+                Cache::putMany($genreCache, config('catalog.metadata_ttl_seconds'));
+            }
+            // A multi-row upsert needs the same columns for every row. Group by the
+            // fields actually supplied so an absent summary value cannot clear a
+            // previously hydrated detail field. Keep provider order in $movies.
+            $batches = [];
+            foreach ($movies as $movie) {
+                $values = array_filter($movie, fn ($value) => $value !== null);
+                $columns = array_keys($values);
+                sort($columns);
+                $signature = implode('|', $columns);
+                $batches[$signature]['columns'] = $columns;
+                $batches[$signature]['rows'][$values['tmdb_id']] = $values;
+            }
+            DB::transaction(function () use ($batches): void {
+                foreach ($batches as $batch) {
+                    Movie::upsert(array_values($batch['rows']), ['tmdb_id'], array_diff($batch['columns'], ['tmdb_id']));
                 }
             });
 
-            return ['movies' => $movies, 'meta' => [
+            return ['movies' => $movies, 'candidates' => $candidates, 'meta' => [
                 'page' => $page, 'total_pages' => min(500, $data['total_pages']), 'total_results' => $data['total_results'],
             ]];
         });

@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { api } from '../../../lib/api/client'
 import { authKey } from '../../auth/hooks/useAuth'
+import { ratingKeys } from '../../ratings/hooks/useRatings'
 import { changeReview, personalReview, reviewError, reviewsPage } from '../api/reviewsApi'
 import { ReviewCard } from '../components/ReviewCard'
 import { ReviewEditor } from '../components/ReviewEditor'
@@ -116,8 +117,23 @@ it('renders real review list, author controls, totals and pagination', () => {
   const client = cache(); client.setQueryData(reviewKeys.own(7, 550), review)
   client.setQueryData(reviewKeys.page(550, 1, 20), { data: [review], meta: { page: 1, per_page: 20, total_pages: 2, total_results: 21 } })
   const html = renderSection(client)
-  expect(html).toContain('Edit your review'); expect(html).toContain('21'); expect(html).toContain('Next reviews'); expect(html).toContain('@fixture')
+  expect(html).toContain('aria-label="Edit review by fixture"'); expect(html).toContain('21'); expect(html).toContain('Next reviews'); expect(html).toContain('@fixture')
+  expect(html).not.toContain('review-personal-panel')
   expect(html).toContain('Your review'); expect(html).not.toContain(user.email)
+})
+it('keeps the full rating card and review action together in Your take', () => {
+  const client = cache()
+  client.setQueryData(ratingKeys.statistics(550), { tmdb_id: 550, average_rating: 4.5, total_ratings: 2, distribution: { '1': 0, '2': 0, '3': 0, '4': 1, '5': 1 } })
+  client.setQueryData(ratingKeys.own(7, 550), { tmdb_id: 550, rating: 4, updated_at: null })
+  client.setQueryData(reviewKeys.own(7, 550), review)
+  const html = renderSection(client)
+  expect(html).toContain('community-rating-panel')
+  expect(html).toContain('4.50')
+  expect(html).toContain('2 ratings from VYBE members')
+  expect(html.match(/stars: [01] rating/g)).toHaveLength(5)
+  expect(html).toContain('Remove rating')
+  expect(html).toContain('Edit your review')
+  expect(html).not.toContain('take-community-score')
 })
 it('shows empty, loading and guest behaviors without fake reviews', () => {
   const client = cache(); client.setQueryData(authKey, null)

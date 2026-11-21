@@ -10,7 +10,7 @@ import { MovieGridSkeleton } from '../components/MovieGrid'
 import { MovieImage } from '../components/MovieImage'
 import { MoviePagination } from '../components/MoviePagination'
 import { MovieSearch, SEARCH_DEBOUNCE_MS } from '../components/MovieSearch'
-import { detailOptions, normalizeQuery, pageNumber, popularOptions, popularFeedOptions, searchOptions, uniqueMovies, validMovieId } from '../hooks/useMovies'
+import { detailOptions, normalizeQuery, pageNumber, popularOptions, popularFeedOptions, searchFeedOptions, searchOptions, uniqueMovies, validMovieId } from '../hooks/useMovies'
 import { PopularMoviesPage } from '../pages/PopularMoviesPage'
 import { DiscoverPage } from '../pages/DiscoverPage'
 import { MovieDetailsPage } from '../pages/MovieDetailsPage'
@@ -132,9 +132,9 @@ describe('movie presentation and navigation', () => {
     expect(render(<PopularMoviesPage />, cache)).toContain('Nothing in this frame yet.')
   })
   it('renders an empty query and no-results search state', () => {
-    expect(render(<DiscoverPage />)).toContain('Movies worth discovering.')
+    expect(render(<DiscoverPage />)).toContain('Popular Movies')
     const cache = client()
-    cache.setQueryData(['movies', 'search', 'unmatched', 1], { data: [], meta: { page: 1, total_pages: 0, total_results: 0 } })
+    cache.setQueryData(searchFeedOptions('unmatched').queryKey, { pages: [{ data: [], meta: { page: 1, total_pages: 0, total_results: 0 } }], pageParams: [1] })
     expect(render(<DiscoverPage />, cache, '/discover?query=unmatched')).toContain('No matches. More possibilities.')
   })
   it('renders safe error feedback with a real retry action', async () => {
@@ -167,8 +167,8 @@ describe('movie presentation and navigation', () => {
     cache.setQueryData(['movies', 'popular', 1], list)
     const html = render(<App />, cache)
     expect(html).toContain('Popular right now')
-    expect(html).toContain('logo.svg')
-    expect(html).toContain('symbol.svg')
+    expect(html).toContain('vybe-logo-full')
+    expect(html).toContain('vybe-logo-symbol')
     expect(html).toContain('About &amp; credits')
     expect(html).toContain('not endorsed or certified by TMDB')
     expect(html).toContain('Sign in')
@@ -176,21 +176,21 @@ describe('movie presentation and navigation', () => {
 })
 
 describe('homepage refinement', () => {
-  it('mounts official React Bits adaptations and reuses cached popular picks on Discover', () => {
+  it('mounts official React Bits adaptations and reuses the cached popular first page on Discover', () => {
     const cache = client()
     const rows = Array.from({ length: 8 }, (_, i) => ({ ...summary, tmdb_id: i + 1, title: `Popular pick ${i + 1}` }))
     cache.setQueryData(popularFeedOptions().queryKey, { pages: [{ ...list, data: rows }], pageParams: [1] })
     const html = render(<DiscoverPage />, cache, '/discover')
     expect(html).toContain('data-react-bits="animated-content"')
     expect(html).toContain('data-react-bits="spotlight-card"')
-    expect(html.match(/class="movie-card"/g)).toHaveLength(6)
+    expect(html.match(/class="movie-card"/g)).toHaveLength(8)
     expect(html).toContain('Popular pick 6')
-    expect(html).not.toContain('Popular pick 7')
+    expect(html).toContain('Popular pick 8')
   })
   it('prioritizes search results over discovery picks without changing the provider order', () => {
     const cache = client()
     cache.setQueryData(popularOptions(1).queryKey, list)
-    cache.setQueryData(searchOptions('space', 1).queryKey, { ...list, data: [{ ...summary, title: 'Search only' }] })
+    cache.setQueryData(searchFeedOptions('space').queryKey, { pages: [{ ...list, data: [{ ...summary, title: 'Search only' }] }], pageParams: [1] })
     const html = render(<DiscoverPage />, cache, '/discover?query=space')
     expect(html).toContain('Search only')
     expect(html).not.toContain('Movies worth discovering.')

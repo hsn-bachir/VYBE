@@ -31,7 +31,9 @@ it('uses only Core collection paths, bounded pages, signal forwarding and member
   const get = vi.spyOn(api, 'get').mockResolvedValue({ data: { data: [] } })
   const signal = new AbortController().signal
   await collectionsPage(2, 550, signal)
-  expect(get).toHaveBeenCalledWith('/api/v1/me/collections', { params: { page: 2, per_page: 20, contains_tmdb_id: 550 }, signal })
+  expect(get).toHaveBeenCalledWith('/api/v1/me/collections', { params: { page: 2, per_page: 20, contains_tmdb_id: 550, include_previews: undefined }, signal })
+  await collectionsPage(2, 550, signal, false)
+  expect(get).toHaveBeenCalledWith('/api/v1/me/collections', { params: { page: 2, per_page: 20, contains_tmdb_id: 550, include_previews: 0 }, signal })
   await collectionDetails(4, signal)
   expect(get).toHaveBeenCalledWith('/api/v1/me/collections/4', { signal })
   await collectionMovies(4, 3, signal)
@@ -64,6 +66,7 @@ it('rejects a late write when the account changes during CSRF', async () => {
 it('keeps owner, page and movie annotation in query identity', () => {
   expect(collectionsOptions(7, 1).queryKey).not.toEqual(collectionsOptions(8, 1).queryKey)
   expect(collectionsOptions(7, 1).queryKey).not.toEqual(collectionsOptions(7, 1, 550).queryKey)
+  expect(collectionsOptions(7, 1, 550).queryKey).not.toEqual(collectionsOptions(7, 1, 550, false).queryKey)
   expect(collectionsOptions(7, 1, 550).queryKey).not.toEqual(collectionsOptions(7, 2, 550).queryKey)
   expect(collectionMoviesOptions(7, 4, 1).queryKey).not.toEqual(collectionMoviesOptions(7, 5, 1).queryKey)
   expect(collectionOptions(7, 0).enabled).toBe(false)
@@ -113,7 +116,7 @@ it('delete dialog identifies the destructive scope and retains a safe cancel act
 })
 it('save dialog labels duplicate names and reflects only confirmed membership states', () => {
   const client = cache()
-  client.setQueryData(collectionsOptions(7, 1, 550).queryKey, pageOf([{ ...collection, contains_movie: true }, { ...collection, id: 5, contains_movie: false }]))
+  client.setQueryData(collectionsOptions(7, 1, 550, false).queryKey, pageOf([{ ...collection, contains_movie: true }, { ...collection, id: 5, contains_movie: false }]))
   const html = render(<SaveCollectionDialog owner={7} movie={550} title="Fixture movie" onClose={() => {}} />, client)
   expect(html).toContain('Save Fixture movie')
   expect(html).toContain('Favorites, collection 4')

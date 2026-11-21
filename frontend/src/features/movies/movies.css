@@ -65,6 +65,9 @@
 .skeleton { background: var(--color-surface); animation: skeleton-pulse 1400ms var(--ease-in-out) 3; }
 .skeleton-poster { aspect-ratio: 2 / 3; border-radius: 6px; }
 .skeleton-title { height: 14px; width: 85%; margin-top: 1rem; border-radius: 3px; }
+.movie-skeleton .skeleton-title { height: 20px; margin: .85rem 0 .35rem; }
+.skeleton-card-meta { display: flex; justify-content: space-between; gap: .4rem; height: 16px; }
+.skeleton-card-meta span { width: 30%; height: 11px; border-radius: 3px; }
 .skeleton-meta { height: 10px; width: 50%; margin-top: .7rem; border-radius: 3px; }
 .content-reveal { animation: movie-reveal var(--duration-slow) var(--ease-smooth-out) both; }
 .search-intro { max-width: 780px; padding: 4rem 0 0; }

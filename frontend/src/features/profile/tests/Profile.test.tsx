@@ -55,13 +55,13 @@ it('renders real identity, private information, statistics and Library links', (
   expect(html).not.toContain('/reviews'); expect(html).toContain('Edit profile')
 })
 it('supports zero statistics, empty bio, legacy dates and loading states', () => {
-  const client = cache(); expect(render(client)).toContain('Opening your profile')
+  const client = cache(); expect(render(client)).toContain('aria-label="Loading profile"')
   client.setQueryData(profileKey(7), { ...profile, bio: null, member_since: null, statistics: { watched_count: 0, watchlist_count: 0, review_count: 0 } }); const html = render(client)
   expect(html).toContain('Date unavailable'); expect(html).toContain('Tell your story here'); expect(html).not.toContain('NaN')
 })
 it('does not show another account’s cached bio or counts', () => {
   const client = cache(); client.setQueryData(profileKey(7), profile); client.setQueryData(authKey, { ...user, id: 8 }); const html = render(client)
-  expect(html).not.toContain('Cinema'); expect(html).not.toContain('38'); expect(html).toContain('Opening your profile')
+  expect(html).not.toContain('Cinema'); expect(html).not.toContain('38'); expect(html).toContain('aria-label="Loading profile"')
 })
 it('renders safe Avatar fallbacks instead of executable URLs', () => {
   const html = renderToStaticMarkup(<Avatar username="" url="javascript:alert(1)" />); expect(html).not.toContain('<img'); expect(html).toContain('V')

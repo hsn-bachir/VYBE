@@ -28,8 +28,8 @@ return new class extends Migration
     {
         Schema::table('users', fn (Blueprint $table) => $table->dropIndex(['account_status', 'role', 'id']));
         if (DB::getDriverName() !== 'sqlite') {
-            DB::statement('ALTER TABLE users DROP CHECK users_role_check');
-            DB::statement('ALTER TABLE users DROP CHECK users_account_status_check');
+            DB::statement('ALTER TABLE users DROP CONSTRAINT users_role_check');
+            DB::statement('ALTER TABLE users DROP CONSTRAINT users_account_status_check');
         }
         Schema::table('users', function (Blueprint $table): void {
             $table->dropColumn(['role', 'account_status']);

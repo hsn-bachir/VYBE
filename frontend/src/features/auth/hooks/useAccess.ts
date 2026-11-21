@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { api } from '../../../lib/api/client'
-import { authKey } from './useAuth'
+import { authKey, isPrivateSessionQuery } from './useAuth'
 
 export type Access = { role: 'user' | 'moderator' | 'admin'; account_status: 'active' | 'restricted' | 'banned' | 'deactivated' }
 export const accessKey = (userId: number) => ['me', userId, 'access'] as const
@@ -23,8 +23,8 @@ export function useAccess(userId: number | undefined, verified: boolean) {
   useEffect(() => {
     if (!axios.isAxiosError(query.error)) return
     if (query.error.response?.status === 401) {
-      void client.cancelQueries().then(() => {
-        client.removeQueries({ predicate: item => item.queryKey[0] !== 'auth' })
+      void client.cancelQueries({ predicate: isPrivateSessionQuery }).then(() => {
+        client.removeQueries({ predicate: isPrivateSessionQuery })
         client.setQueryData(authKey, null)
       })
     } else if (query.error.response?.status === 403) {
