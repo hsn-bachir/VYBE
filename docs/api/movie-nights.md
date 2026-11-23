@@ -1,10 +1,10 @@
-# M5.0 Movie Night Planner foundation and proposed API
+# Movie Night Planner — M5.0 foundation and M5.1 event management
 
-PDF §3 item **10**; roadmap **M5.0**. Core owns all event, participant and voting data. **None of the routes below are registered in M5.0.** They are proposed contracts for M5.1–M5.7; no frontend or notifications are implemented.
+PDF §3 item **10**; roadmap **M5.0 + M5.1**. Core owns all event, participant and voting data. **M5.1 implements create/list/detail/edit/cancel only**, on `feature/movie-night`. Invitation/RSVP/shortlist/voting/finalization endpoints remain proposed for M5.2–M5.7. No frontend or notifications are implemented. See the [M5.1 verification report](../development/m5.1-movie-night-management-report.md).
 
 ## Implemented domain boundary
 
-`MovieNight`, `MovieNightInvitation`, `MovieNightMovie`, `MovieNightVote`, backed enums, auto-discovered `MovieNightPolicy`, `MovieNightRules` and internal `MovieNightTransitions` form the foundation. Only RSVP and finalization state transitions are executable internally; event CRUD, invitation creation, nomination and vote HTTP workflows await subsequent slices.
+`MovieNight`, `MovieNightInvitation`, `MovieNightMovie`, `MovieNightVote`, backed enums, auto-discovered `MovieNightPolicy`, `MovieNightRules` and internal `MovieNightTransitions` form the foundation. M5.0 RSVP and finalization transitions remain internal only. M5.1 adds `MovieNightService`, FormRequests, summary/detail Resources and a controller for five event-management routes. Invitation creation, nomination and vote HTTP workflows await subsequent slices.
 
 State machine: `scheduled → finalized` or `scheduled → cancelled`. Both terminal states are immutable through the domain permissions. Time passing does not change status: a scheduled event at/past its start has closed voting but can still be finalized or cancelled. Finalization requires a valid vote, not a Catalog response. There is no reopen, unfinalize, host transfer or delete operation.
 
@@ -49,36 +49,36 @@ No global connection timezone, authentication behavior or migration changes are 
 
 Real PostgreSQL tests explicitly set the session to `Asia/Beirut`, exercise winter/summer offsets, inspect stored epoch values independently of Eloquent, and restore the original session timezone afterwards. Voting stays open immediately before the absolute start instant and closes exactly at it. Previously cast votes can still be finalized afterwards.
 
-## Proposed HTTP conventions
+## HTTP conventions
 
 Base `/api/v1/me/movie-nights`. Existing `web`, session/CSRF, `auth:sanctum`, `EnsureAccountAccess`, `EnsureVerifiedAccount`, `PreventAuthCaching` and library read/write throttles are reused. All writes additionally require active account status. All responses, including errors, use `Cache-Control: no-store, private`. No anonymous sharing, bearer auth, client-supplied actor/host/voter/nominator IDs or shared personalized caches.
 
-IDs are canonical positive SQL integers; TMDB IDs are integers 1–2147483647. Future FormRequests must allowlist fields. Dates must be `YYYY-MM-DDTHH:mm:ssZ` UTC, future on create/edit; timezone must pass Laravel `timezone:all`. `MovieNightRules::eventFields()` provides reusable validation. A zone controls display; clients must resolve local/DST ambiguity to an instant before submitting. `title` is nonblank, max 150; optional location max 500; optional meeting URL max 2048 and HTTPS only. Meeting URLs are stored/displayed as links and never fetched by Core. No user may mutate status/winner/timestamps directly. PATCH allows only title/start/zone/location/URL, before the original deadline; omitted fields are unchanged and nullable fields may be cleared.
+Event IDs are canonical positive SQL integers up to `PHP_INT_MAX` (signed BIGINT on this 64-bit runtime); malformed IDs return 422. TMDB IDs are integers 1–2147483647. M5.1 FormRequests reject unsupported body/query fields; future endpoints must retain allowlists. Dates must be `YYYY-MM-DDTHH:mm:ssZ` UTC, future on create/edit; timezone must pass Laravel `timezone:all`. `MovieNightRules::eventFields()` provides reusable validation. A zone controls display; clients must resolve local/DST ambiguity to an instant before submitting. `title` is nonblank, max 150; optional location max 500; optional meeting URL max 2048 and HTTPS only. Meeting URLs are stored/displayed as links and never fetched by Core. No user may mutate status/winner/timestamps directly. PATCH allows only title/start/zone/location/URL, before the original deadline; omitted fields are unchanged and nullable fields may be cleared.
 
-List requests use page>=1, per_page 1–50 (default 20); order events by starts_at then id, invitations by id, shortlist by id. Optional event `status` filter is one of the three states. Pagination envelope matches Core: `{data:[...],meta:{page,per_page,total_pages,total_results}}`. Shortlist is capped at 50 entries/event and invitations at 200/event in the proposed handlers; enforce limits under the event lock. Limits are design assumptions to review before implementing those handlers.
+List requests use page 1–10000, per_page 1–50 (default 20); order events by starts_at then id, invitations by id, shortlist by id. Optional event `status` filter is one of the three states. Pagination envelope matches Core: `{data:[...],meta:{page,per_page,total_pages,total_results}}`. Shortlist is capped at 50 entries/event and invitations at 200/event in the proposed handlers; enforce limits under the event lock. Limits are design assumptions to review before implementing those handlers.
 
-| Method / relative path | Request | Success envelope | Authorization / special validation |
-| --- | --- | --- | --- |
-| POST `/` | `{title,starts_at,timezone,location?,meeting_url?}` | 201 `{data: Event}` | Eligible host; actor assigned from session |
-| GET `/` | pagination, `status?` | 200 paginated Event summaries | SQL membership scope; no Catalog required |
-| GET `/{night}` | — | 200 `{data: Event}` | Host or invitee; terminal events included |
-| PATCH `/{night}` | Any editable event fields | 200 `{data: Event}` | Host; scheduled and before original start |
-| POST `/{night}/cancel` | `{}` | 200 `{data: Event}` | Host; scheduled only; record cancelled_at; repeat 409 |
-| GET `/{night}/eligible-users` | `query` username prefix, 3–30 chars, page/per_page | 200 paginated Participant projections | Host; open; active verified nonpending users only; exclude host and already invited; no email lookup |
-| POST `/{night}/invitations` | `{invited_user_id}` | 201 `{data: Invitation}` | Host; open; eligible target; duplicate 409, self/ineligible/unknown target 422 |
-| GET `/{night}/invitations` | pagination | 200 paginated Invitation | Host or invitee; safe participant projections only |
-| PUT `/{night}/rsvp` | `{rsvp_status:"accepted"\|"declined"}` | 200 `{data: Invitation}` | Invited actor only; open; repeated same response is allowed; decline clears vote |
-| POST `/{night}/movies` | `{tmdb_id}` | 201 `{data: ShortlistEntry}` | Accepted actor; open; duplicate 409; validate real movie through existing Catalog client |
-| DELETE `/{night}/movies/{entry}` | — | 204 | Host or original nominator, accepted; open; voted entry 409; cross-event entry 404 |
-| PUT `/{night}/vote` | `{movie_night_movie_id}` | 200 `{data:{movie_night_movie_id,updated_at}}` | Accepted actor; open; scoped shortlist entry required; creates/changes one vote |
-| GET `/{night}/votes` | — | 200 `{data:{totals:[{tmdb_id,movie_night_movie_id,votes}],my_vote,leaders:[tmdb_id],voting_open}}` | Host or invitee; no voter identity list; zero counts included; leaders empty if no valid votes |
-| POST `/{night}/finalize` | `{tmdb_id?}` | 200 `{data: Event}` | Host; scheduled; at least one valid vote; optional explicit sole leader or required tied leader |
+| Method / relative path | Request | Success envelope | Authorization / special validation | Status |
+| --- | --- | --- | --- | --- |
+| POST `/` | `{title,starts_at,timezone,location?,meeting_url?}` | 201 `{data: Event}` | Eligible host; actor assigned from session | Implemented M5.1 |
+| GET `/` | pagination, `status?` | 200 paginated Event summaries | SQL membership scope; no Catalog required | Implemented M5.1 |
+| GET `/{night}` | — | 200 `{data: Event}` | Host or invitee; terminal events included | Implemented M5.1 |
+| PATCH `/{night}` | Any editable event fields | 200 `{data: Event}` | Host; scheduled and before original start | Implemented M5.1 |
+| POST `/{night}/cancel` | `{}` | 200 `{data: Event}` | Host; scheduled only; record cancelled_at; repeat 409 | Implemented M5.1 |
+| GET `/{night}/eligible-users` | `query` username prefix, 3–30 chars, page/per_page | 200 paginated Participant projections | Host; open; active verified nonpending users only; exclude host and already invited; no email lookup | Planned |
+| POST `/{night}/invitations` | `{invited_user_id}` | 201 `{data: Invitation}` | Host; open; eligible target; duplicate 409, self/ineligible/unknown target 422 | Planned |
+| GET `/{night}/invitations` | pagination | 200 paginated Invitation | Host or invitee; safe participant projections only | Planned |
+| PUT `/{night}/rsvp` | `{rsvp_status:"accepted"\|"declined"}` | 200 `{data: Invitation}` | Invited actor only; open; repeated same response is allowed; decline clears vote | Planned |
+| POST `/{night}/movies` | `{tmdb_id}` | 201 `{data: ShortlistEntry}` | Accepted actor; open; duplicate 409; validate real movie through existing Catalog client | Planned |
+| DELETE `/{night}/movies/{entry}` | — | 204 | Host or original nominator, accepted; open; voted entry 409; cross-event entry 404 | Planned |
+| PUT `/{night}/vote` | `{movie_night_movie_id}` | 200 `{data:{movie_night_movie_id,updated_at}}` | Accepted actor; open; scoped shortlist entry required; creates/changes one vote | Planned |
+| GET `/{night}/votes` | — | 200 `{data:{totals:[{tmdb_id,movie_night_movie_id,votes}],my_vote,leaders:[tmdb_id],voting_open}}` | Host or invitee; no voter identity list; zero counts included; leaders empty if no valid votes | Planned |
+| POST `/{night}/finalize` | `{tmdb_id?}` | 200 `{data: Event}` | Host; scheduled; at least one valid vote; optional explicit sole leader or required tied leader | Planned |
 
 Place static subroutes before dynamic identifiers. The eligible-user search is scoped to an event so it cannot become an unsolicited public social directory. It has no notification side effects. Notifications remain undecided and outside M5.0.
 
-## Proposed response projections
+## Response projections
 
-Participant: `{id,username,avatar_url}` only. Exclude email, bio, Firebase UID, roles, account status, credentials and personal activity. Invitation: `{id,participant:Participant,rsvp_status,responded_at}`. The host is represented separately with implicit `accepted`, never as an invitation row.
+Participant: `{id,username,avatar_url}` only (implemented for the host projection). Exclude email, bio, Firebase UID, roles, account status, credentials and personal activity. Planned Invitation: `{id,participant:Participant,rsvp_status,responded_at}`. The host is represented separately with implicit `accepted`, never as an invitation row.
 
 Event summary: `{id,title,host:Participant,starts_at,timezone,status,finalized_tmdb_id,finalized_at,cancelled_at,my_rsvp,voting_open,created_at,updated_at}`; `my_rsvp` is accepted for host, otherwise invitation state. Event detail adds `{location,meeting_url}`. Separate paginated invitation/shortlist routes avoid unbounded nested lists. Host/invitee access is required even for meeting URLs and cancelled/finalized details.
 
@@ -98,4 +98,16 @@ Error envelope follows Core `{message,code?}` and validation `{message,errors:{f
 | 503 | Catalog unavailable for a new nomination; safe UPSTREAM_UNAVAILABLE |
 | 500 | Safe generic INTERNAL_ERROR without private event details or provider diagnostics |
 
-Event reads and tally/finalization must continue without Catalog availability. Endpoint adapters must scope membership before state checks to avoid existence leaks; separate temporal conflicts (409) from actor authorization (403). M5.0 does not claim route-level middleware, CSRF, throttle, projection or browser acceptance: those remain tests required with the future HTTP adapters.
+Event reads and tally/finalization must continue without Catalog availability. Endpoint adapters must scope membership before state checks to avoid existence leaks; separate temporal conflicts (409) from actor authorization (403). M5.1 tests its five HTTP adapters for middleware, CSRF, throttling, safe projections and database behavior. Later adapters and browser acceptance remain unimplemented/unverified.
+
+## M5.1 implementation decisions and examples
+
+Only these routes are registered (base `/api/v1/me/movie-nights`): POST base (201); GET base (200); GET `/{night}` (200); PATCH `/{night}` (200); POST `/{night}/cancel` (200). Create/update/cancel return the detail projection. Lists return summaries; no hidden location or meeting URL in list rows. Details include the host and caller's `my_rsvp`, not a nested invitation/participant list: the separate invitation endpoint remains M5.2. There is no Catalog call on any of these operations.
+
+Repeated cancellation returns **409**, as specified in the original contract. It is idempotent in its effect: status/timestamp/invitations are unchanged after the first cancellation. Finalized events cannot be cancelled. Cancellation of scheduled events is allowed after start. Updates are rejected at/past the original start, even if the submitted new start is in the future. State/deadline checks and policy authorization run under the parent event lock; submitted date validation is repeated inside the transaction to reject dates that became past while waiting.
+
+Create requires title/start/zone. PATCH must contain at least one editable field; omitted fields are preserved, nullable location/meeting URL may be cleared with null. Optional whitespace-only fields normalize to null via the existing request middleware. A supplied start is required to use the strict UTC `Z` format; local or offset-based strings are rejected (422), not guessed from the display timezone. For example `2027-07-16T21:00:00` local Beirut summer time must be submitted as `2027-07-16T18:00:00Z` with `timezone: Asia/Beirut`. Standard Laravel response timestamps are ISO UTC with fractional seconds, e.g. `2027-07-16T18:00:00.000000Z`.
+
+List queries accept only page, per_page and status. Detail/cancel accept no body/query fields. No client-supplied host/user/status/winner/internal timestamp fields are allowed. Pending-activation users receive 403 for listing/writes and a hidden 404 for detail. Restricted verified members may list/view; active-account middleware denies writes. Banned/deactivated/unverified accounts retain the existing 403 gates. Firebase UID mapping and session-version revocation remain in `EnsureAccountAccess`; the model policy alone is not a substitute for session middleware. No administrator or moderator bypass is introduced.
+
+For every read, SQL membership scoping precedes serialization. List host and caller-only invitation relations are eager-loaded in a bounded number of queries, without loading other invitees or per-event authorization queries. Lists are ordered by `starts_at ASC, id ASC`. The existing no-store/private cache and read/write throttle behavior also applies to error responses. Unexpected failures return the safe generic 500 envelope, including with application debug enabled.

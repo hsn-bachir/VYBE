@@ -16,9 +16,14 @@ class MovieNightPolicy
         return $user->canWriteCommunity() && $user->hasVerifiedEmail() && ! $user->invitation_pending;
     }
 
+    public function viewAny(User $user): bool
+    {
+        return $user->canAccessAccount() && $user->hasVerifiedEmail() && ! $user->invitation_pending;
+    }
+
     public function view(User $user, MovieNight $night): Response
     {
-        return $user->canAccessAccount() && $user->hasVerifiedEmail() && ! $user->invitation_pending
+        return $this->viewAny($user)
             && MovieNight::query()->visibleTo($user)->whereKey($night->id)->exists()
             ? Response::allow() : Response::denyAsNotFound();
     }

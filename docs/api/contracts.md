@@ -143,4 +143,4 @@ M2.5 private profiles reuse the exact auth UserResource, add separate bio/member
 
 ## M5.0 Movie Night foundation
 
-The [Movie Night domain and proposed REST contract](movie-nights.md) defines private Core-owned events, invitations, shortlist, votes and immutable finalization. M5.0 adds schema/models/policies/internal transitions only. All event routes and DTO projections in that document await M5.1–M5.7; none are registered yet.
+The [Movie Night domain and proposed REST contract](movie-nights.md) defines private Core-owned events, invitations, shortlist, votes and immutable finalization. M5.0 adds schema/models/policies/internal transitions. M5.1 implements five `/api/v1/me/movie-nights` event-management endpoints: create, list, detail, edit and cancel. Safe host/caller projections, session/account gates, CSRF, throttles and private cache behavior apply. Invitation, RSVP, shortlist, voting and finalization routes remain planned for M5.2–M5.7.
