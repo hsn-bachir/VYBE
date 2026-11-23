@@ -8,6 +8,7 @@ import { useModerationActions } from '../hooks/useModeration'
 import '../moderation.css'
 
 const names: Record<string, string> = {
+  'movie.refreshed': 'Movie metadata refreshed', 'movie.refresh_requested': 'Movie refresh requested', 'movie.refresh_failed': 'Movie refresh failed',
   'review.hidden': 'Review hidden', 'review.restored': 'Review restored', 'review.spoiler_set': 'Spoiler protection set',
   'review.spoiler_cleared': 'Spoiler protection removed', 'report.resolved': 'Report resolved', 'report.dismissed': 'Report dismissed',
   'user.created': 'Account created', 'user.updated': 'Account edited', 'user.role_changed': 'Role changed',
@@ -25,7 +26,7 @@ export default function ModerationActionsPage() {
   const update = (key: string, value: string) => { const next = new URLSearchParams(params); if (value) next.set(key, value); else next.delete(key); next.delete('page'); setParams(next) }
   const changePage = (value: number) => { const next = new URLSearchParams(params); next.set('page', String(value)); setParams(next) }
   return <AdminShell><div className="admin-heading"><div><p className="eyebrow">Accountability</p><h1>Action history</h1><p>Recorded moderation decisions and permitted administrative changes.</p></div></div>
-    <div className="admin-filters"><div className="field"><label htmlFor="history-type">Target type</label><select id="history-type" value={type} onChange={event => update('target_type', event.target.value)}><option value="">All permitted actions</option>{access.role === 'admin' && <option value="user">Users</option>}<option value="review">Reviews</option><option value="report">Reports</option></select></div>
+    <div className="admin-filters"><div className="field"><label htmlFor="history-type">Target type</label><select id="history-type" value={type} onChange={event => update('target_type', event.target.value)}><option value="">All permitted actions</option>{access.role === 'admin' && <><option value="user">Users</option><option value="movie">Movies</option></>}<option value="review">Reviews</option><option value="report">Reports</option></select></div>
       <div className="field"><label htmlFor="history-target">Target ID</label><input id="history-target" type="number" min="1" step="1" value={targetId} onChange={event => update('target_id', event.target.value)} placeholder="Any target" /></div></div>
     {query.isPending ? <div className="admin-table-wrap" role="status" aria-label="Loading action history"><div className="admin-skeleton-row skeleton" /><div className="admin-skeleton-row skeleton" /></div>
       : query.isError ? <div><AdminNotice error>{moderationError(query.error)}</AdminNotice><Button onClick={() => void query.refetch()}>Try again</Button></div>

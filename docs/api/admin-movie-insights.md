@@ -1,5 +1,7 @@
 # Administration statistics and Movie Insights
 
+Movie browsing, inspection and manual refresh are documented in the [M7.6 management contract](admin-movies.md).
+
 M7.1–M7.5 implement part of PDF item 11. These endpoints use the existing Sanctum session, verified email, live role and status checks, and `admin-read` throttle of 60 requests per minute per actor and 120 per IP. Responses use `Cache-Control: no-store, private`. Verified active and restricted administrators can read all four endpoints. Moderators can read the existing overview projection. Guests receive 401. Unverified, banned, deactivated and insufficiently privileged accounts receive 403 where authorization fails. Throttled requests receive 429.
 
 ## `GET /api/v1/admin/overview`

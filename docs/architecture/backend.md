@@ -1,5 +1,7 @@
 # Backend architecture — Core and Catalog
 
+M7.6 adds administrator movie-management routes through the existing Core HTTP adapter. Catalog owns local search, pagination, freshness and explicit refresh. Core owns permissions, CSRF, write throttling and refresh audits. The existing Catalog detail lock, normalizer and persistence path serve manual refresh. See the [management contract](../api/admin-movies.md).
+
 **Status:** Core authentication, public movie forwarding, the independent Catalog and React discovery are implemented.
 
 Advanced browse adds `GET /movies/discover` to both versioned movie surfaces. Separate FormRequests validate/normalize the same allowlisted contract in each service; Core forwards over the existing authenticated client. Catalog builds provider filters, reuses ranking normalization/batched persistence, and caches canonical filter/page snapshots. Plain Popular discovery shares the original popular ranking cache. No migration, shared database access or new dependency is introduced. See [discovery semantics, caching and future FYP reuse](../api/movie-discovery.md).

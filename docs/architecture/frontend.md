@@ -1,5 +1,7 @@
 # React frontend architecture — Milestone 1
 
+M7.6 adds lazy administrator Movies list and metadata detail routes, using owner-scoped management queries and existing shared UI. Refresh retains the loaded metadata while pending and invalidates affected management and insight queries after success. See the [management contract](../api/admin-movies.md).
+
 **Status:** Authentication and the full movie discovery vertical slice are implemented.
 
 ## Boundaries

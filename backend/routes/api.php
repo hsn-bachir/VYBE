@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\AdminMovieInsightsController;
+use App\Http\Controllers\Api\V1\AdminMoviesController;
 use App\Http\Controllers\Api\V1\AdminUserController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CollectionController;
@@ -54,6 +55,9 @@ Route::prefix('v1/admin')->withoutMiddleware(EnsureFrontendRequestsAreStateful::
     ->middleware(['web', PreventAuthCaching::class, 'auth:sanctum', EnsureAccountAccess::class,
         EnsureVerifiedAccount::class, EnsureRole::class.':moderator'])->group(function (): void {
             Route::get('overview', [ModerationController::class, 'overview'])->middleware('throttle:admin-read');
+            Route::get('movies', [AdminMoviesController::class, 'index'])->middleware([EnsureRole::class.':admin', 'throttle:admin-read']);
+            Route::get('movies/{tmdb_id}', [AdminMoviesController::class, 'show'])->middleware([EnsureRole::class.':admin', 'throttle:admin-read']);
+            Route::post('movies/{tmdb_id}/refresh', [AdminMoviesController::class, 'refresh'])->middleware([EnsureRole::class.':admin', EnsureActiveAccount::class, 'throttle:admin-write']);
             Route::get('movie-insights', AdminMovieInsightsController::class)->middleware([EnsureRole::class.':admin', 'throttle:admin-read']);
             Route::get('genre-insights', [AdminAnalyticsController::class, 'genres'])->middleware([EnsureRole::class.':admin', 'throttle:admin-read']);
             Route::get('activity-analytics', [AdminAnalyticsController::class, 'activity'])->middleware([EnsureRole::class.':admin', 'throttle:admin-read']);

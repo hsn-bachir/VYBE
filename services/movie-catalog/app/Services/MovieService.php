@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\MovieNotFound;
 use App\Exceptions\UpstreamUnavailable;
 use App\Integrations\Tmdb\MovieNormalizer;
 use App\Integrations\Tmdb\TmdbClient;
@@ -212,24 +213,34 @@ class MovieService
         });
     }
 
-    public function details(int $id): array
+    public function details(int $id, bool $force = false): array
     {
         $movie = Movie::where('tmdb_id', $id)->first();
-        if ($this->fresh($movie)) {
+        if ($force && ! $movie) {
+            abort(404, 'Local movie not found.');
+        }
+        if (! $force && $this->fresh($movie)) {
             return [$movie, false];
         }
         $cooldown = 'catalog:detail:cooldown:'.$id;
         if (Cache::has($cooldown)) {
+            abort_if($force, 409, 'Refresh cooldown is active. Try again shortly.');
+
             return $this->fallback($movie);
         }
         // Nonblocking lock: concurrent readers can use stale data, but never start a stampede.
         $lock = Cache::lock('catalog:detail:lock:'.$id, 2 * config('catalog.request_timeout_seconds') + 10);
         if (! $lock->get()) {
+            abort_if($force, 409, 'A refresh is already in progress.');
+
             return $this->fallback($movie);
         }
         try {
             $movie = Movie::where('tmdb_id', $id)->first();
-            if ($this->fresh($movie)) {
+            if ($force && Cache::has($cooldown)) {
+                abort(409, 'Refresh cooldown is active. Try again shortly.');
+            }
+            if (! $force && $this->fresh($movie)) {
                 return [$movie, false];
             }
             try {
@@ -238,14 +249,25 @@ class MovieService
                 if ($values['tmdb_id'] !== $id) {
                     throw new UpstreamUnavailable;
                 }
+            } catch (MovieNotFound $error) {
+                if ($force) {
+                    Cache::put($cooldown, true, config('catalog.refresh_cooldown_seconds'));
+                }
+                throw $error;
             } catch (UpstreamUnavailable) {
                 Cache::put($cooldown, true, config('catalog.refresh_cooldown_seconds'));
+                if ($force) {
+                    throw new UpstreamUnavailable;
+                }
 
                 return $this->fallback($movie);
             }
             $values['genres'] = json_encode($values['genres'], JSON_THROW_ON_ERROR);
             $values['metadata_fetched_at'] = now();
             Movie::upsert([$values], ['tmdb_id'], array_diff(array_keys($values), ['tmdb_id']));
+            if ($force) {
+                Cache::put($cooldown, true, config('catalog.refresh_cooldown_seconds'));
+            }
 
             try {
                 $this->experience->capture($raw, $id);

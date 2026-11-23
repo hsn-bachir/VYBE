@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Internal\V1\ManagedMovieController;
 use App\Http\Controllers\Internal\V1\MovieController;
 use App\Http\Controllers\Internal\V1\RecommendationCandidateController;
 use Illuminate\Support\Facades\Route;
@@ -7,6 +8,9 @@ use Illuminate\Support\Facades\Route;
 // `routes/api.php` receives Laravel's `/api` prefix automatically.
 // All internal business endpoints MUST use the service-token middleware.
 Route::middleware('catalog.internal')->prefix('internal/v1')->group(function (): void {
+    Route::get('/movies/manage', [ManagedMovieController::class, 'index']);
+    Route::get('/movies/manage/{tmdb_id}', [ManagedMovieController::class, 'show']);
+    Route::post('/movies/manage/{tmdb_id}/refresh', [ManagedMovieController::class, 'refresh']);
     Route::get('/health', fn () => response()->json([
         'status' => 'ok',
         'service' => 'movie-catalog',

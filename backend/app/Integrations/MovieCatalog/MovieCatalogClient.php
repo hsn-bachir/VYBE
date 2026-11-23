@@ -243,6 +243,50 @@ class MovieCatalogClient
         return array_values(array_unique($tmdbIds));
     }
 
+    public function managedMovies(array $params, ?int $id = null, bool $refresh = false): array
+    {
+        $body = $this->request('manage'.($id === null ? '' : '/'.$id).($refresh ? '/refresh' : ''), $params, method: $refresh ? 'POST' : 'GET');
+        $rows = $id === null ? ($body['data'] ?? null) : [$body['data'] ?? null];
+        if (! is_array($rows) || ! array_is_list($rows) || count($rows) > 20) {
+            throw new CatalogFailure;
+        }
+        $result = [];
+        foreach ($rows as $row) {
+            if (! is_array($row) || Validator::make($row, [
+                'metadata_status' => ['required', 'in:fresh,stale,not_hydrated'],
+                'metadata_fetched_at' => ['present', 'nullable', 'date'],
+            ])->fails()) {
+                throw new CatalogFailure;
+            }
+            $genres = $row['genres'] ?? null;
+            $row['genres'] = $genres ?? [];
+            $movie = $this->movie($row, true);
+            if ($id !== null && $movie['tmdb_id'] !== $id) {
+                throw new CatalogFailure;
+            }
+            $movie['genres'] = $genres === null ? null : $movie['genres'];
+            $movie['metadata_status'] = $row['metadata_status'];
+            $movie['metadata_fetched_at'] = $row['metadata_fetched_at'];
+            $result[] = $movie;
+        }
+        if ($id !== null) {
+            if ($refresh && (($body['meta']['outcome'] ?? null) !== 'refreshed'
+                || $result[0]['metadata_status'] !== 'fresh' || $result[0]['metadata_fetched_at'] === null)) {
+                throw new CatalogFailure;
+            }
+
+            return ['data' => $result[0]];
+        }
+        $meta = $body['meta'] ?? [];
+        foreach (['page', 'total_pages', 'total_results'] as $field) {
+            if (! is_int($meta[$field] ?? null) || $meta[$field] < 0) {
+                throw new CatalogFailure;
+            }
+        }
+
+        return ['data' => $result, 'meta' => array_intersect_key($meta, array_flip(['page', 'total_pages', 'total_results']))];
+    }
+
     private function listing(string $operation, array $params): array
     {
         $body = $this->request($operation, $params);
@@ -288,6 +332,9 @@ class MovieCatalogClient
             throw new CatalogFailure;
         }
         $body = $response->json();
+        if (str_starts_with($path, 'manage/') && in_array($response->status(), [404, 409], true)) {
+            throw new CatalogFailure($response->status());
+        }
         if ($detail && $response->status() === 404 && ($body['code'] ?? null) === 'MOVIE_NOT_FOUND') {
             throw new CatalogFailure(404);
         }

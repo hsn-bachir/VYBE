@@ -130,7 +130,7 @@ M7.1–M7.3 are in `dev` at `9a9c8d5` (PR #35). M7.4–M7.5 are verified on `fea
 | **M7.3** | Most highly rated movies | ✅ | Top 10 by Bayesian confidence, with raw VYBE community averages and rating counts on the 1–5 scale. |
 | **M7.4** | Most popular genres | ✅ | Watched-entry rankings for up to 50 top movies, with one cache-only Catalog batch and explicit cohort and metadata coverage. |
 | **M7.5** | User activity metrics | ✅ | Zero-filled 7/30/90-day UTC trends and distinct active contributors based on retained Core records. |
-| **M7.6** | Local movie-data management | ⬜ | Clarify allowed actions with instructor: rehydrate/refresh local Catalog movie entries, cache diagnostics etc.; preserve Catalog ownership and avoid direct Core DB manipulation. |
+| **M7.6** | Local movie-data management | ✅ / 🔬 | Local browse/search/health filters, metadata inspection and audited manual refresh. [Report](docs/development/m7.6-report.md). Instructor confirmation of full rubric scope and live-provider acceptance remain open. |
 | **M7.7** | Admin operational hardening | ⬜ | Resolve hard delete vs retention/audit, confirm invitations/SMTP, MFA or additional admin protection, role security and audit review. |
 
 ### M8 — Integration, delivery and final presentation (PDF §§4–7)
