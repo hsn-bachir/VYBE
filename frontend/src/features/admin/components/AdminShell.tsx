@@ -9,6 +9,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     ...(access.role === 'admin' ? [
       { to: '/admin/users', label: 'Users', icon: 'users', end: false },
       { to: '/admin/movie-insights', label: 'Movie Insights', icon: 'insights', end: true },
+      { to: '/admin/movies', label: 'Movies', icon: 'movies', end: false },
       { to: '/admin/activity-analytics', label: 'Activity Analytics', icon: 'activity', end: true },
     ] : []),
     { to: '/admin/reports', label: 'Reports', icon: 'reports', end: false },
@@ -22,6 +23,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   </section>
 }
 const iconPaths: Record<string, string> = {
+  movies: 'M4 3h16v18H4zM8 3v18M16 3v18M4 8h4M4 16h4M16 8h4M16 16h4',
   overview: 'M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z',
   users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   insights: 'M3 3v18h18M8 16v-4m5 4V8m5 8V5',

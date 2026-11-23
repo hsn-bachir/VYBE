@@ -15,6 +15,7 @@ class CatalogFailure extends RuntimeException
     public function render(): JsonResponse
     {
         return match ($this->status) {
+            409 => response()->json(['message' => 'A refresh is in progress or cooling down. Try again shortly.', 'code' => 'REFRESH_BUSY'], 409),
             404 => response()->json(['message' => 'Movie not found', 'code' => 'MOVIE_NOT_FOUND'], 404),
             422 => response()->json(['message' => 'The request is invalid.', 'errors' => $this->errors], 422),
             default => response()->json(['message' => 'Movie service unavailable', 'code' => 'UPSTREAM_UNAVAILABLE'], 503),
