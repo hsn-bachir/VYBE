@@ -36,6 +36,43 @@ class MovieService
         ]];
     }
 
+    /** @param list<int> $ids Validated, bounded TMDB IDs. */
+    public function cachedGenres(array $ids): array
+    {
+        $ids = array_values(array_unique($ids));
+        $stored = Movie::whereIn('tmdb_id', $ids)->get(['tmdb_id', 'genres'])->keyBy('tmdb_id');
+
+        return array_map(fn (int $id) => [
+            'tmdb_id' => $id,
+            'genres' => $this->genreList($stored->get($id)?->genres),
+        ], $ids);
+    }
+
+    private function genreList(mixed $genres): ?array
+    {
+        if (! is_array($genres) || ! array_is_list($genres)) {
+            return null;
+        }
+
+        $unique = [];
+        foreach ($genres as $genre) {
+            if (! is_array($genre) || ! is_int($genre['id'] ?? null) || $genre['id'] < 1 || $genre['id'] > 2147483647
+                || ! is_string($genre['name'] ?? null) || trim($genre['name']) === '' || mb_strlen($genre['name']) > 255) {
+                return null;
+            }
+            $id = $genre['id'];
+            $name = trim($genre['name']);
+            if (! isset($unique[$id]) || strcmp($name, $unique[$id]['name']) < 0) {
+                $unique[$id] = ['id' => $id, 'name' => $name];
+            }
+            if (count($unique) > 32) {
+                return null;
+            }
+        }
+
+        return array_values($unique);
+    }
+
     public function ranking(int $page, ?string $query = null): array
     {
         $key = 'catalog:ranking:v1:'.hash('sha256', json_encode([$query === null ? 'popular' : 'search', $page, $query, 'en-US', false]));

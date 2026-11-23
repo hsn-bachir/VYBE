@@ -14,6 +14,31 @@ export async function runAdminChecks(page, base, screenshots) {
   let insightsState = 'ready'
   let insightsRequests = 0
   let insightsDelay
+  let genreState = 'ready'
+  let genreDelay
+  let activityState = 'ready'
+  let activityDelay
+  let analyticsRequests = 0
+  const genreFixture = {
+    data: [
+      { genre_id: 18, name: 'Drama', watched_entries: 2441 }, { genre_id: 53, name: 'Thriller', watched_entries: 1835 },
+      { genre_id: 878, name: 'Science Fiction', watched_entries: 1120 }, { genre_id: 35, name: 'Comedy', watched_entries: 948 },
+      { genre_id: 12, name: 'Adventure', watched_entries: 614 },
+    ],
+    meta: { cohort_limit: 50, total_watched_movies: 187, total_watched_entries: 8321, cohort_movies: 50,
+      cohort_watched_entries: 4921, covered_movies: 44, covered_watched_entries: 4182, metadata_unavailable: false },
+  }
+  const activityFixture = (range, empty) => {
+    const days = Array.from({ length: range }, (_, i) => {
+      const date = new Date(Date.UTC(2026, 10, 23 - (range - 1 - i))).toISOString().slice(0, 10)
+      return { date, registrations: empty ? 0 : (i * 13 + 5) % 19,
+        reviews: empty ? 0 : (i * 11 + 7) % 27, ratings: empty ? 0 : (i * 17 + 18) % 48,
+        watched_entries: empty ? 0 : (i * 29 + 37) % 70 }
+    })
+    const totals = Object.fromEntries(['registrations', 'reviews', 'ratings', 'watched_entries'].map(key => [key, days.reduce((sum, day) => sum + day[key], 0)]))
+    return { range_days: range, timezone: 'UTC', start_date: days[0].date, end_date: days.at(-1).date,
+      days, totals, active_contributors: empty ? 0 : 8 * range }
+  }
   const movies = [
     { title: 'The Quiet Horizon', poster_path: '/horizon.jpg', release_date: '2025-01-01' },
     { title: 'After the Last Train', poster_path: '/last-train.jpg', release_date: '2024-02-09' },
@@ -58,6 +83,19 @@ export async function runAdminChecks(page, base, screenshots) {
         : outage ? { most_watched: insights.most_watched.map(row => ({ ...row, movie: null })),
           highest_rated: insights.highest_rated.map(row => ({ ...row, movie: null })) } : insights
       return reply({ data, meta: { metadata_unavailable: outage } })
+    }
+    if (path === '/api/v1/admin/genre-insights') {
+      analyticsRequests++
+      if (genreDelay) await genreDelay
+      if (genreState === 'error') return reply({ message: 'Unable to load popular genres.' }, 503)
+      if (genreState === 'outage') return reply({ data: [], meta: { ...genreFixture.meta, covered_movies: 0, covered_watched_entries: 0, metadata_unavailable: true } })
+      return reply(genreFixture)
+    }
+    if (path === '/api/v1/admin/activity-analytics') {
+      analyticsRequests++
+      if (activityDelay) await activityDelay
+      if (activityState === 'error') return reply({ message: 'Unable to load activity.' }, 503)
+      return reply({ data: activityFixture(Number(url.searchParams.get('range') || 30), activityState === 'empty') })
     }
     if (path === '/api/v1/admin/users') return reply({ data: [user], meta })
     if (path === '/api/v1/admin/users/9') return reply({ data: user })
@@ -134,7 +172,46 @@ export async function runAdminChecks(page, base, screenshots) {
         })
     })
     assert(layout, `Ranking layout, panel spacing or poster dimensions failed at ${width}px`)
+    const genres = page.getByRole('region', { name: 'Popular Genres' })
+    await genres.getByText('Science Fiction', { exact: true }).waitFor()
+    assert(await genres.evaluate(panel => {
+      const rows = [...panel.querySelectorAll('.admin-genre-list li')]
+      const firstTrack = rows[0].querySelector('.admin-genre-track').getBoundingClientRect()
+      const panelBox = panel.getBoundingClientRect()
+      const gridBox = document.querySelector('.admin-insights-grid').getBoundingClientRect()
+      return panelBox.top >= gridBox.bottom && Math.abs(panelBox.width - gridBox.width) < 1
+        && rows.every(row => {
+          const [, name, track, count] = [...row.children].map(element => element.getBoundingClientRect())
+          return name.right <= track.left && track.right <= count.left && track.left === firstTrack.left && track.width === firstTrack.width
+        })
+    }), `Genre panel or bar alignment failed at ${width}px`)
     if (screenshots) await page.screenshot({ path: `${screenshots}/admin-movie-insights-${width}.png`, fullPage: true })
+
+    if (mobile) await menu.locator('summary').click()
+    await nav.getByRole('link', { name: 'Activity Analytics' }).click()
+    await page.getByRole('heading', { name: 'Activity Analytics', exact: true }).waitFor()
+    await page.getByRole('heading', { name: 'Community Activity', exact: true }).waitFor()
+    if (mobile) assert(!await menu.evaluate(element => element.open), `Mobile analytics menu should close at ${width}px`)
+    await page.getByRole('button', { name: 'Watched entries', exact: true }).click()
+    await page.getByRole('button', { name: 'Last 90 days' }).click()
+    await page.getByRole('group', { name: 'Totals for the last 90 days' }).waitFor()
+    const plot = page.getByRole('group', { name: /Daily counts/ })
+    assert(await plot.getByRole('button').count() === 90, `Expected 90 addressable days at ${width}px`)
+    assert(await page.getByRole('button', { name: 'Watched entries', exact: true }).getAttribute('aria-pressed') === 'true', 'Range switch did not preserve selected category')
+    assert(await page.evaluate(() => {
+      const rect = element => element.getBoundingClientRect()
+      const chart = rect(document.querySelector('.admin-activity-chart'))
+      const bars = rect(document.querySelector('.admin-activity-bars'))
+      const labels = [...document.querySelectorAll('.admin-activity-x span')].map(rect)
+      const cards = [...document.querySelectorAll('.admin-main .admin-stat')].map(rect)
+      return document.documentElement.scrollWidth <= innerWidth && bars.right <= chart.right
+        && labels.every((label, index) => label.top >= bars.bottom && (index === 0 || label.left >= labels[index - 1].right - 1))
+        && cards.length === 4 && cards.every((card, index) => cards.slice(index + 1).every(next => next.left >= card.right || next.top >= card.bottom))
+    }), `Activity chart, date labels or tiles overflow or overlap at ${width}px`)
+    if (screenshots) {
+      await page.mouse.move(width - 1, 0)
+      await page.screenshot({ path: `${screenshots}/admin-activity-analytics-${width}.png`, fullPage: true, animations: 'disabled' })
+    }
   }
 
   insightsState = 'empty'
@@ -157,6 +234,7 @@ export async function runAdminChecks(page, base, screenshots) {
   insightsState = 'error'
   await page.reload()
   await page.getByRole('alert').waitFor()
+  await page.getByRole('region', { name: 'Popular Genres' }).getByText('Drama', { exact: true }).waitFor()
   insightsState = 'outage'
   await page.getByRole('button', { name: 'Try again' }).click()
   await page.getByText('Movie details are temporarily unavailable.', { exact: false }).waitFor()
@@ -168,15 +246,71 @@ export async function runAdminChecks(page, base, screenshots) {
   await watched.getByRole('link', { name: 'The Quiet Horizon' }).waitFor()
   assert(await watched.getByRole('link', { name: 'The Quiet Horizon' }).getAttribute('href') === '/movies/550', 'Movie link targets the Core-backed detail route')
 
-  role = 'moderator'
-  const requestsBeforeDenial = insightsRequests
+  let releaseGenres
+  genreDelay = new Promise(resolve => { releaseGenres = resolve })
+  genreState = 'error'
   await page.reload()
+  await watched.getByRole('link', { name: 'The Quiet Horizon' }).waitFor()
+  await page.getByRole('status', { name: 'Loading popular genres' }).waitFor()
+  genreDelay = undefined
+  releaseGenres()
+  const genres = page.getByRole('region', { name: 'Popular Genres' })
+  await genres.getByRole('alert').waitFor()
+  genreState = 'outage'
+  await genres.getByRole('button', { name: 'Retry popular genres' }).click()
+  await genres.getByText('Genre metadata is temporarily unavailable.').waitFor()
+  await watched.getByRole('link', { name: 'The Quiet Horizon' }).waitFor()
+  if (screenshots) await page.screenshot({ path: `${screenshots}/admin-genres-outage-390.png`, fullPage: true })
+  genreState = 'ready'
+  await genres.getByRole('button', { name: 'Retry genre metadata' }).click()
+  await genres.getByText('Some movies are missing cached genre data.', { exact: false }).waitFor()
+
+  let releaseActivity
+  activityDelay = new Promise(resolve => { releaseActivity = resolve })
+  activityState = 'error'
+  await page.goto(`${base}/admin/activity-analytics`)
+  await page.getByRole('status', { name: 'Loading activity analytics' }).waitFor()
+  if (screenshots) await page.screenshot({ path: `${screenshots}/admin-activity-loading-390.png`, fullPage: true })
+  activityDelay = undefined
+  releaseActivity()
+  await page.getByRole('alert').waitFor()
+  if (screenshots) await page.screenshot({ path: `${screenshots}/admin-activity-error-390.png`, fullPage: true })
+  activityState = 'empty'
+  await page.getByRole('button', { name: 'Retry activity analytics' }).click()
+  await page.getByText('No registrations recorded in this range.').waitFor()
+  await page.getByRole('group', { name: 'Totals for the last 30 days' }).waitFor()
+  activityState = 'ready'
+  await page.getByRole('button', { name: 'Last 7 days' }).click()
+  const activityTotals = page.getByRole('group', { name: 'Totals for the last 7 days' })
+  await activityTotals.getByText('61', { exact: true }).waitFor()
+  await page.getByRole('group', { name: 'Active Contributors for the last 7 days' }).getByText('56', { exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Reviews', exact: true }).click()
+  const plot = page.getByRole('group', { name: /Daily counts/ })
+  const dateReadout = page.getByTestId('activity-readout')
+  const lastBar = plot.getByRole('button', { pressed: true })
+  assert(await lastBar.getAttribute('title') === await lastBar.getAttribute('aria-label'), 'Daily tooltip and accessible value disagree')
+  await lastBar.focus()
+  await page.keyboard.press('Home')
+  assert(await dateReadout.innerText().then(value => value.includes('7 reviews')), 'Home key did not inspect first day')
+  await page.keyboard.press('ArrowRight')
+  assert(await dateReadout.innerText().then(value => value.includes('18 reviews')), 'Arrow key did not inspect next day')
+  await page.getByLabel('Inspect day').selectOption('2')
+  assert(await dateReadout.innerText().then(value => value.includes('2 reviews')), 'Date selector did not inspect third day')
+
+  role = 'moderator'
+  const analyticsBeforeDenial = analyticsRequests
+  await page.reload()
+  await page.getByRole('heading', { name: 'Access denied' }).waitFor()
+  assert(analyticsRequests === analyticsBeforeDenial, 'Moderator requested administrator activity totals')
+  const requestsBeforeDenial = insightsRequests
+  await page.goto(`${base}/admin/movie-insights`)
   await page.getByRole('heading', { name: 'Access denied' }).waitFor()
   assert(insightsRequests === requestsBeforeDenial, 'Moderator requested administrator-only rankings')
   await page.goto(`${base}/admin`)
   await page.getByRole('heading', { name: 'Moderation overview' }).waitFor()
   await page.getByText('Pending reports').waitFor()
   assert(await page.locator('a[href="/admin/movie-insights"]').count() === 0, 'Moderator has a movie insights navigation item')
+  assert(await page.locator('a[href="/admin/activity-analytics"]').count() === 0, 'Moderator has an activity analytics navigation item')
   assert(await page.getByText('Total VYBE ratings').count() === 0, 'Moderator can read administrator totals')
 
   role = 'admin'
@@ -204,5 +338,5 @@ export async function runAdminChecks(page, base, screenshots) {
   await dialog.getByLabel('Reason for this decision').waitFor()
   await page.keyboard.press('Escape')
   assert(errors.length === 0, errors.join('\n'))
-  return { checkedRoutes: routes.length + 1, widths, errors }
+  return { checkedRoutes: routes.length + 2, widths, errors }
 }

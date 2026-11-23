@@ -130,15 +130,7 @@ class MovieCatalogClient
     /** @param list<int> $tmdbIds Up to 50 IDs before deduplication; empty pages need no HTTP. */
     public function summaries(array $tmdbIds): array
     {
-        if (! array_is_list($tmdbIds) || count($tmdbIds) > 50) {
-            throw new InvalidArgumentException('Expected a list of at most 50 TMDB IDs.');
-        }
-        foreach ($tmdbIds as $id) {
-            if (! is_int($id) || $id < 1 || $id > 2147483647) {
-                throw new InvalidArgumentException('TMDB IDs must be integers between 1 and 2147483647.');
-            }
-        }
-        $ids = array_values(array_unique($tmdbIds));
+        $ids = $this->batchIds($tmdbIds);
         if ($ids === []) {
             return ['data' => [], 'meta' => ['requested_count' => 0, 'returned_count' => 0, 'missing_tmdb_ids' => []]];
         }
@@ -190,6 +182,67 @@ class MovieCatalogClient
         ]];
     }
 
+    /** @param list<int> $tmdbIds Up to 50 IDs. Returns genre lists or null, keyed by TMDB ID. */
+    public function genres(array $tmdbIds): array
+    {
+        $ids = $this->batchIds($tmdbIds);
+        if ($ids === []) {
+            return [];
+        }
+
+        $rows = $this->request('genres', ['tmdb_ids' => $ids], method: 'POST')['data'] ?? null;
+        if (! is_array($rows) || ! array_is_list($rows) || count($rows) !== count($ids)) {
+            throw new CatalogFailure;
+        }
+
+        $requested = array_fill_keys($ids, true);
+        $movies = [];
+        foreach ($rows as $row) {
+            $id = is_array($row) ? ($row['tmdb_id'] ?? null) : null;
+            if (! is_int($id) || ! isset($requested[$id]) || array_key_exists($id, $movies) || ! array_key_exists('genres', $row)) {
+                throw new CatalogFailure;
+            }
+
+            $genres = $row['genres'];
+            if ($genres === null) {
+                $movies[$id] = null;
+
+                continue;
+            }
+            if (! is_array($genres) || ! array_is_list($genres) || count($genres) > 32) {
+                throw new CatalogFailure;
+            }
+            $movies[$id] = [];
+            foreach ($genres as $genre) {
+                if (! is_array($genre) || ! is_int($genre['id'] ?? null) || $genre['id'] < 1 || $genre['id'] > 2147483647
+                    || ! is_string($genre['name'] ?? null) || trim($genre['name']) === '' || mb_strlen($genre['name']) > 255) {
+                    throw new CatalogFailure;
+                }
+                $genreId = $genre['id'];
+                $name = trim($genre['name']);
+                if (! isset($movies[$id][$genreId]) || strcmp($name, $movies[$id][$genreId]) < 0) {
+                    $movies[$id][$genreId] = $name;
+                }
+            }
+        }
+
+        return $movies;
+    }
+
+    private function batchIds(array $tmdbIds): array
+    {
+        if (! array_is_list($tmdbIds) || count($tmdbIds) > 50) {
+            throw new InvalidArgumentException('Expected a list of at most 50 TMDB IDs.');
+        }
+        foreach ($tmdbIds as $id) {
+            if (! is_int($id) || $id < 1 || $id > 2147483647) {
+                throw new InvalidArgumentException('TMDB IDs must be integers between 1 and 2147483647.');
+            }
+        }
+
+        return array_values(array_unique($tmdbIds));
+    }
+
     private function listing(string $operation, array $params): array
     {
         $body = $this->request($operation, $params);
@@ -223,7 +276,11 @@ class MovieCatalogClient
         try {
             $response = Http::acceptJson()->withHeaders(['X-VYBE-Service-Token' => $token])
                 ->connectTimeout(config('movie_catalog.connect_timeout'))
-                ->timeout($path === 'recommendation-candidates' ? 25 : ($path === 'summaries' ? config('movie_catalog.summary_timeout') : config('movie_catalog.timeout')))->withoutRedirecting()
+                ->timeout(match ($path) {
+                    'recommendation-candidates' => 25,
+                    'summaries', 'genres' => config('movie_catalog.summary_timeout'),
+                    default => config('movie_catalog.timeout'),
+                })->withoutRedirecting()
                 ->send($method, rtrim($url, '/').'/api/internal/v1/movies/'.$path, [
                     $method === 'POST' ? 'json' : 'query' => $params,
                 ]);

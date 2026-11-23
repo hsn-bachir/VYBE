@@ -24,6 +24,7 @@ const PasswordResetPage = lazy(() => import('./features/auth/pages/PasswordReset
 const ProfilePage = lazy(() => import('./features/profile/pages/ProfilePage'))
 const AdminPage = lazy(() => import('./features/admin/pages/AdminPage'))
 const AdminMovieInsightsPage = lazy(() => import('./features/admin/pages/AdminMovieInsightsPage'))
+const AdminActivityAnalyticsPage = lazy(() => import('./features/admin/pages/AdminActivityAnalyticsPage'))
 const AdminUsersPage = lazy(() => import('./features/admin/pages/AdminUsersPage'))
 const AdminUserDetailsPage = lazy(() => import('./features/admin/pages/AdminUserDetailsPage'))
 const ReportsPage = lazy(() => import('./features/moderation/pages/ReportsPage'))
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/admin/actions" element={<Suspense fallback={<VybeLoader label="Opening history…" />}><ModerationActionsPage /></Suspense>} />
           <Route element={<RequireAdministrator />}>
             <Route path="/admin/movie-insights" element={<Suspense fallback={<VybeLoader label="Opening movie insights…" />}><AdminMovieInsightsPage /></Suspense>} />
+            <Route path="/admin/activity-analytics" element={<Suspense fallback={<VybeLoader label="Opening activity analytics…" />}><AdminActivityAnalyticsPage /></Suspense>} />
             <Route path="/admin/users" element={<Suspense fallback={<VybeLoader label="Opening users…" />}><AdminUsersPage /></Suspense>} />
             <Route path="/admin/users/:id" element={<Suspense fallback={<VybeLoader label="Opening account…" />}><AdminUserDetailsPage /></Suspense>} />
           </Route>

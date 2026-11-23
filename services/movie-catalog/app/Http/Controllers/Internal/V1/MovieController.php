@@ -26,6 +26,11 @@ class MovieController extends Controller
         return MovieSummaryResource::collection($result['movies'])->additional(['meta' => $result['meta']]);
     }
 
+    public function genres(MovieSummariesRequest $request): JsonResponse
+    {
+        return response()->json(['data' => $this->movies->cachedGenres($request->validated('tmdb_ids'))]);
+    }
+
     public function popular(ListMoviesRequest $request): AnonymousResourceCollection
     {
         $result = $this->movies->ranking((int) $request->validated('page', 1));
