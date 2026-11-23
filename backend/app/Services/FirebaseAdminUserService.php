@@ -76,13 +76,14 @@ class FirebaseAdminUserService
     {
         $this->identity->confirm($actor, $token);
         try {
-            $target = $this->withTarget($actor, $id, function (User $target, $admins) use ($actor, $email): User {
-                $emailChanged = $target->email !== $email;
-                if ($emailChanged && $target->role === User::ROLE_ADMIN && $target->hasVerifiedEmail()
-                    && $target->account_status === User::STATUS_ACTIVE
-                    && $admins->filter(fn (User $admin) => $admin->hasVerifiedEmail())->count() <= 1) {
-                    $this->identity->error(409, 'The last verified active administrator cannot change email.', 'STATE_CONFLICT');
+            $target = $this->withTarget($actor, $id, function (User $target) use ($actor, $email): User {
+                // Do not split an administrator availability decision across a
+                // remote Firebase write and a later SQL transaction. Reject it
+                // before revocation or mutation, regardless of administrator count.
+                if ($target->role === User::ROLE_ADMIN) {
+                    $this->identity->error(409, 'Firebase email changes for administrator accounts are unavailable.', 'ADMIN_EMAIL_CHANGE_UNAVAILABLE');
                 }
+                $emailChanged = $target->email !== $email;
                 if ($emailChanged && User::query()->where('email', $email)->whereKeyNot($target->id)->exists()) {
                     throw ValidationException::withMessages(['email' => ['The email has already been taken.']]);
                 }

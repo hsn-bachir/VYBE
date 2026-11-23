@@ -7,9 +7,14 @@ use RuntimeException;
 
 class CatalogFailure extends RuntimeException
 {
-    public function __construct(private int $status = 503, private array $errors = [])
+    public function __construct(private int $status = 503, private array $errors = [], private bool $refreshFailed = false)
     {
         parent::__construct('Movie catalog request failed');
+    }
+
+    public function confirmsRefreshFailure(): bool
+    {
+        return $this->refreshFailed;
     }
 
     public function render(): JsonResponse

@@ -310,12 +310,13 @@ class MovieCatalogClient
 
     private function request(string $path, array $params, bool $detail = false, string $method = 'GET'): array
     {
+        $refresh = $method === 'POST' && str_starts_with($path, 'manage/') && str_ends_with($path, '/refresh');
         $url = config('movie_catalog.url');
         $token = config('movie_catalog.token');
         if (! is_string($url) || ! filter_var($url, FILTER_VALIDATE_URL)
             || ! in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true)
             || ! is_string($token) || trim($token) === '') {
-            throw new CatalogFailure;
+            throw new CatalogFailure(refreshFailed: $refresh); // No request was dispatched.
         }
         try {
             $response = Http::acceptJson()->withHeaders(['X-VYBE-Service-Token' => $token])
@@ -332,6 +333,14 @@ class MovieCatalogClient
             throw new CatalogFailure;
         }
         $body = $response->json();
+        // These existing Catalog responses occur before the base metadata upsert:
+        // lock/cooldown rejection, provider not-found, or provider/normalization
+        // failure. Generic 5xx, lost replies and invalid success DTOs prove nothing.
+        if ($refresh && ($response->status() === 409
+            || ($response->status() === 404 && ($body['code'] ?? null) === 'MOVIE_NOT_FOUND')
+            || ($response->status() === 503 && ($body['code'] ?? null) === 'UPSTREAM_UNAVAILABLE'))) {
+            throw new CatalogFailure($response->status(), refreshFailed: true);
+        }
         if (str_starts_with($path, 'manage/') && in_array($response->status(), [404, 409], true)) {
             throw new CatalogFailure($response->status());
         }
