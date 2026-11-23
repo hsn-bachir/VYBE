@@ -97,7 +97,7 @@ Each slice should have: owner, issue/task in Azure, approved API/security contra
 
 | ID | Work | Status | Dependencies / acceptance |
 |---|---|---|---|
-| **M5.0** | Domain design and state machine | 📋 | Hosts, invitees/roles, event timezone, date/time, optional physical location/meeting URL, deadlines, edit/cancel rules, permissions, deletion/retention. |
+| **M5.0** | Domain design and state machine | 🟡 / 🔬 | Foundation implemented on `feature/movie-night`: four Core tables/models, policy/rules, internal RSVP/finalization transitions and tests, including scoped UTC persistence with non-UTC PostgreSQL round-trip/deadline verification. [Proposed contract](docs/api/movie-nights.md), [verification report](docs/development/m5.0-movie-night-foundation-report.md). Review/merge pending; endpoints, frontend and M5.1–M5.7 remain unimplemented. |
 | **M5.1** | Create/edit/cancel and detail | ⬜ | Owner-only edits, validated future dates/timezone, timezone-safe API, sensible empty UI. |
 | **M5.2** | Invite platform users | ⬜ | Target selection, duplicate/invalid invite handling, permission and notification decision. |
 | **M5.3** | RSVP | ⬜ | Accept/decline, withdraw/participant state; enforce visibility of private event. |
@@ -182,7 +182,7 @@ Full instructions: [docs/AI_AGENT_PLAYBOOK.md](docs/AI_AGENT_PLAYBOOK.md), [docs
 | Instructor microservices expectations | Confirm that independently runnable Core + Catalog satisfy the rubric/deployment demonstration. | **Open** |
 | Existing collection privacy | Introduce explicit visibility; default/backfill existing collections **private**; decide system Favorites behavior. | **M4.0** |
 | Social exposure/retention | Profile fields, follows visibility, rating/review/list activity privacy, moderation and deletion semantics. | **M4.0** |
-| Movie Night policy | Vote rules, invitation permissions, timezone, finalization, tie behavior. | **M5.0** |
+| Movie Night policy | [M5.0 foundation decisions](docs/api/movie-nights.md) implemented on task branch; review proposed limits, retention and HTTP contract before M5.1. | **M5.0** |
 | Calendar provider | Confirm whether ICS export is sufficient or real OAuth/API sync is expected. | **M6.4** |
 | “Local movie data management” | Agree allowed administration actions without crossing Catalog ownership. | **M7.6** |
 | Admin deletion and MFA | Preserve audit/report records; secure privileged access; verify invitation delivery. | **M7.7** |

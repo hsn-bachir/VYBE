@@ -140,3 +140,7 @@ Fake Catalog HTTP in Core tests and fake TMDB in Catalog tests. Validate the exa
 The [internal batch contract](catalog-batch-summaries.md) extends Catalog without changing discovery/detail payloads. [Public M2 contracts](milestone-2-contracts.md) implement M2.1 Library, M2.2 Collections and M2.3 Ratings; M2.4–M2.5 remain planned. See the [foundation report](../development/m2-foundation-report.md), [M2.1 report](../development/m2.1-report.md), [M2.2 report](../development/m2.2-report.md) and [M2.3 report](../development/m2.3-report.md) for actual implementation and verification.
 
 M2.5 private profiles reuse the exact auth UserResource, add separate bio/member_since/count fields only in the profile envelope, and expose managed raster assets through a constrained public image route. See [M2 contracts](milestone-2-contracts.md) and [M2.5 report](../development/m2.5-report.md).
+
+## M5.0 Movie Night foundation
+
+The [Movie Night domain and proposed REST contract](movie-nights.md) defines private Core-owned events, invitations, shortlist, votes and immutable finalization. M5.0 adds schema/models/policies/internal transitions only. All event routes and DTO projections in that document await M5.1–M5.7; none are registered yet.

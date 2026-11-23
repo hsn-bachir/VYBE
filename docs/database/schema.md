@@ -98,3 +98,9 @@ M2 design now specifies Core-owned user-generated records with logical TMDB IDs 
 Future review/watchlist records may reference user ID and TMDB ID as logical external identifiers. There are no cross-database foreign keys in Milestone 1; cross-service integrity needs a future contract decision.
 
 M2.5 adds nullable users.bio through an additive migration and stores relative managed image references in existing avatar_url. No profiles table or cross-service data is added; see the [implemented M2 schema](milestone-2-schema.md).
+
+## M5.0 Movie Night foundation (task branch)
+
+Core adds four private event tables with existing SQL user references and logical TMDB IDs. The vote composite FK enforces same-event shortlist membership; unique keys enforce one invite per user, one nomination per movie, and one vote per user/event. Restrictive deletion preserves referenced records. PostgreSQL timezone-aware timestamps and state/range checks are included. See [schema, state machine and proposed API](../api/movie-nights.md). No Catalog schema or existing user data changes; no event endpoints are registered in M5.0.
+
+M5.0 UTC review fix: the four Movie Night models use a shared scoped timestamp concern to write explicit UTC offsets to PostgreSQL and decode timestamp values as UTC. This includes event/RSVP and automatic audit timestamps and requires no schema or global connection changes. See the [UTC persistence contract](../api/movie-nights.md#utc-persistence-fix-m50-review).
