@@ -38,3 +38,13 @@ Use `movie_catalog` URL/token and timeout settings; redirects disabled, no autom
 All upstream failures, including 403/404/422/429/5xx, malformed JSON/DTOs and connection errors, become existing safe `CatalogFailure` (503 UPSTREAM_UNAVAILABLE rendering). Local validation already succeeded, so internal 422 is a protocol/configuration failure rather than public caller validation. Do not expose upstream messages, credentials or exception chains. Missing IDs in a successful batch are ordinary data.
 
 M2.1/M2.2 compose Core relationships with this result and preserve unavailable metadata placeholders; they also confirm new membership references. Shared Core `LibraryMetadata` now supplies the same confirmation/enrichment to Watchlist, Watched and collection memberships. The batch endpoint itself requires no new tables or dependencies. M2.1 adds two Core membership migrations and the optional summary timeout setting; M2.2 adds collections/collection_movies only in Core, without changing this contract. Deploy Catalog batch support before a Core consumer starts using the operation. Operational limitations: cache coverage/freshness, shared service-token scope, bounded page size, and no live-provider or distributed deployment guarantee from local fake tests.
+
+## Catalog batch genre lookup
+
+`POST /api/internal/v1/movies/genres` uses the same service token and strict JSON `tmdb_ids` array as summaries. A request accepts 1–50 integer values before deduplication. Core sends movie IDs only. Catalog performs one lookup of persisted `tmdb_id` and `genres` and returns one row per distinct ID, in request order.
+
+```json
+{"data":[{"tmdb_id":550,"genres":[{"id":18,"name":"Drama"}]},{"tmdb_id":551,"genres":null},{"tmdb_id":552,"genres":[]}]}
+```
+
+`null` means the Catalog row or usable genre metadata is missing. `[]` is an explicitly stored empty list. Available lists contain up to 32 distinct positive integer genre IDs and trimmed names. Duplicate IDs collapse to one association. An invalid persisted list is returned as `null`. The route is cache-only and makes no provider calls or writes. `MovieCatalogClient::genres()` checks exact coverage and the DTO before returning a map keyed by TMDB ID. It reuses the summary timeout and safe Catalog error handling. Deploy Catalog support before its Core consumer.

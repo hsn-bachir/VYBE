@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\AdminMovieInsightsController;
 use App\Http\Controllers\Api\V1\AdminUserController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -54,6 +55,8 @@ Route::prefix('v1/admin')->withoutMiddleware(EnsureFrontendRequestsAreStateful::
         EnsureVerifiedAccount::class, EnsureRole::class.':moderator'])->group(function (): void {
             Route::get('overview', [ModerationController::class, 'overview'])->middleware('throttle:admin-read');
             Route::get('movie-insights', AdminMovieInsightsController::class)->middleware([EnsureRole::class.':admin', 'throttle:admin-read']);
+            Route::get('genre-insights', [AdminAnalyticsController::class, 'genres'])->middleware([EnsureRole::class.':admin', 'throttle:admin-read']);
+            Route::get('activity-analytics', [AdminAnalyticsController::class, 'activity'])->middleware([EnsureRole::class.':admin', 'throttle:admin-read']);
             Route::get('movie-summaries', [ModerationController::class, 'movieSummaries'])->middleware('throttle:admin-read');
             Route::get('reports', [ModerationController::class, 'reports'])->middleware('throttle:admin-read');
             Route::get('reports/{id}', [ModerationController::class, 'report'])->middleware('throttle:admin-read');

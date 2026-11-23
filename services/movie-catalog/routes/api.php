@@ -16,6 +16,7 @@ Route::middleware('catalog.internal')->prefix('internal/v1')->group(function ():
     Route::get('/movies/discover', [MovieController::class, 'discover']);
     Route::get('/movies/search', [MovieController::class, 'search']);
     Route::post('/movies/summaries', [MovieController::class, 'summaries']);
+    Route::post('/movies/genres', [MovieController::class, 'genres']);
     Route::post('/movies/recommendation-candidates', RecommendationCandidateController::class);
     Route::get('/movies/{tmdb_id}', [MovieController::class, 'show']);
     Route::get('/movies/{tmdb_id}/experience', [MovieController::class, 'experience']);

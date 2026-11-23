@@ -5,6 +5,7 @@ import { moderationError } from '../../moderation/api/moderationApi'
 import { releaseYear } from '../../movies/api/images'
 import { MovieImage } from '../../movies/components/MovieImage'
 import type { HighestRatedMovie, MostWatchedMovie } from '../api/adminMovieInsightsApi'
+import { AdminGenreInsights } from '../components/AdminGenreInsights'
 import { AdminNotice, AdminShell } from '../components/AdminShell'
 import { useAdminMovieInsights } from '../hooks/useAdminMovieInsights'
 
@@ -38,7 +39,8 @@ function Ranking({ id, title, description, empty, rows }: {
 }
 
 export default function AdminMovieInsightsPage() {
-  const query = useAdminMovieInsights(useAuth().data?.id ?? 0)
+  const owner = useAuth().data?.id ?? 0
+  const query = useAdminMovieInsights(owner)
   const result = query.data
 
   return <AdminShell>
@@ -58,5 +60,6 @@ export default function AdminMovieInsightsPage() {
           empty="No VYBE community ratings yet." rows={result?.data.highest_rated} />
       </div>
     </>}
+    <AdminGenreInsights owner={owner} />
   </AdminShell>
 }

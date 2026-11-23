@@ -45,7 +45,7 @@ Status legend:
 | **8** | Custom movie lists, descriptions, public/private, browse public lists | Private collections/Favorites CRUD and memberships | 🟡 | Visibility policy, sharing, public browse/detail and access controls (M4). |
 | **9** | Follow/unfollow, counts/lists, public profiles/reviews/lists, followed-user activity, user activity visibility | Private profile and public review author projection only | ⬜ / 🟡 foundation | Public social identity, relationships, activity feed/controls (M4). |
 | **10** | Movie-night date/time/location/link, invitations, shortlist, voting/winner, RSVP, final details | Not present in reviewed `dev` | ⬜ | Implement complete workflow (M5). |
-| **11** | Admin KPIs: registered users, reviews, top watched/rated/genres, activity; user/admin moderation; local movie data management | Admin user management + moderation overview/reports/audit | 🟡 | M7.1–M7.3 are verified on the feature branch. Popular genres, activity metrics, scoped movie-data tools and operational hardening remain open. |
+| **11** | Admin KPIs: registered users, reviews, top watched/rated/genres, activity; user/admin moderation; local movie data management | Admin user management, moderation, platform KPIs and movie rankings through M7.3 | 🟡 | M7.4–M7.5 are verified on the feature branch. Scoped movie-data tools and operational hardening remain open. |
 
 PDF source: §3 Objectives, pages 1–3. The brief also requires clean architecture/security/privacy, runnable application, documentation/report and a live demo (§§4–5, pages 3–4). The rubric emphasizes **Laravel/MVC, microservices, incremental delivery, teamwork and maintainability** (§6, page 4).
 
@@ -121,15 +121,15 @@ Each slice should have: owner, issue/task in Azure, approved API/security contra
 
 ### M7 — Administration completion (PDF item 11)
 
-M7.1–M7.3 status reflects implementation and verification on `feature/m7-admin-insights`. See the [API contract](docs/api/admin-movie-insights.md) and [implementation report](docs/development/m7.1-m7.3-report.md) for coverage and remaining release verification.
+M7.1–M7.3 are in `dev` at `9a9c8d5` (PR #35). M7.4–M7.5 are verified on `feature/m7-genre-activity-analytics`. See the [API contract](docs/api/admin-movie-insights.md), [M7.1–M7.3 report](docs/development/m7.1-m7.3-report.md) and [M7.4–M7.5 report](docs/development/m7.4-m7.5-report.md) for acceptance evidence.
 
 | ID | Work | Status | Minimum acceptance |
 |---|---|---|---|
 | **M7.1** | Dashboard total reviews & activity KPIs | ✅ | Administrator-only totals for accounts, stored reviews, VYBE ratings and watched entries. Existing moderation counts remain available to both privileged roles. |
 | **M7.2** | Most-watched movies | ✅ | Top 10 by distinct members, with one shared Catalog summary batch and count-preserving fallbacks. |
 | **M7.3** | Most highly rated movies | ✅ | Top 10 by Bayesian confidence, with raw VYBE community averages and rating counts on the 1–5 scale. |
-| **M7.4** | Most popular genres | ⬜ | Define popularity metric; Catalog owns genres; avoid cross-DB joins and scanning huge rowsets in HTTP requests. |
-| **M7.5** | User activity metrics | ⬜ | Privacy-respecting counts/trends; no unnecessary sensitive per-user tracking. |
+| **M7.4** | Most popular genres | ✅ | Watched-entry rankings for up to 50 top movies, with one cache-only Catalog batch and explicit cohort and metadata coverage. |
+| **M7.5** | User activity metrics | ✅ | Zero-filled 7/30/90-day UTC trends and distinct active contributors based on retained Core records. |
 | **M7.6** | Local movie-data management | ⬜ | Clarify allowed actions with instructor: rehydrate/refresh local Catalog movie entries, cache diagnostics etc.; preserve Catalog ownership and avoid direct Core DB manipulation. |
 | **M7.7** | Admin operational hardening | ⬜ | Resolve hard delete vs retention/audit, confirm invitations/SMTP, MFA or additional admin protection, role security and audit review. |
 
