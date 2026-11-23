@@ -4,7 +4,7 @@ import { AppLayout } from './layouts/AppLayout'
 import { AuthLayout } from './layouts/AuthLayout'
 import { LoginPage } from './features/auth/pages/LoginPage'
 import { RegisterPage } from './features/auth/pages/RegisterPage'
-import { GuestOnly, PublicOrVerified, RequireAuth, RequireAdmin, RequireUserManager } from './features/auth/guards/AuthGuards'
+import { GuestOnly, PublicOrVerified, RequireAuth, RequireAdmin, RequireAdministrator } from './features/auth/guards/AuthGuards'
 import { VerificationPage } from './features/auth/pages/VerificationPage'
 import { PopularMoviesPage } from './features/movies/pages/PopularMoviesPage'
 import { DiscoverPage } from './features/movies/pages/DiscoverPage'
@@ -23,6 +23,7 @@ const InvitationAcceptancePage = lazy(() => import('./features/auth/pages/Invita
 const PasswordResetPage = lazy(() => import('./features/auth/pages/PasswordResetPage').then(module => ({ default: module.PasswordResetPage })))
 const ProfilePage = lazy(() => import('./features/profile/pages/ProfilePage'))
 const AdminPage = lazy(() => import('./features/admin/pages/AdminPage'))
+const AdminMovieInsightsPage = lazy(() => import('./features/admin/pages/AdminMovieInsightsPage'))
 const AdminUsersPage = lazy(() => import('./features/admin/pages/AdminUsersPage'))
 const AdminUserDetailsPage = lazy(() => import('./features/admin/pages/AdminUserDetailsPage'))
 const ReportsPage = lazy(() => import('./features/moderation/pages/ReportsPage'))
@@ -47,7 +48,8 @@ export default function App() {
           <Route path="/admin/reports/:id" element={<Suspense fallback={<VybeLoader label="Opening report…" />}><ReportDetailsPage /></Suspense>} />
           <Route path="/admin/reviews" element={<Suspense fallback={<VybeLoader label="Opening reviews…" />}><ModerationReviewsPage /></Suspense>} />
           <Route path="/admin/actions" element={<Suspense fallback={<VybeLoader label="Opening history…" />}><ModerationActionsPage /></Suspense>} />
-          <Route element={<RequireUserManager />}>
+          <Route element={<RequireAdministrator />}>
+            <Route path="/admin/movie-insights" element={<Suspense fallback={<VybeLoader label="Opening movie insights…" />}><AdminMovieInsightsPage /></Suspense>} />
             <Route path="/admin/users" element={<Suspense fallback={<VybeLoader label="Opening users…" />}><AdminUsersPage /></Suspense>} />
             <Route path="/admin/users/:id" element={<Suspense fallback={<VybeLoader label="Opening account…" />}><AdminUserDetailsPage /></Suspense>} />
           </Route>

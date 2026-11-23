@@ -80,3 +80,5 @@ Separate MySQL migration test jobs for Core and Catalog, plus PHP tests. PHPUnit
 Read [public/internal contracts](../api/contracts.md) and [database ownership](../database/schema.md).
 
 M3.3 For You is implemented by Core preference/scoring/section services and one bounded Catalog candidate endpoint. See [recommendation ownership, contracts and cache policy](../api/recommendations.md). No new database tables or services are introduced.
+
+M7.1–M7.3 extend the existing moderation overview with administrator-only Core totals and add a separate administrator-only movie insights read. The overview remains independent of Catalog. `AdminMovieInsights` ranks Core watched history and VYBE ratings in SQL, then uses one cache-only Catalog summary batch to enrich the two bounded lists. A Catalog failure leaves the aggregate results available. The API sends only movie IDs to Catalog and exposes allowlisted display metadata with the rankings. See the [administration statistics contract](../api/admin-movie-insights.md).
