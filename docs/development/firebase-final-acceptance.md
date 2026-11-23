@@ -106,15 +106,15 @@ Each case below has a place to mark **Pass / Fail / Blocked**. A failed case is 
 
 ## 14. Administrator email changes
 
-- **Preconditions:** Admin, mapped target, new inbox, and optional target with linked Google/password methods.
+- **Preconditions:** Admin, mapped non-admin target, new inbox, and optional target with linked Google/password methods. Also prepare a second dedicated verified administrator.
 - **Steps:** Change target email from admin details and freshly reauthenticate as admin. Try a duplicate SQL/Firebase email. Confirm target's new inbox verification link and attempt old-session access. Repeat on a linked-provider target if available.
-- **Expected:** Same Firebase UID and SQL ID, new matching email, verification cleared until new inbox proof, old sessions rejected, providers preserved. Collisions fail without linking someone else's UID. A partial 503 requires operator review before retrying with a new confirmation.
+- **Expected:** Same Firebase UID and SQL ID, new matching email, verification cleared until new inbox proof, old sessions rejected, providers preserved. Collisions fail without linking someone else's UID. A partial 503 requires operator review before retrying with a new confirmation. Changed emails targeting either administrator (including self) return `409 ADMIN_EMAIL_CHANGE_UNAVAILABLE`, with SQL/Firebase identity and target sessions unchanged; simultaneous attempts cannot remove either administrator's verification. Username-only administrator edits remain available. Repeat an administrator-target email attempt before/after a permitted status change; it remains rejected.
 - **Inspect if failed:** Firebase and SQL current email/UID, 409/422/503 code, verification status, audit history, second browser `/auth/me`.
 
 ## 15. Role and account-status authorization
 
 - **Preconditions:** Admin, moderator, ordinary, restricted, banned and deactivated dedicated users.
-- **Steps:** Call admin user-management UI/API with each role; navigate private community pages for each status; change status as authorized admin and reload existing sessions.
+- **Steps:** Call admin user-management UI/API with each role; navigate private community pages for each status; change status as authorized admin and reload existing sessions. Test ban/restriction followed by restoration and user/moderator role changes on file and database session drivers. Verify old sessions remain rejected after restoration and fresh login receives the current role. No-op transitions must preserve sessions.
 - **Expected:** Only admin manages identities; moderator cannot. Restricted users retain their documented read access and write limits. Banned/deactivated users receive 403 even with an existing session. Firebase custom claims are irrelevant to VYBE roles.
 - **Inspect if failed:** `/auth/me`, `/me/access`, admin route 403, SQL role/status, middleware response code.
 
@@ -124,6 +124,12 @@ Each case below has a place to mark **Pass / Fail / Blocked**. A failed case is 
 - **Steps:** Perform password reset, direct admin password change, and email change in separate test rounds. After each, reload a private page in the second browser and try a write.
 - **Expected:** Old Laravel sessions return 401; old Firebase refresh tokens cannot establish new sessions. Fresh sign-in works only with current valid credentials and verification state. A failed remote operation is reported, not claimed complete.
 - **Inspect if failed:** Session cookie scope, `password_session_version`, database session store, Firebase token revocation, `/auth/me` and private write responses.
+
+Role/status changes rotate Core session versions and remember tokens; they do not mutate Firebase credentials or revoke Firebase refresh tokens. Credential changes retain their separate Firebase revocation behavior. Repeat two-browser Core session checks after role/status changes, including restoration.
+
+## M7.7 movie refresh operational acceptance
+
+With dedicated administrator accounts, verify actual Core → Catalog → TMDB refresh, the shared Catalog lock/cooldown across workers, and deployed cookie/CSRF enforcement. History must distinguish refreshed, confirmed failed, unconfirmed and incomplete requests. Inspect stored metadata/timestamp before an explicit retry after cooldown; do not automatically retry uncertain operations. Provider fakes and local PostgreSQL checks do not prove these deployment behaviors. Instructor confirmation that browse/search/inspect/health filters/explicit refresh satisfy objective 11 remains open; manual movie CRUD is outside the current scope.
 
 ## 17. Logout
 

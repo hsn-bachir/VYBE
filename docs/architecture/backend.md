@@ -1,5 +1,7 @@
 # Backend architecture — Core and Catalog
 
+M7.6 adds administrator movie-management routes through the existing Core HTTP adapter. Catalog owns local search, pagination, freshness and explicit refresh. Core owns permissions, CSRF, write throttling and refresh audits. The existing Catalog detail lock, normalizer and persistence path serve manual refresh. See the [management contract](../api/admin-movies.md).
+
 **Status:** Core authentication, public movie forwarding, the independent Catalog and React discovery are implemented.
 
 Advanced browse adds `GET /movies/discover` to both versioned movie surfaces. Separate FormRequests validate/normalize the same allowlisted contract in each service; Core forwards over the existing authenticated client. Catalog builds provider filters, reuses ranking normalization/batched persistence, and caches canonical filter/page snapshots. Plain Popular discovery shares the original popular ranking cache. No migration, shared database access or new dependency is introduced. See [discovery semantics, caching and future FYP reuse](../api/movie-discovery.md).
@@ -80,3 +82,7 @@ Separate MySQL migration test jobs for Core and Catalog, plus PHP tests. PHPUnit
 Read [public/internal contracts](../api/contracts.md) and [database ownership](../database/schema.md).
 
 M3.3 For You is implemented by Core preference/scoring/section services and one bounded Catalog candidate endpoint. See [recommendation ownership, contracts and cache policy](../api/recommendations.md). No new database tables or services are introduced.
+
+M7.1–M7.3 extend the existing moderation overview with administrator-only Core totals and add a separate administrator-only movie insights read. The overview remains independent of Catalog. `AdminMovieInsights` ranks Core watched history and VYBE ratings in SQL, then uses one cache-only Catalog summary batch to enrich the two bounded lists. A Catalog failure leaves the aggregate results available. The API sends only movie IDs to Catalog and exposes allowlisted display metadata with the rankings. See the [administration statistics contract](../api/admin-movie-insights.md).
+
+M7.4 uses Core's watched aggregate to select up to 50 movies and fetches their persisted genre associations through a separate internal Catalog batch. Catalog receives only TMDB IDs. Core sums the watched activity and reports both cohort and metadata coverage. M7.5 uses one Core database statement to aggregate retained records by UTC day and count distinct contributors. Each read has its own administrator route and payload. See the [administration analytics contracts](../api/admin-movie-insights.md).

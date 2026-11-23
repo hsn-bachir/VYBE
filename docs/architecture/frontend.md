@@ -1,5 +1,7 @@
 # React frontend architecture — Milestone 1
 
+M7.6 adds lazy administrator Movies list and metadata detail routes, using owner-scoped management queries and existing shared UI. Refresh retains the loaded metadata while pending and invalidates affected management and insight queries after success. See the [management contract](../api/admin-movies.md).
+
 **Status:** Authentication and the full movie discovery vertical slice are implemented.
 
 ## Boundaries
@@ -96,3 +98,7 @@ Vitest tests API parameters, cancellation, query caching, page/ID boundaries, re
 Frontend uses Oxlint (`npm run lint`), TypeScript (`npx tsc -b --noEmit`), Vite (`npm run build`) and Vitest (`npm test`). API/rendering tests and reusable Playwright acceptance checks are implemented; live provider/email acceptance remains manual. All delivered pages must use real API calls; local mocks are permissible only in isolated tests or design previews explicitly marked as such.
 
 M3.3 adds the guarded /for-you route and private owner-scoped recommendation query. Existing library, collection and rating mutations remove confirmed exclusions and refresh the feed; movie cards, skeletons and React Bits entrances are reused. See [the recommendation contract](../api/recommendations.md).
+
+M7.1–M7.3 extend `/admin` with platform totals for administrators and add the lazy `/admin/movie-insights` route behind the shared administrator-only guard. The page reuses `AdminShell`, `MovieImage`, shared feedback controls and existing movie detail links. Insights use a separate, cancellable `['admin', ownerId, 'movie-insights']` query and render the API's order, counts and raw VYBE averages. The panels use the available content width and preserve ranked rows through Catalog misses and service failures. See the [administration statistics contract](../api/admin-movie-insights.md).
+
+M7.4 adds a genre ranking below Movie Insights with a separate `['admin', ownerId, 'genre-insights']` query and visible cohort and metadata coverage. M7.5 adds the lazy `/admin/activity-analytics` route using a cancellable `['admin', ownerId, 'activity-analytics', range]` query. The activity chart uses server-provided UTC dates, range and category buttons, a native date selector, and keyboard navigation between exact daily counts. Both reuse the existing shell, administrator guard and feedback components. See the [administration statistics contract](../api/admin-movie-insights.md).

@@ -12,6 +12,7 @@ import { moderationKeys } from '../hooks/useModeration'
 import ReportsPage from '../pages/ReportsPage'
 import ReportDetailsPage from '../pages/ReportDetailsPage'
 import ModerationReviewsPage from '../pages/ModerationReviewsPage'
+import ModerationActionsPage from '../pages/ModerationActionsPage'
 
 const actor = { id: 8, username: 'mod', email: 'mod@example.test', avatar_url: null, email_verified_at: '2026-11-05T00:00:00Z' }
 const review: ModerationReview = { id: 12, tmdb_id: 550, author: { id: 7, username: 'writer' }, body: 'A reported review', visibility: 'visible',
@@ -82,4 +83,22 @@ it('blocks stale-account writes and reports specific errors', async () => {
   await expect(changeModeration({ kind: 'dismiss', id: 4, values: { reason: 'No issue' } }, () => false)).rejects.toThrow('account changed')
   expect(post).not.toHaveBeenCalled()
   expect(moderationError({ isAxiosError: true, response: { status: 409, data: { message: 'Target unavailable.' } } })).toContain('Target unavailable')
+})
+
+it('distinguishes confirmed, unconfirmed and incomplete movie refresh history', () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+  client.setQueryData(authKey, actor)
+  client.setQueryData(moderationKeys.actions(actor.id, 1, {}), { data: [
+    'movie.refreshed', 'movie.refresh_failed', 'movie.refresh_unconfirmed', 'movie.refresh_requested',
+  ].map((action, id) => ({ id, action, actor: { id: actor.id, username: actor.username }, target_type: 'movie', target_id: 550,
+    reason: null, details: null, created_at: '2026-11-23T12:00:00Z' })), meta: { ...meta, total_results: 4 } })
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><Routes>
+    <Route element={<Outlet context={{ role: 'admin', account_status: 'active' }} />}>
+      <Route path="/" element={<ModerationActionsPage />} />
+    </Route>
+  </Routes></MemoryRouter></QueryClientProvider>)
+  expect(html).toContain('Movie metadata refreshed')
+  expect(html).toContain('Movie refresh failed')
+  expect(html).toContain('Movie refresh outcome unconfirmed')
+  expect(html).toContain('Movie refresh incomplete')
 })

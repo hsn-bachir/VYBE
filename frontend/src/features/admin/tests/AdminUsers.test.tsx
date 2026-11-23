@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../../../lib/api/client'
-import { RequireUserManager } from '../../auth/guards/AuthGuards'
+import { RequireAdministrator } from '../../auth/guards/AuthGuards'
 import { accessKey } from '../../auth/hooks/useAccess'
 import { authKey } from '../../auth/hooks/useAuth'
 import { adminError, adminIdentityMethods, adminUser, adminUsers, changeAdminUser, changeAdminPassword, createAdminUser, resendAdminInvitation, sendAdminPasswordReset, type AdminUser, type UserFilters } from '../api/adminUsersApi'
@@ -23,7 +23,7 @@ function render(path: string, role: 'admin' | 'moderator' = 'admin', entries: Ad
   client.setQueryData(adminKeys.users(actor.id, filters), { data: entries, meta: { page: 1, per_page: 20, total_pages: 1, total_results: entries.length } })
   client.setQueryData(adminKeys.user(actor.id, target.id), detail)
   return renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Routes>
-    <Route element={<Outlet context={{ role, account_status: actorStatus }} />}><Route element={<RequireUserManager />}>
+    <Route element={<Outlet context={{ role, account_status: actorStatus }} />}><Route element={<RequireAdministrator />}>
       <Route path="/admin/users" element={<AdminUsersPage />} /><Route path="/admin/users/:id" element={<AdminUserDetailsPage />} />
     </Route></Route>
   </Routes></MemoryRouter></QueryClientProvider>)
