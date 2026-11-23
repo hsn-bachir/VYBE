@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ManageMoviesRequest;
+use App\Integrations\MovieCatalog\CatalogFailure;
 use App\Integrations\MovieCatalog\MovieCatalogClient;
 use App\Models\AdministrativeAction;
 use Illuminate\Http\JsonResponse;
@@ -33,7 +34,8 @@ class AdminMoviesController extends Controller
         try {
             $result = $catalog->managedMovies([], $id, refresh: true);
         } catch (Throwable $error) {
-            $audit->update(['action' => 'movie.refresh_failed']);
+            $audit->update(['action' => $error instanceof CatalogFailure && $error->confirmsRefreshFailure()
+                ? 'movie.refresh_failed' : 'movie.refresh_unconfirmed']);
             throw $error;
         }
         $audit->update(['action' => 'movie.refreshed', 'details' => ['metadata_fetched_at' => $result['data']['metadata_fetched_at']]]);

@@ -25,7 +25,7 @@ Status legend:
 
 **What the team has built:** React/Vite/TypeScript movie UI; Laravel Core API + independent Laravel Movie Catalog microservice; TMDB popular/search/details, advanced browsing and upcoming; Firebase-based email/password and Google/GitHub login; private library/collections; ratings/reviews/spoilers; private profiles; admin accounts/moderation/reports; personalized For You; performance/UI refinements; PostgreSQL compatibility work.
 
-**What is still required by the PDF:** public/private lists and discovery, public profiles, follows and activity controls/feed, complete Movie Night Planner, all five third-party integrations, and missing movie/activity analytics and local movie data management in the admin dashboard. End-to-end live acceptance and reviewed release promotion are still outstanding.
+**What is still required by the PDF:** public/private lists and discovery, public profiles, follows and activity controls/feed, complete Movie Night Planner, and all five third-party integrations. Administration analytics and scoped local movie management are implemented; their live acceptance and precise movie-management rubric confirmation remain open. End-to-end live acceptance and reviewed release promotion are still outstanding.
 
 **Branch verification at snapshot:** Discover PR **#31** merged into `dev` on 2026-11-13; FYP PR **#32** merged into `dev` on 2026-11-13. Release PR **#33** (`release/dev-to-main` → `main`) was **open, not merged** when checked on 2026-11-21. `main` therefore must **not** be treated as equivalent to `dev`. Recheck live PR state before any release action.
 
@@ -45,7 +45,7 @@ Status legend:
 | **8** | Custom movie lists, descriptions, public/private, browse public lists | Private collections/Favorites CRUD and memberships | 🟡 | Visibility policy, sharing, public browse/detail and access controls (M4). |
 | **9** | Follow/unfollow, counts/lists, public profiles/reviews/lists, followed-user activity, user activity visibility | Private profile and public review author projection only | ⬜ / 🟡 foundation | Public social identity, relationships, activity feed/controls (M4). |
 | **10** | Movie-night date/time/location/link, invitations, shortlist, voting/winner, RSVP, final details | Not present in reviewed `dev` | ⬜ | Implement complete workflow (M5). |
-| **11** | Admin KPIs: registered users, reviews, top watched/rated/genres, activity; user/admin moderation; local movie data management | Admin user management, moderation, platform KPIs and movie rankings through M7.3 | 🟡 | M7.4–M7.5 are verified on the feature branch. Scoped movie-data tools and operational hardening remain open. |
+| **11** | Admin KPIs: registered users, reviews, top watched/rated/genres, activity; user/admin moderation; local movie data management | M7.1–M7.6 merged in `dev`; M7.7 targeted security fixes and automated verification complete on `feature/m7-admin-security-finalization` | ✅ code / 🔬 acceptance | Live Firebase/SMTP/TMDB, deployed two-browser cookies/CSRF/shared locks, instructor movie-management scope confirmation and review/merge remain open. |
 
 PDF source: §3 Objectives, pages 1–3. The brief also requires clean architecture/security/privacy, runnable application, documentation/report and a live demo (§§4–5, pages 3–4). The rubric emphasizes **Laravel/MVC, microservices, incremental delivery, teamwork and maintainability** (§6, page 4).
 
@@ -121,7 +121,7 @@ Each slice should have: owner, issue/task in Azure, approved API/security contra
 
 ### M7 — Administration completion (PDF item 11)
 
-M7.1–M7.3 are in `dev` at `9a9c8d5` (PR #35). M7.4–M7.5 are verified on `feature/m7-genre-activity-analytics`. See the [API contract](docs/api/admin-movie-insights.md), [M7.1–M7.3 report](docs/development/m7.1-m7.3-report.md) and [M7.4–M7.5 report](docs/development/m7.4-m7.5-report.md) for acceptance evidence.
+M7.1–M7.3 merged into `dev` at `9a9c8d5` (PR #35), M7.4–M7.5 at `53750d7` (PR #36), and M7.6 at `2921cdd` (PR #37). M7.7 code and automated checks are complete on `feature/m7-admin-security-finalization`; review/merge and live acceptance remain pending. See the [API contract](docs/api/admin-movie-insights.md), [M7.1–M7.3 report](docs/development/m7.1-m7.3-report.md), [M7.4–M7.5 report](docs/development/m7.4-m7.5-report.md), [M7.6 report](docs/development/m7.6-report.md) and [M7.7 report](docs/development/m7.7-report.md).
 
 | ID | Work | Status | Minimum acceptance |
 |---|---|---|---|
@@ -131,7 +131,7 @@ M7.1–M7.3 are in `dev` at `9a9c8d5` (PR #35). M7.4–M7.5 are verified on `fea
 | **M7.4** | Most popular genres | ✅ | Watched-entry rankings for up to 50 top movies, with one cache-only Catalog batch and explicit cohort and metadata coverage. |
 | **M7.5** | User activity metrics | ✅ | Zero-filled 7/30/90-day UTC trends and distinct active contributors based on retained Core records. |
 | **M7.6** | Local movie-data management | ✅ / 🔬 | Local browse/search/health filters, metadata inspection and audited manual refresh. [Report](docs/development/m7.6-report.md). Instructor confirmation of full rubric scope and live-provider acceptance remain open. |
-| **M7.7** | Admin operational hardening | ⬜ | Resolve hard delete vs retention/audit, confirm invitations/SMTP, MFA or additional admin protection, role security and audit review. |
+| **M7.7** | Admin operational hardening | ✅ code/tests / 🔬 live | Firebase administrator-target email changes deliberately return 409; role/status changes invalidate retained sessions on all drivers; refresh history distinguishes confirmed failure, uncertainty and incomplete intent. [Report](docs/development/m7.7-report.md). Deactivation retains data; hard deletion needs a separate retention/Firebase policy. Live invitation/SMTP, Firebase, TMDB and deployment acceptance remain open. MFA is optional future work. |
 
 ### M8 — Integration, delivery and final presentation (PDF §§4–7)
 
@@ -187,7 +187,7 @@ Full instructions: [docs/AI_AGENT_PLAYBOOK.md](docs/AI_AGENT_PLAYBOOK.md), [docs
 | Movie Night policy | Vote rules, invitation permissions, timezone, finalization, tie behavior. | **M5.0** |
 | Calendar provider | Confirm whether ICS export is sufficient or real OAuth/API sync is expected. | **M6.4** |
 | “Local movie data management” | Agree allowed administration actions without crossing Catalog ownership. | **M7.6** |
-| Admin deletion and MFA | Preserve audit/report records; secure privileged access; verify invitation delivery. | **M7.7** |
+| Admin retention and operational acceptance | Use deactivation with retained data; no hard delete without a separate retention/Firebase policy. Targeted security fixes are implemented; verify live invitation delivery and deployment behavior. MFA remains optional. | **M7.7** |
 | Database/platform | Local/hosted PostgreSQL and historical MySQL/MariaDB documentation differ; inspect current `.env.example`, actual DB connection, CI and migrations. No automatic data migration implied. | **M8** |
 | Live FYP and provider coverage | Fixture benchmark in `m3.3-recommendations-report.md` is **not** provider latency; check sparse credits and high-history cases. | **M8** |
 | Release branch state | `main` behind `dev`; PR #33 open at snapshot. Check actual ref, conflicts and CI before changing. | **M8** |

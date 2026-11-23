@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\AdministrativeAction;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +17,7 @@ class AdminUserManagementTest extends TestCase
     {
         $admin = User::factory()->create();
         DB::table('users')->where('id', $admin->id)->update(['role' => 'admin']);
+
         return $admin->fresh();
     }
 
@@ -145,6 +146,9 @@ class AdminUserManagementTest extends TestCase
         $this->putJson("/api/v1/admin/users/{$target->id}/role", ['role' => 'user', 'reason' => 'Rotation'])->assertOk();
         Auth::forgetGuards();
         $this->actingAs($target, 'web');
+        $this->getJson('/api/v1/admin/users')->assertUnauthorized();
+        Auth::forgetGuards();
+        $this->withSession(['password_session_version' => $target->fresh()->password_session_version])->actingAs($target->fresh(), 'web');
         $this->getJson('/api/v1/admin/users')->assertForbidden();
         $this->getJson('/api/v1/me/access')->assertOk()->assertJsonPath('data.role', 'user');
         Auth::forgetGuards();
@@ -167,7 +171,9 @@ class AdminUserManagementTest extends TestCase
         $bootstrap = $this->getJson('/sanctum/csrf-cookie');
         $this->withHeader('X-XSRF-TOKEN', $bootstrap->getCookie('XSRF-TOKEN', false)->getValue())
             ->putJson("/api/v1/admin/users/{$target->id}/role", ['role' => 'moderator', 'reason' => 'Help'])->assertOk();
-        for ($i = 0; $i < 60; $i++) $this->getJson('/api/v1/admin/users')->assertOk();
+        for ($i = 0; $i < 60; $i++) {
+            $this->getJson('/api/v1/admin/users')->assertOk();
+        }
         $this->getJson('/api/v1/admin/users')->assertTooManyRequests()->assertHeader('Retry-After');
     }
 

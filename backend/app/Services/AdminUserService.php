@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
+use App\Mail\AccountPasswordChangedMail;
 use App\Models\AdministrativeAction;
 use App\Models\User;
-use App\Mail\AccountPasswordChangedMail;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
@@ -27,18 +27,27 @@ class AdminUserService
                     && $target->account_status === User::STATUS_ACTIVE && $this->activeAdminCount($admins) <= 1) {
                     $this->conflict('The last verified active administrator cannot change email.');
                 }
-                if ($emailChanged) Password::broker()->deleteToken($target);
-                foreach ($values as $field => $value) $target->{$field} = $value;
-                if (! $target->isDirty(['username', 'email'])) return;
-                if ($emailChanged) $target->email_verified_at = null;
+                if ($emailChanged) {
+                    Password::broker()->deleteToken($target);
+                }
+                foreach ($values as $field => $value) {
+                    $target->{$field} = $value;
+                }
+                if (! $target->isDirty(['username', 'email'])) {
+                    return;
+                }
+                if ($emailChanged) {
+                    $target->email_verified_at = null;
+                }
                 $target->save();
+                $usernameChanged = $target->wasChanged('username');
                 if ($emailChanged) {
                     // A link issued to the previous address must never activate the new address.
                     $target->accountInvitations()->delete();
                     $this->revokeSessions($target);
                 }
                 $this->audit($actor, $target, 'user.updated', null, [
-                    'username_changed' => $target->wasChanged('username'), 'email_changed' => $emailChanged,
+                    'username_changed' => $usernameChanged, 'email_changed' => $emailChanged,
                 ]);
             });
         } catch (UniqueConstraintViolationException) {
@@ -56,8 +65,12 @@ class AdminUserService
     public function role(User $actor, int $id, string $role, ?string $reason): User
     {
         return $this->change($actor, $id, function (User $target) use ($actor, $role, $reason): void {
-            if ($target->id === $actor->id || $target->role === User::ROLE_ADMIN) $this->conflict('Administrator roles cannot be changed here.');
-            if ($target->role === $role) return;
+            if ($target->id === $actor->id || $target->role === User::ROLE_ADMIN) {
+                $this->conflict('Administrator roles cannot be changed here.');
+            }
+            if ($target->role === $role) {
+                return;
+            }
             $old = $target->role;
             $target->role = $role;
             $target->save();
@@ -69,11 +82,17 @@ class AdminUserService
     public function status(User $actor, int $id, string $status, ?string $reason): User
     {
         return $this->change($actor, $id, function (User $target, $admins) use ($actor, $status, $reason): void {
-            if ($target->id === $actor->id && $status !== User::STATUS_ACTIVE) $this->conflict('You cannot change your own account to this status.');
-            if ($target->account_status === $status) return;
+            if ($target->id === $actor->id && $status !== User::STATUS_ACTIVE) {
+                $this->conflict('You cannot change your own account to this status.');
+            }
+            if ($target->account_status === $status) {
+                return;
+            }
             if ($target->role === User::ROLE_ADMIN && $target->hasVerifiedEmail()
                 && $target->account_status === User::STATUS_ACTIVE && $status !== User::STATUS_ACTIVE
-                && $this->activeAdminCount($admins) <= 1) $this->conflict('The last verified active administrator must remain active.');
+                && $this->activeAdminCount($admins) <= 1) {
+                $this->conflict('The last verified active administrator must remain active.');
+            }
             $old = $target->account_status;
             $target->account_status = $status;
             $target->save();
@@ -91,8 +110,6 @@ class AdminUserService
                 throw ValidationException::withMessages(['admin_current_password' => ['Your administrator password is incorrect.']]);
             }
             $target->password = $password;
-            $target->password_session_version = Str::random(64);
-            $target->setRememberToken(Str::random(60));
             $target->save();
             Password::broker()->deleteToken($target);
             $this->revokeSessions($target);
@@ -122,12 +139,16 @@ class AdminUserService
         $mailer = config('mail.default');
         $members = in_array($mailer, ['failover', 'roundrobin'], true)
             ? config("mail.mailers.{$mailer}.mailers", []) : [];
-        if ($mailer === 'log' || in_array('log', $members, true)) return 'pending';
+        if ($mailer === 'log' || in_array('log', $members, true)) {
+            return 'pending';
+        }
         try {
             $target->sendPasswordResetNotification($token);
+
             return 'accepted';
         } catch (Throwable) {
             Log::warning('Administrator password reset notification failed.', ['target_id' => $target->id]);
+
             return 'pending';
         }
     }
@@ -152,8 +173,11 @@ class AdminUserService
                     ->header('Cache-Control', 'no-store, private'));
             }
             $target = $admins->firstWhere('id', $id) ?? User::query()->whereKey($id)->lockForUpdate()->first();
-            if (! $target) abort(404);
+            if (! $target) {
+                abort(404);
+            }
             $operation($target, $admins);
+
             return $target->fresh();
         }, 3);
     }
@@ -165,8 +189,11 @@ class AdminUserService
 
     private function revokeSessions(User $target): void
     {
-        // The default database session store uses the Core connection. Other
-        // drivers still receive fresh role/state checks on each protected request.
+        // Version checks invalidate retained sessions on every supported driver.
+        // Callers keep this write atomic with the account mutation and audit.
+        $target->password_session_version = Str::random(64);
+        $target->setRememberToken(Str::random(60));
+        $target->save();
         if (config('session.driver') === 'database'
             && (config('session.connection') === null || config('session.connection') === config('database.default'))) {
             DB::table(config('session.table', 'sessions'))->where('user_id', $target->id)->delete();

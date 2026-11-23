@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\AdministrativeAction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -92,5 +94,85 @@ class AdminMoviesTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $this->app->instance('env', 'local');
         $this->postJson('/api/v1/admin/movies/550/refresh')->assertStatus(419);
+    }
+
+    public static function refreshFailures(): array
+    {
+        return [
+            'provider failure before write' => [503, ['code' => 'UPSTREAM_UNAVAILABLE'], 503, 'movie.refresh_failed'],
+            'provider not found before write' => [404, ['code' => 'MOVIE_NOT_FOUND'], 404, 'movie.refresh_failed'],
+            'lock or cooldown before write' => [409, [], 409, 'movie.refresh_failed'],
+            'unclassified unavailable' => [503, [], 503, 'movie.refresh_unconfirmed'],
+            'unclassified not found' => [404, [], 404, 'movie.refresh_unconfirmed'],
+            'server error after possible write' => [500, ['message' => 'Internal secret'], 503, 'movie.refresh_unconfirmed'],
+            'invalid success after possible write' => [200, ['data' => []], 503, 'movie.refresh_unconfirmed'],
+        ];
+    }
+
+    #[DataProvider('refreshFailures')]
+    public function test_audit_classifies_only_confirmed_prewrite_failures(int $upstreamStatus, array $body, int $status, string $action): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
+        Http::fake(['*' => Http::response($body, $upstreamStatus)]);
+        $response = $this->postJson('/api/v1/admin/movies/550/refresh')->assertStatus($status);
+        $this->assertStringNotContainsString('Internal secret', $response->getContent());
+        $this->assertDatabaseHas('administrative_actions', ['target_id' => 550, 'action' => $action, 'details' => null]);
+        $this->assertDatabaseCount('administrative_actions', 1);
+        Http::assertSentCount(1);
+    }
+
+    public static function connectionLosses(): array
+    {
+        return [['timeout', false], ['connection lost', false], ['reply lost after remote commit', true]];
+    }
+
+    #[DataProvider('connectionLosses')]
+    public function test_connection_losses_are_unconfirmed_and_never_automatically_retried(string $failure, bool $commit): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
+        $remoteCommitted = false;
+        $calls = 0;
+        Http::fake(function () use ($commit, $failure, &$remoteCommitted, &$calls) {
+            $calls++;
+            $remoteCommitted = $commit;
+            throw new ConnectionException($failure);
+        });
+        $this->postJson('/api/v1/admin/movies/550/refresh')->assertStatus(503)->assertJsonPath('code', 'UPSTREAM_UNAVAILABLE');
+        $this->assertSame($commit, $remoteCommitted);
+        $this->assertSame(1, $calls);
+        $this->assertDatabaseHas('administrative_actions', ['target_id' => 550, 'action' => 'movie.refresh_unconfirmed']);
+        $this->assertDatabaseCount('administrative_actions', 1);
+    }
+
+    public function test_audit_completion_failure_leaves_requested_intent_without_retrying_catalog(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
+        Http::fake(['*' => Http::response(['data' => array_replace($this->movie(), [
+            'metadata_status' => 'fresh', 'metadata_fetched_at' => now()->toISOString(),
+        ]), 'meta' => ['outcome' => 'refreshed']])]);
+        AdministrativeAction::updating(fn () => throw new \RuntimeException('Audit completion unavailable'));
+        try {
+            $this->postJson('/api/v1/admin/movies/550/refresh')->assertStatus(500);
+        } finally {
+            AdministrativeAction::flushEventListeners();
+        }
+        $this->assertDatabaseHas('administrative_actions', ['action' => 'movie.refresh_requested', 'target_id' => 550]);
+        $this->assertDatabaseCount('administrative_actions', 1);
+        Http::assertSentCount(1);
+    }
+
+    public function test_interruption_after_intent_preserves_incomplete_history_without_dispatch_or_retry(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
+        AdministrativeAction::created(fn () => throw new \RuntimeException('Simulated interruption after persisting intent'));
+        try {
+            $this->postJson('/api/v1/admin/movies/550/refresh')->assertStatus(500);
+        } finally {
+            AdministrativeAction::flushEventListeners();
+        }
+        $this->getJson('/api/v1/admin/actions?target_type=movie&target_id=550')->assertOk()
+            ->assertJsonPath('data.0.action', 'movie.refresh_requested');
+        $this->assertDatabaseCount('administrative_actions', 1);
+        Http::assertNothingSent();
     }
 }

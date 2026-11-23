@@ -8,7 +8,8 @@ import { useModerationActions } from '../hooks/useModeration'
 import '../moderation.css'
 
 const names: Record<string, string> = {
-  'movie.refreshed': 'Movie metadata refreshed', 'movie.refresh_requested': 'Movie refresh requested', 'movie.refresh_failed': 'Movie refresh failed',
+  'movie.refreshed': 'Movie metadata refreshed', 'movie.refresh_requested': 'Movie refresh incomplete', 'movie.refresh_failed': 'Movie refresh failed',
+  'movie.refresh_unconfirmed': 'Movie refresh outcome unconfirmed',
   'review.hidden': 'Review hidden', 'review.restored': 'Review restored', 'review.spoiler_set': 'Spoiler protection set',
   'review.spoiler_cleared': 'Spoiler protection removed', 'report.resolved': 'Report resolved', 'report.dismissed': 'Report dismissed',
   'user.created': 'Account created', 'user.updated': 'Account edited', 'user.role_changed': 'Role changed',
