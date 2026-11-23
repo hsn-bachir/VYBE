@@ -6,7 +6,10 @@ import './admin.css'
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const access = useOutletContext<Access>()
   const links = [{ to: '/admin', label: 'Overview', icon: 'overview', end: true },
-    ...(access.role === 'admin' ? [{ to: '/admin/users', label: 'Users', icon: 'users', end: false }] : []),
+    ...(access.role === 'admin' ? [
+      { to: '/admin/users', label: 'Users', icon: 'users', end: false },
+      { to: '/admin/movie-insights', label: 'Movie Insights', icon: 'insights', end: true },
+    ] : []),
     { to: '/admin/reports', label: 'Reports', icon: 'reports', end: false },
     { to: '/admin/reviews', label: 'Reviews', icon: 'reviews', end: false },
     { to: '/admin/actions', label: 'History', icon: 'history', end: false }]
@@ -20,6 +23,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 const iconPaths: Record<string, string> = {
   overview: 'M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z',
   users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+  insights: 'M3 3v18h18M8 16v-4m5 4V8m5 8V5',
   reports: 'M12 9v4m0 4h.01M10.3 3.9 2.5 17.5A2 2 0 0 0 4.2 20h15.6a2 2 0 0 0 1.7-2.5L13.7 3.9a2 2 0 0 0-3.4 0Z',
   reviews: 'M21 11.5a8.4 8.4 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5Z',
   history: 'M3 12a9 9 0 1 0 2.6-6.4M3 3v5h5m4-1v5l3 2',

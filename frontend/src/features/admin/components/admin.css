@@ -52,10 +52,11 @@
 .admin-access-actions .button { min-height: 38px; padding: .4rem .75rem; font-size: .84rem; }
 .admin-hint { color: var(--color-muted); font-size: .82rem; }
 .admin-dialog-actions { justify-content: flex-end; }
-.admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: .7rem; margin: 1rem 0 1.4rem; }
-.admin-stat { border: 1px solid var(--color-border); border-radius: 9px; padding: .8rem 1rem; background: var(--color-surface); }
-.admin-stat strong { display: block; font-size: 1.4rem; line-height: 1.3; }
+.admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 135px), 1fr)); gap: .7rem; margin: 1rem 0 1.4rem; }
+.admin-stat { min-width: 0; min-height: 4.55rem; border: 1px solid var(--color-border); border-radius: 9px; padding: .8rem 1rem; background: var(--color-surface); }
+.admin-stat strong { display: block; font-size: 1.4rem; line-height: 1.3; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .admin-stat span { color: var(--color-muted); font-size: .78rem; }
+.admin-platform-totals .admin-stat { border-top-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border)); }
 .admin-section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin: 1.4rem 0 .6rem; }
 .admin-section-heading h2 { font-size: 1.05rem; margin: 0; }
 .admin-quick-links { display: flex; flex-wrap: wrap; gap: .6rem; }
@@ -72,3 +73,24 @@
 @media (max-width: 650px) { .admin-filters { grid-template-columns: 1fr; } .admin-heading { flex-wrap: wrap; } .admin-pagination { align-items: flex-start; flex-direction: column; } .admin-table-wrap { border: 0; background: none; overflow: visible; } .admin-table, .admin-table tbody, .admin-table tr, .admin-table td { display: block; } .admin-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); } .admin-table tr { border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface); margin-bottom: .55rem; padding: .2rem .8rem; } .admin-table td { display: flex; justify-content: space-between; align-items: baseline; gap: .7rem; padding: .4rem 0; border-bottom: 1px solid var(--color-border); text-align: right; } .admin-table td::before { content: attr(data-label); color: var(--color-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; text-align: left; flex-shrink: 0; } .admin-table td:last-child { border: 0; } .admin-table td:first-child { align-items: center; } .admin-review-preview { max-width: 60%; } }
 .admin-detail-skeleton-title { width: min(300px, 65vw); height: 40px; border-radius: 6px; }
 .admin-detail-skeleton-panel { min-height: 250px; }
+
+.admin-insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 1rem; align-items: start; }
+.admin-ranking h2 { margin-bottom: .3rem; }
+.admin-ranking > p { margin: 0 0 .75rem; }
+.admin-ranked-list { margin: 0; padding: 0; list-style: none; }
+.admin-ranked-list li { display: grid; grid-template-columns: 2ch 40px minmax(0, 1fr) auto; align-items: center; gap: clamp(.45rem, 1vw, .75rem); padding: .6rem 0; border-top: 1px solid var(--color-border); }
+.admin-ranked-list li:last-child { padding-bottom: 0; }
+.admin-rank-position, .admin-rank-metric { font-variant-numeric: tabular-nums; text-align: right; }
+.admin-rank-position { font-size: .82rem; color: var(--color-muted); }
+.admin-rank-poster { width: 40px; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 5px; background: var(--color-background); }
+.admin-rank-poster .poster-fallback { padding: 0; }
+.admin-rank-poster .poster-fallback span { display: none; }
+.admin-rank-poster .poster-fallback img { width: 48%; }
+.admin-rank-title { min-width: 0; overflow-wrap: anywhere; }
+.admin-rank-title a { display: inline-block; min-height: 24px; font-size: .9rem; font-weight: 650; }
+.admin-rank-title span, .admin-rank-metric > span, .admin-rank-metric small { display: block; font-size: .75rem; color: var(--color-muted); }
+.admin-rank-metric strong { font-size: .95rem; }
+.admin-rank-metric small { display: inline; font-weight: 400; }
+.admin-rank-star { color: var(--color-primary); }
+.admin-ranking-skeleton.skeleton { height: 60px; border-radius: 5px; margin-top: .65rem; background: color-mix(in srgb, var(--color-border) 65%, var(--color-surface)); }
+.admin-insights-feedback { display: grid; justify-items: start; gap: .65rem; margin-bottom: 1rem; }
