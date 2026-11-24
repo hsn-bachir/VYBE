@@ -1,0 +1,46 @@
+.admin-genres { margin-top: 1rem; }
+.admin-genres > h2 { margin-bottom: .3rem; }
+.admin-genres > p { margin: 0 0 .8rem; }
+.admin-genre-coverage { display: grid; gap: .25rem; color: var(--color-muted); font-size: .82rem; margin: 0 0 .8rem; }
+.admin-genre-coverage p { margin: 0; }
+.admin-genre-coverage strong { color: var(--color-foreground); font-weight: 650; }
+.admin-genre-list { margin: 0; padding: 0; list-style: none; }
+.admin-genre-list li { display: grid; grid-template-columns: 2ch minmax(0, 10rem) minmax(0, 1fr) min(22%, 5.5rem); gap: .75rem; align-items: center; padding: .7rem 0; border-top: 1px solid var(--color-border); font-size: .85rem; }
+.admin-genre-list strong { font-weight: 650; overflow-wrap: anywhere; }
+.admin-genre-track { height: 7px; border-radius: 999px; background: var(--color-background); overflow: hidden; }
+.admin-genre-track span { display: block; height: 100%; border-radius: inherit; background: var(--color-primary); }
+.admin-genre-count { text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.admin-analytics-options { display: flex; flex-wrap: wrap; gap: .45rem; }
+.admin-analytics-options .button { min-height: 36px; padding: .4rem .7rem; font-size: .82rem; }
+.admin-analytics-options .button[aria-pressed="true"] { color: var(--color-foreground); border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 22%, var(--color-surface)); }
+.admin-activity-figure { margin: .9rem 0 0; }
+.admin-activity-chart-top { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: .65rem; margin: 0 0 .8rem; }
+.admin-activity-readout { display: grid; font-size: .9rem; font-variant-numeric: tabular-nums; }
+.admin-activity-readout time, .admin-activity-date { color: var(--color-muted); font-size: .8rem; }
+.admin-activity-date { display: flex; align-items: center; gap: .45rem; }
+.admin-activity-date select { width: auto; min-height: 36px; padding: .3rem .55rem; }
+.admin-activity-plot { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .55rem; row-gap: .35rem; font-size: .75rem; color: var(--color-muted); }
+.admin-activity-y { display: flex; flex-direction: column; justify-content: space-between; text-align: right; font-variant-numeric: tabular-nums; }
+.admin-activity-bars { display: grid; gap: clamp(2px, .55vw, 7px); height: clamp(8rem, 23vw, 14rem); position: relative; border-block: 1px solid var(--color-border); }
+.admin-activity-bars[data-dense="true"] { gap: 1px; }
+.admin-activity-bars::before { content: ''; position: absolute; inset: 50% 0 auto; border-top: 1px solid var(--color-border); pointer-events: none; }
+.admin-activity-bars button { display: flex; align-items: end; justify-content: center; min-width: 0; padding: 0; position: relative; border: 0; background: transparent; cursor: pointer; }
+.admin-activity-bars button span { width: min(100%, 32px); min-height: 2px; border-radius: 3px 3px 0 0; background: color-mix(in srgb, var(--color-primary) 65%, var(--color-surface)); }
+.admin-activity-bars button[data-inspected="true"] { background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
+.admin-activity-bars button[data-inspected="true"] span { background: var(--color-primary); }
+.admin-activity-bars button:focus-visible { z-index: 1; outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.admin-activity-x { grid-column: 2; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.admin-activity-x span:nth-child(2) { text-align: center; }
+.admin-activity-x span:last-child { text-align: right; }
+.admin-activity-contributors { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem .8rem; margin-top: .85rem; }
+.admin-activity-contributors p { margin: 0; }
+.admin-activity-contributors p:first-child { font-size: .85rem; font-weight: 650; }
+.admin-activity-contributors strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.admin-analytics-feedback { margin-top: 1rem; }
+.admin-analytics-skeleton.skeleton { height: 36px; border-radius: 5px; margin-top: .5rem; background: color-mix(in srgb, var(--color-border) 65%, var(--color-surface)); }
+.admin-analytics-plot-skeleton { height: 16rem; border-radius: 10px; }
+
+@media (max-width: 480px) {
+  .admin-genre-list li { grid-template-columns: 2ch minmax(0, 1fr) minmax(2.5rem, .55fr) min(22%, 5.5rem); gap: .45rem; }
+  .admin-activity-chart, .admin-genres { padding: .8rem; }
+}

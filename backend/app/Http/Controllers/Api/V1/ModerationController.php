@@ -25,19 +25,22 @@ class ModerationController extends Controller
     public function overview(ModerationRequest $request): JsonResponse
     {
         $admin = $request->user()->role === User::ROLE_ADMIN;
-        // Aggregate independent tables in one round trip. The recent queue remains
-        // a separate bounded query so it can use its ordering index.
-        $counts = DB::selectOne("SELECT reviews.hidden_reviews, reviews.enforced_spoilers,
-                reports.pending_reports, reports.handled_reports".($admin ? ", users.total_users,
-                users.restricted_users, users.banned_users, users.deactivated_users" : '')."
+        // Aggregate independent tables in one round trip. Query the recent queue separately.
+        $counts = DB::selectOne('SELECT reviews.hidden_reviews, reviews.enforced_spoilers,
+                reports.pending_reports, reports.handled_reports'.($admin ? ', users.total_users,
+                  users.restricted_users, users.banned_users, users.deactivated_users,
+                  reviews.total_reviews, ratings.total_ratings, watched.total_watched_entries' : '')."
             FROM (SELECT COUNT(CASE WHEN visibility = 'hidden' THEN 1 END) AS hidden_reviews,
-                COUNT(CASE WHEN moderator_spoiler THEN 1 END) AS enforced_spoilers FROM reviews) reviews
+                COUNT(CASE WHEN moderator_spoiler THEN 1 END) AS enforced_spoilers".
+                ($admin ? ', COUNT(*) AS total_reviews' : '')." FROM reviews) reviews
             CROSS JOIN (SELECT COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending_reports,
                 COUNT(CASE WHEN status IN ('resolved', 'dismissed') THEN 1 END) AS handled_reports FROM reports) reports".
             ($admin ? " CROSS JOIN (SELECT COUNT(*) AS total_users,
                 COUNT(CASE WHEN account_status = 'restricted' THEN 1 END) AS restricted_users,
                 COUNT(CASE WHEN account_status = 'banned' THEN 1 END) AS banned_users,
-                COUNT(CASE WHEN account_status = 'deactivated' THEN 1 END) AS deactivated_users FROM users) users" : ''));
+                COUNT(CASE WHEN account_status = 'deactivated' THEN 1 END) AS deactivated_users FROM users) users
+            CROSS JOIN (SELECT COUNT(*) AS total_ratings FROM movie_ratings) ratings
+            CROSS JOIN (SELECT COUNT(*) AS total_watched_entries FROM watched_movies) watched" : ''));
         $recent = Report::query()->select(['id', 'target_id', 'reason', 'status', 'created_at'])
             ->orderByDesc('created_at')->orderByDesc('id')->limit(5)->get()->map(fn (Report $report) => [
                 'id' => $report->id, 'review_id' => $report->target_id, 'reason' => $report->reason,
@@ -49,6 +52,11 @@ class ModerationController extends Controller
         if ($admin) {
             $data['users'] = ['total' => (int) $counts->total_users, 'restricted' => (int) $counts->restricted_users,
                 'banned' => (int) $counts->banned_users, 'deactivated' => (int) $counts->deactivated_users];
+            $data['activity'] = [
+                'total_reviews' => (int) $counts->total_reviews,
+                'total_ratings' => (int) $counts->total_ratings,
+                'total_watched_entries' => (int) $counts->total_watched_entries,
+            ];
         }
 
         return response()->json(['data' => $data]);

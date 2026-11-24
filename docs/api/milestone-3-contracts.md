@@ -1,5 +1,7 @@
 # M3 API contracts — implemented access, account management and moderation; recommendations proposed
 
+M7.6 adds the [administrator movie management contract](admin-movies.md) for local listing, inspection and audited refresh.
+
 **Firebase mode (Phase 2D):** The M3.1C administrator identity and invitation descriptions below apply to `AUTH_IDENTITY_PROVIDER=legacy`. In Firebase mode, use the [Phase 2D contract](contracts.md) and [runbook](../development/firebase-phase-2d.md): Firebase owns passwords and authentication email, Core retains authorization and audit, and invitation acceptance uses `/auth/firebase/invitations/accept`. Role/status/moderation behavior below remains unchanged.
 
 ## M3.2.5 current admin contract (2026-11-06)
@@ -8,7 +10,10 @@ This section supersedes older reason requirements and list descriptions below. A
 
 | Endpoint | Current request and response |
 | --- | --- |
-| `GET /admin/overview` | No query or body fields. Returns `data` with real `pending_reports`, `handled_reports`, `hidden_reviews`, `enforced_spoilers`, and at most five `recent_reports`. Administrators also receive `users:{total,restricted,banned,deactivated}`; moderators do not. |
+| `GET /admin/overview` | No query or body fields. Returns `data` with `pending_reports`, `handled_reports`, `hidden_reviews`, `enforced_spoilers`, and at most five `recent_reports`. Administrators also receive `users:{total,restricted,banned,deactivated}` and the [M7 activity totals](admin-movie-insights.md). Moderators receive the existing moderation fields. |
+| `GET /admin/movie-insights` | Administrator-only. Returns two Top 10 lists of Core-owned watched and VYBE rating aggregates with nullable Catalog metadata. See the [M7 contract](admin-movie-insights.md) for the DTO, ranking and fallback behavior. |
+| `GET /admin/genre-insights` | Administrator-only. Returns the Top 10 genres among the 50 most-watched movies with cohort and metadata coverage counts. See the [M7 contract](admin-movie-insights.md#get-apiv1admingenre-insights). |
+| `GET /admin/activity-analytics` | Administrator-only. `range=7`, `30` or `90` selects a UTC series, totals and distinct active contributors from retained Core records. See the [M7 contract](admin-movie-insights.md#get-apiv1adminactivity-analyticsrange30). |
 | `GET /admin/reports` | Adds `status=all`, `target_id` and `compact=1` to the existing bounded page/status filters. Default remains pending, ordered oldest first. `compact=1` omits the nested full review body and supplies a bounded `body_preview`. Report detail still returns full available review content. |
 | `GET /admin/reviews` | Adds `scope=needs_attention\|actioned\|all`, `actioned_type=hidden\|spoiler` and `compact=1` to the existing bounded filters. Omitting `scope` preserves the earlier all-reviews API behavior; the UI explicitly selects Needs Attention by default. `needs_attention` means at least one pending report; `actioned` means hidden or moderator spoiler enforced. Each row includes `pending_report_count` and a bounded `body_preview`. `compact=1` omits `body`; full review is available through `GET /admin/reviews/{id}`. |
 | `GET /admin/movie-summaries` | `tmdb_ids[]=...` accepts 1–50 distinct canonical positive TMDB IDs. Reuses Core's authenticated Catalog batch client and existing summary envelope. Missing titles appear in `meta.missing_tmdb_ids`; Catalog failure is a safe 503. No per-row or browser-to-Catalog request. |
@@ -64,6 +69,12 @@ Representative proposed errors (messages contain no SQL, token, or target inform
 
 The five GET/PATCH/PUT endpoints are implemented in M3.1B. Account creation, invitation resend and password management are implemented in M3.1C; DELETE remains deferred. On implemented endpoints, uniqueness failures are 422 field errors; 409 denotes a prohibited state transition.
 
+M7.7 deliberately rejects changed Firebase authentication emails for **all administrator targets**, including self, another administrator and the last verified administrator: `409 ADMIN_EMAIL_CHANGE_UNAVAILABLE`. The check runs under existing live authorization/target locks before session revocation, audit creation or Firebase mutation. A valid administrator identity confirmation remains required. Administrator username-only edits and unchanged email values remain supported. Ordinary-user/moderator Firebase email changes retain confirmation, collision checks, early session revocation and partial-failure retry. Legacy-mode email safeguards remain unchanged. This avoids a cross-system administrator-availability race without holding SQL row locks across additional Firebase network calls.
+
+Role/status changes rotate the existing `password_session_version` and remember token, as well as deleting compatible database sessions, atomically with mutation and audit. This applies in both identity-provider modes and invalidates retained sessions on file and database drivers. No-op transitions do not revoke sessions. Restoration requires a fresh login; an old session never becomes valid again merely because status returns to active.
+
+Deactivation is an access restriction, not deletion: current user records, reviews, ratings, lists, activity source records, reports and audit history are retained. No hard-delete endpoint is implemented and deactivation does not delete the Firebase identity. Hard deletion requires a separately approved retention, privacy and Firebase identity policy.
+
 User projection for admins is `{id, username, email, email_verified_at, role, account_status, invitation_pending, created_at, updated_at}`. Never expose password, reset tokens, session IDs, remember token, private library, bio or avatar storage paths. Responses show data only to A. Admin list/search is throttled initially 60/minute/actor and 120/minute/IP; mutations 20/minute/actor and 60/minute/IP.
 
 | Method and path | Request / validation | Success and behavior |
@@ -73,7 +84,7 @@ User projection for admins is `{id, username, email, email_verified_at, role, ac
 | `POST /admin/users`  | A; `{username,email}` only, existing normalized username/email uniqueness and bounds. Role is always `user`, status active, email unverified. | 201 `{data:{user, invitation_delivery:"accepted"\|"pending"}}`. Create a non-usable random password hash, generate one-use setup token and send after commit; never expose secret. On delivery failure retain unverified account, report `pending`, and offer explicit resend. Duplicate 422; no accidental second account on retry. |
 | `POST /admin/users/{id}/invitation`  | A; no body, only eligible unverified invitee; throttle 3/hour/target plus admin limits. | 202 `{data:{invitation_delivery:"accepted"\|"pending"}}`; invalidate older setup token before reissue, same safe 404 for absent/ineligible. |
 | `PATCH /admin/users/{id}` | A; one/both `username`, `email`; existing normalization/uniqueness. No role, status, password, verification, bio or avatar fields. | 200 updated projection; email change clears verification and revokes sessions. 422 duplicate/invalid. Same values are a no-op. |
-| `PUT /admin/users/{id}/role` | A; `{role:"user"\|"moderator",reason:string}`; reason 1–1000. | 200 updated projection. Cannot promote to admin or alter any admin role through API; cannot change own role. Same role is 200/no log. Revoke target database sessions on actual change. |
+| `PUT /admin/users/{id}/role` | A; `{role:"user"\|"moderator",reason:string}`; reason 1–1000. | 200 updated projection. Cannot promote to admin or alter any admin role through API; cannot change own role. Same role is 200/no log. Rotate session version/remember token and delete compatible database sessions on actual change. |
 | `PUT /admin/users/{id}/status` | A; `{account_status:"active"\|"restricted"\|"banned"\|"deactivated",reason:string}`; reason 1–1000. | 200 updated projection. Same state is 200/no log. Prohibit self restriction/ban/deactivation and last active admin loss (409); role change/deactivation/ban updates are atomic with audit and revocation. Restoring sets `active`. |
 | `DELETE /admin/users/{id}` (deferred; no route exists) | Retention decision required. | No M3.1C hard deletion. |
 

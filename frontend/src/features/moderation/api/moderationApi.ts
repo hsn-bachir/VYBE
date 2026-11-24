@@ -24,7 +24,8 @@ export type Action = {
 export type Page<T> = { data: T[]; meta: { page: number; per_page: number; total_pages: number; total_results: number } }
 export type AdminOverview = { pending_reports: number; handled_reports: number; hidden_reviews: number; enforced_spoilers: number
   recent_reports: { id: number; review_id: number; reason: ReportReason; status: ReportStatus; created_at: string }[]
-  users?: { total: number; restricted: number; banned: number; deactivated: number } }
+  users?: { total: number; restricted: number; banned: number; deactivated: number }
+  activity?: { total_reviews: number; total_ratings: number; total_watched_entries: number } }
 export type ReportFilters = { page: number; per_page: number; status: ReportStatus | 'all'; target_id?: string }
 export type ReviewFilters = { page: number; per_page: number; visibility: '' | 'visible' | 'hidden'; tmdb_id: string
   scope?: 'needs_attention' | 'actioned' | 'all'; actioned_type?: '' | 'hidden' | 'spoiler' }

@@ -130,15 +130,7 @@ class MovieCatalogClient
     /** @param list<int> $tmdbIds Up to 50 IDs before deduplication; empty pages need no HTTP. */
     public function summaries(array $tmdbIds): array
     {
-        if (! array_is_list($tmdbIds) || count($tmdbIds) > 50) {
-            throw new InvalidArgumentException('Expected a list of at most 50 TMDB IDs.');
-        }
-        foreach ($tmdbIds as $id) {
-            if (! is_int($id) || $id < 1 || $id > 2147483647) {
-                throw new InvalidArgumentException('TMDB IDs must be integers between 1 and 2147483647.');
-            }
-        }
-        $ids = array_values(array_unique($tmdbIds));
+        $ids = $this->batchIds($tmdbIds);
         if ($ids === []) {
             return ['data' => [], 'meta' => ['requested_count' => 0, 'returned_count' => 0, 'missing_tmdb_ids' => []]];
         }
@@ -190,6 +182,111 @@ class MovieCatalogClient
         ]];
     }
 
+    /** @param list<int> $tmdbIds Up to 50 IDs. Returns genre lists or null, keyed by TMDB ID. */
+    public function genres(array $tmdbIds): array
+    {
+        $ids = $this->batchIds($tmdbIds);
+        if ($ids === []) {
+            return [];
+        }
+
+        $rows = $this->request('genres', ['tmdb_ids' => $ids], method: 'POST')['data'] ?? null;
+        if (! is_array($rows) || ! array_is_list($rows) || count($rows) !== count($ids)) {
+            throw new CatalogFailure;
+        }
+
+        $requested = array_fill_keys($ids, true);
+        $movies = [];
+        foreach ($rows as $row) {
+            $id = is_array($row) ? ($row['tmdb_id'] ?? null) : null;
+            if (! is_int($id) || ! isset($requested[$id]) || array_key_exists($id, $movies) || ! array_key_exists('genres', $row)) {
+                throw new CatalogFailure;
+            }
+
+            $genres = $row['genres'];
+            if ($genres === null) {
+                $movies[$id] = null;
+
+                continue;
+            }
+            if (! is_array($genres) || ! array_is_list($genres) || count($genres) > 32) {
+                throw new CatalogFailure;
+            }
+            $movies[$id] = [];
+            foreach ($genres as $genre) {
+                if (! is_array($genre) || ! is_int($genre['id'] ?? null) || $genre['id'] < 1 || $genre['id'] > 2147483647
+                    || ! is_string($genre['name'] ?? null) || trim($genre['name']) === '' || mb_strlen($genre['name']) > 255) {
+                    throw new CatalogFailure;
+                }
+                $genreId = $genre['id'];
+                $name = trim($genre['name']);
+                if (! isset($movies[$id][$genreId]) || strcmp($name, $movies[$id][$genreId]) < 0) {
+                    $movies[$id][$genreId] = $name;
+                }
+            }
+        }
+
+        return $movies;
+    }
+
+    private function batchIds(array $tmdbIds): array
+    {
+        if (! array_is_list($tmdbIds) || count($tmdbIds) > 50) {
+            throw new InvalidArgumentException('Expected a list of at most 50 TMDB IDs.');
+        }
+        foreach ($tmdbIds as $id) {
+            if (! is_int($id) || $id < 1 || $id > 2147483647) {
+                throw new InvalidArgumentException('TMDB IDs must be integers between 1 and 2147483647.');
+            }
+        }
+
+        return array_values(array_unique($tmdbIds));
+    }
+
+    public function managedMovies(array $params, ?int $id = null, bool $refresh = false): array
+    {
+        $body = $this->request('manage'.($id === null ? '' : '/'.$id).($refresh ? '/refresh' : ''), $params, method: $refresh ? 'POST' : 'GET');
+        $rows = $id === null ? ($body['data'] ?? null) : [$body['data'] ?? null];
+        if (! is_array($rows) || ! array_is_list($rows) || count($rows) > 20) {
+            throw new CatalogFailure;
+        }
+        $result = [];
+        foreach ($rows as $row) {
+            if (! is_array($row) || Validator::make($row, [
+                'metadata_status' => ['required', 'in:fresh,stale,not_hydrated'],
+                'metadata_fetched_at' => ['present', 'nullable', 'date'],
+            ])->fails()) {
+                throw new CatalogFailure;
+            }
+            $genres = $row['genres'] ?? null;
+            $row['genres'] = $genres ?? [];
+            $movie = $this->movie($row, true);
+            if ($id !== null && $movie['tmdb_id'] !== $id) {
+                throw new CatalogFailure;
+            }
+            $movie['genres'] = $genres === null ? null : $movie['genres'];
+            $movie['metadata_status'] = $row['metadata_status'];
+            $movie['metadata_fetched_at'] = $row['metadata_fetched_at'];
+            $result[] = $movie;
+        }
+        if ($id !== null) {
+            if ($refresh && (($body['meta']['outcome'] ?? null) !== 'refreshed'
+                || $result[0]['metadata_status'] !== 'fresh' || $result[0]['metadata_fetched_at'] === null)) {
+                throw new CatalogFailure;
+            }
+
+            return ['data' => $result[0]];
+        }
+        $meta = $body['meta'] ?? [];
+        foreach (['page', 'total_pages', 'total_results'] as $field) {
+            if (! is_int($meta[$field] ?? null) || $meta[$field] < 0) {
+                throw new CatalogFailure;
+            }
+        }
+
+        return ['data' => $result, 'meta' => array_intersect_key($meta, array_flip(['page', 'total_pages', 'total_results']))];
+    }
+
     private function listing(string $operation, array $params): array
     {
         $body = $this->request($operation, $params);
@@ -213,17 +310,22 @@ class MovieCatalogClient
 
     private function request(string $path, array $params, bool $detail = false, string $method = 'GET'): array
     {
+        $refresh = $method === 'POST' && str_starts_with($path, 'manage/') && str_ends_with($path, '/refresh');
         $url = config('movie_catalog.url');
         $token = config('movie_catalog.token');
         if (! is_string($url) || ! filter_var($url, FILTER_VALIDATE_URL)
             || ! in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true)
             || ! is_string($token) || trim($token) === '') {
-            throw new CatalogFailure;
+            throw new CatalogFailure(refreshFailed: $refresh); // No request was dispatched.
         }
         try {
             $response = Http::acceptJson()->withHeaders(['X-VYBE-Service-Token' => $token])
                 ->connectTimeout(config('movie_catalog.connect_timeout'))
-                ->timeout($path === 'recommendation-candidates' ? 25 : ($path === 'summaries' ? config('movie_catalog.summary_timeout') : config('movie_catalog.timeout')))->withoutRedirecting()
+                ->timeout(match ($path) {
+                    'recommendation-candidates' => 25,
+                    'summaries', 'genres' => config('movie_catalog.summary_timeout'),
+                    default => config('movie_catalog.timeout'),
+                })->withoutRedirecting()
                 ->send($method, rtrim($url, '/').'/api/internal/v1/movies/'.$path, [
                     $method === 'POST' ? 'json' : 'query' => $params,
                 ]);
@@ -231,6 +333,17 @@ class MovieCatalogClient
             throw new CatalogFailure;
         }
         $body = $response->json();
+        // These existing Catalog responses occur before the base metadata upsert:
+        // lock/cooldown rejection, provider not-found, or provider/normalization
+        // failure. Generic 5xx, lost replies and invalid success DTOs prove nothing.
+        if ($refresh && ($response->status() === 409
+            || ($response->status() === 404 && ($body['code'] ?? null) === 'MOVIE_NOT_FOUND')
+            || ($response->status() === 503 && ($body['code'] ?? null) === 'UPSTREAM_UNAVAILABLE'))) {
+            throw new CatalogFailure($response->status(), refreshFailed: true);
+        }
+        if (str_starts_with($path, 'manage/') && in_array($response->status(), [404, 409], true)) {
+            throw new CatalogFailure($response->status());
+        }
         if ($detail && $response->status() === 404 && ($body['code'] ?? null) === 'MOVIE_NOT_FOUND') {
             throw new CatalogFailure(404);
         }

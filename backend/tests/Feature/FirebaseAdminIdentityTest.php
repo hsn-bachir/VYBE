@@ -25,21 +25,21 @@ class FirebaseAdminIdentityTest extends TestCase
     use RefreshDatabase;
 
     protected function setUp(): void
-{
-    parent::setUp();
+    {
+        parent::setUp();
 
-    config()->set('firebase_auth.mode', 'firebase');
-    config()->set('firebase_auth.project_id', 'vybe-test');
+        config()->set('firebase_auth.mode', 'firebase');
+        config()->set('firebase_auth.project_id', 'vybe-test');
 
-    // Prevent tests from constructing the real Firebase Admin SDK.
-    // Individual tests can replace this with their own strict mock.
-    $this->app->instance(
-        Auth::class,
-        Mockery::mock(Auth::class)
-    );
+        // Prevent tests from constructing the real Firebase Admin SDK.
+        // Individual tests can replace this with their own strict mock.
+        $this->app->instance(
+            Auth::class,
+            Mockery::mock(Auth::class)
+        );
 
-    Mail::fake();
-}
+        Mail::fake();
+    }
 
     private function admin(string $role = 'admin', string $status = 'active'): User
     {
@@ -475,6 +475,104 @@ class FirebaseAdminIdentityTest extends TestCase
             ->assertStatus(503)->assertJsonPath('code', 'IDENTITY_UNAVAILABLE');
         $this->assertDatabaseCount('password_reset_tokens', 0);
         $this->assertDatabaseHas('administrative_actions', ['action' => 'user.password_reset_delivery_failed', 'target_id' => $target->id]);
+    }
+
+    public function test_administrator_email_attempts_cannot_remove_either_verified_administrator(): void
+    {
+        $first = $this->admin();
+        $second = $this->target(['role' => 'admin']);
+        $before = [$first->fresh()->getAttributes(), $second->fresh()->getAttributes()];
+        $authentication = Mockery::mock(FirebaseAuthentication::class);
+        $authentication->shouldReceive('verify')->andReturnUsing(fn (string $token) => str_starts_with($token, 'first')
+            ? new FirebaseIdentity($first->firebase_uid, $first->email, true)
+            : new FirebaseIdentity($second->firebase_uid, $second->email, true));
+        $this->app->instance(FirebaseAuthentication::class, $authentication);
+        // Strict SDK mock has no expectations: neither competing attempt nor
+        // a retry may reach any Firebase read/write after identity confirmation.
+        foreach ([[$first, 'first-token'], [$second, 'second-token'], [$first, 'first-retry']] as [$actor, $token]) {
+            \Illuminate\Support\Facades\Auth::forgetGuards();
+            $this->actingAs($actor, 'web')->patchJson("/api/v1/admin/users/{$actor->id}", [
+                'email' => $token.'@example.test', 'admin_id_token' => $token,
+            ])->assertStatus(409)->assertJsonPath('code', 'ADMIN_EMAIL_CHANGE_UNAVAILABLE');
+        }
+        $this->assertEquals($before, [$first->fresh()->getAttributes(), $second->fresh()->getAttributes()]);
+        $this->assertSame(2, User::where('role', 'admin')->where('account_status', 'active')->whereNotNull('email_verified_at')->count());
+        $this->assertDatabaseCount('administrative_actions', 0);
+    }
+
+    public function test_last_administrator_email_is_rejected_but_username_editing_is_preserved(): void
+    {
+        $admin = $this->admin();
+        $this->fresh();
+        $this->actingAs($admin, 'web')->patchJson("/api/v1/admin/users/{$admin->id}", [
+            'email' => 'replacement@example.test', 'username' => 'blocked_name', 'admin_id_token' => 'fresh-admin-token',
+        ])->assertStatus(409)->assertJsonPath('code', 'ADMIN_EMAIL_CHANGE_UNAVAILABLE');
+        $this->assertSame($admin->email, $admin->fresh()->email);
+        $this->assertSame($admin->username, $admin->fresh()->username);
+        $this->assertNull($admin->fresh()->password_session_version);
+        $this->assertDatabaseCount('administrative_actions', 0);
+        $this->patchJson("/api/v1/admin/users/{$admin->id}", ['username' => 'renamed_admin', 'email' => $admin->email])
+            ->assertOk()->assertJsonPath('data.username', 'renamed_admin');
+        $this->assertTrue($admin->fresh()->hasVerifiedEmail());
+        $this->assertNull($admin->fresh()->password_session_version);
+    }
+
+    public function test_administrator_email_rejection_is_safe_on_either_side_of_a_status_change(): void
+    {
+        $actor = $this->admin();
+        $target = $this->target(['role' => 'admin']);
+        $this->fresh();
+        foreach (['before-status', 'after-status'] as $token) {
+            $this->actingAs($actor, 'web')->patchJson("/api/v1/admin/users/{$target->id}", [
+                'email' => 'replacement@example.test', 'admin_id_token' => $token,
+            ])->assertStatus(409)->assertJsonPath('code', 'ADMIN_EMAIL_CHANGE_UNAVAILABLE');
+            if ($token === 'before-status') {
+                $this->putJson("/api/v1/admin/users/{$target->id}/status", [
+                    'account_status' => 'banned', 'reason' => 'Policy',
+                ])->assertOk();
+            }
+        }
+        $this->assertSame($target->email, $target->fresh()->email);
+        $this->assertTrue($actor->fresh()->hasVerifiedEmail());
+        $this->assertDatabaseCount('administrative_actions', 1);
+        $this->assertDatabaseMissing('administrative_actions', ['action' => 'user.email_change_requested']);
+    }
+
+    public function test_provider_email_failure_keeps_sql_email_and_revocation_and_allows_retry(): void
+    {
+        $admin = $this->admin();
+        $target = $this->target();
+        $firebase = Mockery::mock(Auth::class);
+        $firebase->shouldReceive('getUser')->twice()->with('target-uid')->andReturn($this->record());
+        $lookups = 0;
+        $firebase->shouldReceive('getUserByEmail')->times(3)->with('new@example.test')->andReturnUsing(function () use (&$lookups) {
+            if (++$lookups <= 2) {
+                throw new EmailNotFound;
+            }
+
+            return $this->record(email: 'new@example.test', verified: false);
+        });
+        $writes = 0;
+        $firebase->shouldReceive('updateUser')->twice()->with('target-uid', ['email' => 'new@example.test', 'emailVerified' => false])
+            ->andReturnUsing(function () use (&$writes) {
+                if (++$writes === 1) {
+                    throw new \RuntimeException('Simulated Firebase outage');
+                }
+
+                return $this->record(email: 'new@example.test', verified: false);
+            });
+        $firebase->shouldReceive('revokeRefreshTokens')->once()->with('target-uid');
+        $this->app->instance(Auth::class, $firebase);
+        $this->fresh();
+        $this->actingAs($admin, 'web')->patchJson("/api/v1/admin/users/{$target->id}", [
+            'email' => 'new@example.test', 'admin_id_token' => 'first-token',
+        ])->assertStatus(503);
+        $this->assertSame($target->email, $target->fresh()->email);
+        $this->assertNotNull($target->fresh()->password_session_version);
+        $this->patchJson("/api/v1/admin/users/{$target->id}", [
+            'email' => 'new@example.test', 'admin_id_token' => 'retry-token',
+        ])->assertOk()->assertJsonPath('data.email', 'new@example.test');
+        $this->assertDatabaseHas('administrative_actions', ['action' => 'user.updated', 'target_id' => $target->id]);
     }
 
     public function test_email_change_retries_after_sql_audit_failure_with_old_sessions_revoked(): void

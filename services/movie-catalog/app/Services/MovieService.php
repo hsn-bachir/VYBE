@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\MovieNotFound;
 use App\Exceptions\UpstreamUnavailable;
 use App\Integrations\Tmdb\MovieNormalizer;
 use App\Integrations\Tmdb\TmdbClient;
@@ -34,6 +35,43 @@ class MovieService
         return ['movies' => $movies, 'meta' => [
             'requested_count' => count($ids), 'returned_count' => count($movies), 'missing_tmdb_ids' => $missing,
         ]];
+    }
+
+    /** @param list<int> $ids Validated, bounded TMDB IDs. */
+    public function cachedGenres(array $ids): array
+    {
+        $ids = array_values(array_unique($ids));
+        $stored = Movie::whereIn('tmdb_id', $ids)->get(['tmdb_id', 'genres'])->keyBy('tmdb_id');
+
+        return array_map(fn (int $id) => [
+            'tmdb_id' => $id,
+            'genres' => $this->genreList($stored->get($id)?->genres),
+        ], $ids);
+    }
+
+    private function genreList(mixed $genres): ?array
+    {
+        if (! is_array($genres) || ! array_is_list($genres)) {
+            return null;
+        }
+
+        $unique = [];
+        foreach ($genres as $genre) {
+            if (! is_array($genre) || ! is_int($genre['id'] ?? null) || $genre['id'] < 1 || $genre['id'] > 2147483647
+                || ! is_string($genre['name'] ?? null) || trim($genre['name']) === '' || mb_strlen($genre['name']) > 255) {
+                return null;
+            }
+            $id = $genre['id'];
+            $name = trim($genre['name']);
+            if (! isset($unique[$id]) || strcmp($name, $unique[$id]['name']) < 0) {
+                $unique[$id] = ['id' => $id, 'name' => $name];
+            }
+            if (count($unique) > 32) {
+                return null;
+            }
+        }
+
+        return array_values($unique);
     }
 
     public function ranking(int $page, ?string $query = null): array
@@ -175,24 +213,34 @@ class MovieService
         });
     }
 
-    public function details(int $id): array
+    public function details(int $id, bool $force = false): array
     {
         $movie = Movie::where('tmdb_id', $id)->first();
-        if ($this->fresh($movie)) {
+        if ($force && ! $movie) {
+            abort(404, 'Local movie not found.');
+        }
+        if (! $force && $this->fresh($movie)) {
             return [$movie, false];
         }
         $cooldown = 'catalog:detail:cooldown:'.$id;
         if (Cache::has($cooldown)) {
+            abort_if($force, 409, 'Refresh cooldown is active. Try again shortly.');
+
             return $this->fallback($movie);
         }
         // Nonblocking lock: concurrent readers can use stale data, but never start a stampede.
         $lock = Cache::lock('catalog:detail:lock:'.$id, 2 * config('catalog.request_timeout_seconds') + 10);
         if (! $lock->get()) {
+            abort_if($force, 409, 'A refresh is already in progress.');
+
             return $this->fallback($movie);
         }
         try {
             $movie = Movie::where('tmdb_id', $id)->first();
-            if ($this->fresh($movie)) {
+            if ($force && Cache::has($cooldown)) {
+                abort(409, 'Refresh cooldown is active. Try again shortly.');
+            }
+            if (! $force && $this->fresh($movie)) {
                 return [$movie, false];
             }
             try {
@@ -201,14 +249,25 @@ class MovieService
                 if ($values['tmdb_id'] !== $id) {
                     throw new UpstreamUnavailable;
                 }
+            } catch (MovieNotFound $error) {
+                if ($force) {
+                    Cache::put($cooldown, true, config('catalog.refresh_cooldown_seconds'));
+                }
+                throw $error;
             } catch (UpstreamUnavailable) {
                 Cache::put($cooldown, true, config('catalog.refresh_cooldown_seconds'));
+                if ($force) {
+                    throw new UpstreamUnavailable;
+                }
 
                 return $this->fallback($movie);
             }
             $values['genres'] = json_encode($values['genres'], JSON_THROW_ON_ERROR);
             $values['metadata_fetched_at'] = now();
             Movie::upsert([$values], ['tmdb_id'], array_diff(array_keys($values), ['tmdb_id']));
+            if ($force) {
+                Cache::put($cooldown, true, config('catalog.refresh_cooldown_seconds'));
+            }
 
             try {
                 $this->experience->capture($raw, $id);

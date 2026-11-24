@@ -1,0 +1,9 @@
+.admin-managed-title { display: flex; align-items: center; gap: .7rem; text-align: left; }
+.admin-managed-title > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+.admin-managed-title .admin-rank-poster { flex: none; }
+.admin-managed-detail { display: grid; grid-template-columns: minmax(100px, 180px) minmax(0, 1fr); gap: 1rem; margin-top: 1rem; }
+.admin-managed-poster { aspect-ratio: 2 / 3; border-radius: 10px; overflow: hidden; }
+.admin-managed-field { display: contents; }
+.admin-managed-overview { margin-top: 1rem; overflow-wrap: anywhere; }
+.admin-managed-backdrop { margin-top: 1rem; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; }
+@media (max-width: 650px) { .admin-managed-detail { grid-template-columns: 1fr; } .admin-managed-poster { width: 120px; } .admin-table td[data-label="Genres"] { overflow-wrap: anywhere; } }

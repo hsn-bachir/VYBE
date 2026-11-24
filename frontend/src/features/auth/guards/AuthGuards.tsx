@@ -46,9 +46,9 @@ export function RequireAdmin() {
   return <Outlet context={access.data} />
 }
 
-export function RequireUserManager() {
+export function RequireAdministrator() {
   const access = useOutletContext<import('../hooks/useAccess').Access>()
-  if (access.role !== 'admin') return <div className="status" role="alert"><h1>Access denied</h1><p>User management is for administrators.</p></div>
+  if (access.role !== 'admin') return <div className="status" role="alert"><h1>Access denied</h1><p>This section is for administrators.</p></div>
   return <Outlet context={access} />
 }
 
