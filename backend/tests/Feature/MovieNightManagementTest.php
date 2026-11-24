@@ -450,11 +450,11 @@ class MovieNightManagementTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_only_management_invitation_rsvp_and_shortlist_endpoints_are_registered(): void
+    public function test_only_management_invitation_rsvp_shortlist_and_voting_endpoints_are_registered(): void
     {
         $routes = collect(Route::getRoutes())->filter(fn ($route) => str_starts_with($route->uri(), 'api/v1/me/movie-nights'));
-        $this->assertCount(13, $routes);
-        $this->assertSame(['cancel', 'destroy', 'eligible', 'index', 'index', 'index', 'received', 'respond', 'show', 'store', 'store', 'store', 'update'], $routes->map(fn ($route) => $route->getActionMethod())->sort()->values()->all());
+        $this->assertCount(15, $routes);
+        $this->assertSame(['cancel', 'destroy', 'eligible', 'index', 'index', 'index', 'index', 'received', 'respond', 'show', 'store', 'store', 'store', 'store', 'update'], $routes->map(fn ($route) => $route->getActionMethod())->sort()->values()->all());
     }
 
     public function test_postgres_http_round_trip_in_beirut_session_and_failed_writes_rollback(): void

@@ -50,11 +50,7 @@ class MovieNightTransitions
             Gate::forUser($actor)->authorize('finalize', $night);
             // No deadline filter: votes cast before the start remain valid afterwards.
             // Account moderation does not retroactively erase an accepted participant's vote.
-            $totals = $night->movies()->withCount(['votes' => fn ($q) => $q
-                ->where('movie_night_id', $night->id)
-                ->where(fn ($v) => $v->where('voting_user_id', $night->host_user_id)
-                    ->orWhereIn('voting_user_id', $night->invitations()->select('invited_user_id')
-                        ->where('rsvp_status', MovieNightRsvp::Accepted->value)))])->get();
+            $totals = $night->movies()->withCount(['votes' => fn ($q) => $q->validFor($night)])->get();
             $maximum = (int) $totals->max('votes_count');
             abort_if($maximum < 1, 409, 'At least one valid vote is required.');
             $leaders = $totals->where('votes_count', $maximum);

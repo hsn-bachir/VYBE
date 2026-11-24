@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\MovieController;
 use App\Http\Controllers\Api\V1\MovieNightController;
 use App\Http\Controllers\Api\V1\MovieNightInvitationController;
 use App\Http\Controllers\Api\V1\MovieNightShortlistController;
+use App\Http\Controllers\Api\V1\MovieNightVotingController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\RatingController;
@@ -83,6 +84,7 @@ Route::prefix('v1/me')->withoutMiddleware(EnsureFrontendRequestsAreStateful::cla
             Route::get('invitations', [MovieNightInvitationController::class, 'received'])->middleware('throttle:library-read');
             Route::get('{night}/eligible-users', [MovieNightInvitationController::class, 'eligible'])->middleware('throttle:library-read');
             Route::get('{night}/invitations', [MovieNightInvitationController::class, 'index'])->middleware('throttle:library-read');
+            Route::get('{night}/votes', [MovieNightVotingController::class, 'index'])->middleware('throttle:library-read');
             Route::get('{night}/movies', [MovieNightShortlistController::class, 'index'])->middleware('throttle:library-read');
             Route::get('{night}', [MovieNightController::class, 'show'])->middleware('throttle:library-read');
             Route::middleware([EnsureActiveAccount::class, 'throttle:library-write'])->group(function (): void {
@@ -90,6 +92,7 @@ Route::prefix('v1/me')->withoutMiddleware(EnsureFrontendRequestsAreStateful::cla
                 Route::patch('{night}', [MovieNightController::class, 'update']);
                 Route::post('{night}/movies', [MovieNightShortlistController::class, 'store']);
                 Route::delete('{night}/movies/{movie}', [MovieNightShortlistController::class, 'destroy']);
+                Route::put('{night}/vote', [MovieNightVotingController::class, 'store']);
                 Route::put('{night}/rsvp', [MovieNightInvitationController::class, 'respond']);
                 Route::post('{night}/invitations', [MovieNightInvitationController::class, 'store']);
                 Route::post('{night}/cancel', [MovieNightController::class, 'cancel']);

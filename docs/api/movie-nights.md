@@ -1,10 +1,10 @@
-# Movie Night Planner — M5.0–M5.4 backend contracts
+# Movie Night Planner — M5.0–M5.5 backend contracts
 
-PDF §3 item **10**; roadmap **M5.0 + M5.1 + M5.2 + M5.3 + M5.4**. Core owns all event, participant and voting data. **M5.1 implements create/list/detail/edit/cancel; M5.2 adds user lookup and invitation creation/listing; M5.3 adds invitee RSVP; M5.4 adds the shared candidate shortlist**, on `feature/movie-night`. Voting/finalization endpoints remain proposed for M5.5–M5.7. No frontend or notifications are implemented. See the [M5.1 verification report](../development/m5.1-movie-night-management-report.md).
+PDF §3 item **10**; roadmap **M5.0 + M5.1 + M5.2 + M5.3 + M5.4 + M5.5**. Core owns all event, participant and voting data. **M5.1 implements create/list/detail/edit/cancel; M5.2 adds user lookup and invitation creation/listing; M5.3 adds invitee RSVP; M5.4 adds the shared candidate shortlist; M5.5 adds voting and private totals**, on `feature/movie-night`. Public finalization and frontend acceptance remain for M5.6–M5.7. No frontend or notifications are implemented. See the [M5.1 verification report](../development/m5.1-movie-night-management-report.md).
 
 ## Implemented domain boundary
 
-`MovieNight`, `MovieNightInvitation`, `MovieNightMovie`, `MovieNightVote`, backed enums, auto-discovered `MovieNightPolicy`, `MovieNightRules` and internal `MovieNightTransitions` form the foundation. M5.3 exposes the existing RSVP transition; the foundation finalization transition remains internal only. M5.1 adds `MovieNightService`, FormRequests, summary/detail Resources and a controller for five event-management routes. M5.2 adds `MovieNightInvitationService`, controller, FormRequests and safe participant/invitation Resources. Nomination and vote HTTP workflows await subsequent slices.
+`MovieNight`, `MovieNightInvitation`, `MovieNightMovie`, `MovieNightVote`, backed enums, auto-discovered `MovieNightPolicy`, `MovieNightRules` and internal `MovieNightTransitions` form the foundation. M5.3 exposes the existing RSVP transition; the foundation finalization transition remains internal only. M5.1 adds `MovieNightService`, FormRequests, summary/detail Resources and a controller for five event-management routes. M5.2 adds `MovieNightInvitationService`, controller, FormRequests and safe participant/invitation Resources. M5.4 exposes shortlist nomination/removal; M5.5 exposes voting/totals. Public finalization remains a later slice.
 
 State machine: `scheduled → finalized` or `scheduled → cancelled`. Both terminal states are immutable through the domain permissions. Time passing does not change status: a scheduled event at/past its start has closed voting but can still be finalized or cancelled. Finalization requires a valid vote, not a Catalog response. There is no reopen, unfinalize, host transfer or delete operation.
 
@@ -75,8 +75,8 @@ List requests use page 1–10000, per_page 1–50 (default 20); order events by 
 | GET `/{night}/movies` | page/per_page | 200 paginated ShortlistEntry, meta.metadata_unavailable | Host/accepted only; private 404 otherwise; terminal reads retained | Implemented M5.4 |
 | POST `/{night}/movies` | `{tmdb_id}` | 201 `{data: ShortlistEntry}` | Eligible host/accepted actor; open; duplicate/capacity 409; Catalog detail validation | Implemented M5.4 |
 | DELETE `/{night}/movies/{movie}` | — | 204 | Eligible host or accepted original nominator; open; voted entry 409; cross-event/missing entry 404 | Implemented M5.4 |
-| PUT `/{night}/vote` | `{movie_night_movie_id}` | 200 `{data:{movie_night_movie_id,updated_at}}` | Accepted actor; open; scoped shortlist entry required; creates/changes one vote | Planned |
-| GET `/{night}/votes` | — | 200 `{data:{totals:[{tmdb_id,movie_night_movie_id,votes}],my_vote,leaders:[tmdb_id],voting_open}}` | Host or accepted participant; no voter identity list; zero counts included; leaders empty if no valid votes | Planned |
+| PUT `/{night}/vote` | `{movie_night_movie_id}` | 200 `{data:{movie_night_movie_id,updated_at}}` | Eligible host/accepted actor; open; scoped shortlist candidate; identical repeat preserves timestamps | Implemented M5.5 |
+| GET `/{night}/votes` | — | 200 `{data:{totals:[{tmdb_id,movie_night_movie_id,votes}],my_vote,total_votes,leaders:[tmdb_id],voting_open}}` | Host/accepted only; caller selection only; zero counts included; closed reads allowed | Implemented M5.5 |
 | POST `/{night}/finalize` | `{tmdb_id?}` | 200 `{data: Event}` | Host; scheduled; at least one valid vote; optional explicit sole leader or required tied leader | Planned |
 
 Place static subroutes before dynamic identifiers. The eligible-user search is scoped to an event so it cannot become an unsolicited public social directory. It has no notification side effects. M5.2 uses pull-based received invitations only; no notification delivery, email or WebSocket is required.
@@ -148,7 +148,7 @@ See the [M5.3 report](../development/m5.3-movie-night-rsvp-report.md) for actual
 
 ## M5.4 shared candidate shortlist
 
-PDF item 10 / Azure #88 [S09-07]. See the [M5.4 implementation report](../development/m5.4-movie-night-shortlist-report.md). Three routes bring the Movie Night route inventory to thirteen; no voting or finalization HTTP route is registered.
+PDF item 10 / Azure #88 [S09-07]. See the [M5.4 implementation report](../development/m5.4-movie-night-shortlist-report.md). M5.4 introduced three shortlist routes; M5.5 brings the route inventory to fifteen. Public finalization remains unregistered.
 
 - `GET /api/v1/me/movie-nights/{night}/movies?page=1&per_page=20` returns `{data:[ShortlistEntry],meta:{page,per_page,total_pages,total_results,metadata_unavailable}}`. Pagination uses page 1–10000 and per_page 1–50, default 20. Entries sort by Core candidate `id ASC`, so every authorized participant sees the same candidate membership/order. No per-user nomination filter is applied.
 - `POST /api/v1/me/movie-nights/{night}/movies` accepts only `{ "tmdb_id": 550 }`. The canonical positive integer is limited to 1–2147483647. The actor/event/nominator are server-scoped. Success is **201** `{data:{id,tmdb_id,nominated_by:{id,username,avatar_url},created_at,movie:MovieSummary}}`; the nomination timestamp is ISO UTC. The movie summary is selected from the validated Catalog detail DTO and used only for the response, not persisted in Core.
@@ -160,8 +160,43 @@ Nomination first checks private access/open state and existing `nominate` policy
 
 After validation, a three-attempt transaction reloads/locks actor → private parent event, rechecks account eligibility/current accepted RSVP/status/deadline, authorizes nomination, checks duplicate and capacity, and inserts using existing FK/unique constraints. A concurrent decline returns hidden 404; cancellation/start returns 409; account restriction blocks mutation. `mn_movie_unique(movie_night_id,tmdb_id)` is the final duplicate safeguard. Duplicate attempts never transfer nomination ownership. The 50-candidate limit is checked under the same event lock. Only TMDB ID, event and nominator references plus timestamps are stored in the existing table. No external call occurs under locks.
 
-Removal reloads/locks actor → private event → event-scoped candidate; then existing removable rules/policy recheck state/deadline, ownership and vote absence. Restrictive vote FKs are retained as the final protection. All compliant future vote mutations must share the event lock. Repeated removal returns 404; removed movies may later be nominated anew while open, creating a new candidate ID/nominator.
+Removal reloads/locks actor → private event → event-scoped candidate; then existing removable rules/policy recheck state/deadline, ownership and vote absence. Restrictive vote FKs are retained as the final protection. M5.5 voting shares the same event lock. Repeated removal returns 404; removed movies may later be nominated anew while open, creating a new candidate ID/nominator.
 
 Listing eagerly loads safe nominator projections and reuses `LibraryMetadata::enrich()` for **one** `MovieCatalogClient::summaries()` call per nonempty page. A 50-entry page stays within the client's 50-ID pre-deduplication limit; empty/out-of-range pages skip HTTP. Missing successful batch entries retain `movie:null` with `metadata_unavailable:false`; Catalog outages/malformed batch responses retain IDs and `movie:null` with `metadata_unavailable:true`. No row is deleted or hydrated by listing. Current private eligibility is checked again after enrichment, so a decline during network work returns 404 instead of disclosing the shortlist. Provider requests contain only movie IDs; no event/user/location/RSVP data is sent. No metadata is persisted in Core. There is no N+1 SQL or per-movie Catalog detail loop for listing.
 
 No new migrations, dependencies, configuration, notifications or frontend are introduced. This consumes the existing Catalog detail and batch APIs and existing M5.0 Core schema. Deploy through normal review with those existing dependencies available; no deployment is performed by this slice.
+
+## M5.5 voting and private totals
+
+PDF item 10 / Azure #89 [S09-08]. See the [M5.5 verification report](../development/m5.5-movie-night-voting-report.md). No M5.6 public winner selection, tie resolution or finalization route is added. Live API/browser acceptance remains deferred to M5.7.
+
+`PUT /api/v1/me/movie-nights/{night}/vote` accepts only `{ "movie_night_movie_id": 42 }`, where 42 is a Core candidate ID in the requested event, not a TMDB ID. It returns **200** `{ "data": { "movie_night_movie_id": 42, "updated_at": "2027-01-15T18:00:00.000000Z" } }` for both creation and replacement. The session selects the voter; client voter IDs, counts, timestamps and all unexpected fields return 422. Canonical positive event/candidate identifiers use the existing signed SQL-ID rules. Missing/deleted/cross-event candidates return hidden 404. Only the eligible host and accepted participants may vote; pending/declined/outsider private access returns hidden 404 before candidate lookup. Account/verification/session middleware retains its existing 401/403 gates.
+
+One vote per user/event is stored. Identical repeats while open return the same selection and updated_at without changing created_at, updated_at or row ID. Changing candidate updates the same row atomically and records the current UTC update time, preserving created_at. All writes, including repeats, require scheduled state and strictly `now < starts_at`; cancelled/finalized/exact-start/late writes return 409 for authorized actors. There is no vote-withdrawal endpoint. Open-state RSVP decline atomically deletes the actor's vote through the existing transition; reacceptance restores access without restoring a vote.
+
+`GET /api/v1/me/movie-nights/{night}/votes` accepts no body/query fields and returns:
+
+```json
+{
+  "data": {
+    "totals": [
+      {"tmdb_id": 550, "movie_night_movie_id": 42, "votes": 2},
+      {"tmdb_id": 551, "movie_night_movie_id": 43, "votes": 0}
+    ],
+    "my_vote": 42,
+    "total_votes": 2,
+    "leaders": [550],
+    "voting_open": true
+  }
+}
+```
+
+`totals` includes every current candidate in candidate-ID ascending order, including zero counts. `my_vote` is only the caller's selected Core candidate ID or null. `total_votes` is the sum of authoritative valid vote counts. `leaders` retains the existing proposed informational highest-count TMDB-ID list, ordered by candidate ID; it is empty without valid votes and does not select/finalize a winner or resolve ties. Empty shortlists return empty totals/leaders, null selection and zero total. No voter identity, other participant's selection, vote row ID, timestamps of others, profile or Catalog metadata is returned. No pagination is needed for the existing 50-candidate event cap.
+
+Both routes use host/accepted-only private authorization and the existing session/Firebase mapping/M7 revocation, verification/activation, CSRF, library read/write throttle and private/no-store conventions. Restricted verified host/accepted users may read but cannot cast/change. Authorized reads remain available after start/cancellation/finalization with voting_open=false. Supported vote/RSVP/candidate mutations are closed then, so the retained totals remain frozen; no separate snapshot table is added.
+
+`MovieNightVote::validFor()` defines the same authoritative cohort used by totals and existing internal finalization: the event host or a currently accepted invitee. Pending/declined/outsider fixture/invalid votes are excluded. Later account moderation does not retroactively erase a valid recorded vote, preserving the approved foundation rule; it blocks new actions. Internal finalization now reuses this scope instead of duplicating that SQL filter, without changing its winner/tie semantics or exposing an endpoint.
+
+Casting uses a three-attempt transaction with actor → exclusive private event → event-scoped candidate → caller's existing vote row locks. Fresh account/current accepted RSVP/status/deadline checks run after actor/event acquisition, and the deadline is checked again after candidate/vote row waits. Candidate removal, RSVP decline, cancellation and internal finalization share the parent-event lock. Existing unique `(movie_night_id,voting_user_id)` and composite same-event candidate FK remain unchanged. A failed replacement rolls back selection/timestamp together; voted-candidate removal remains blocked. No network call occurs.
+
+Totals use actor → shared private event locks in a retryable transaction. The shared lock serializes the read with all compliant parent-locked mutations and allows other event readers. One aggregate SQL statement obtains candidate counts plus caller-selection existence checks, then sums/maxima are computed over the bounded result. Query count is independent of candidate count; event state/candidate set/cohort stay coherent during the read. Catalog/TMDB availability is irrelevant to casting or totals. Direct SQL outside the domain protocol remains unsupported; exhaustive deadlock/load testing is still an acceptance gap. No migrations, dependencies, configuration, UI, provider request or live manual acceptance is introduced.
