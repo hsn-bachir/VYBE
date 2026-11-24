@@ -33,6 +33,11 @@ class MovieNightPolicy
         return $this->host($user, $night) && $night->votingIsOpen();
     }
 
+    public function listInvitations(User $user, MovieNight $night): bool
+    {
+        return $this->viewAny($user) && $user->id === $night->host_user_id;
+    }
+
     public function invite(User $user, MovieNight $night): bool
     {
         return $this->update($user, $night);
