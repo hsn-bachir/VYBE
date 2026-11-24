@@ -95,6 +95,9 @@ return Application::configure(basePath: dirname(__DIR__))
             }
             if ($request->is('api/v1/me/movie-nights', 'api/v1/me/movie-nights/*')) {
                 $response->headers->set('Cache-Control', 'no-store, private');
+                if ($e instanceof CatalogFailure) {
+                    return $e->render()->header('Cache-Control', 'no-store, private');
+                }
                 if ($response->getStatusCode() === 404) {
                     return response()->json(['message' => 'Not found.'], 404)->header('Cache-Control', 'no-store, private');
                 }
