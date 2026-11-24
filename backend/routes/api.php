@@ -95,6 +95,7 @@ Route::prefix('v1/me')->withoutMiddleware(EnsureFrontendRequestsAreStateful::cla
                 Route::put('{night}/vote', [MovieNightVotingController::class, 'store']);
                 Route::put('{night}/rsvp', [MovieNightInvitationController::class, 'respond']);
                 Route::post('{night}/invitations', [MovieNightInvitationController::class, 'store']);
+                Route::post('{night}/finalize', [MovieNightController::class, 'finalize']);
                 Route::post('{night}/cancel', [MovieNightController::class, 'cancel']);
             });
         });

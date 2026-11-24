@@ -1,12 +1,15 @@
 <?php
 
 use App\Exceptions\AvatarUnavailable;
+use App\Exceptions\MovieNightTie;
 use App\Integrations\MovieCatalog\CatalogFailure;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -97,6 +100,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 $response->headers->set('Cache-Control', 'no-store, private');
                 if ($e instanceof CatalogFailure) {
                     return $e->render()->header('Cache-Control', 'no-store, private');
+                }
+                if ($request->is('api/v1/me/movie-nights/*/finalize')
+                    && in_array($response->getStatusCode(), [403, 409], true)
+                    && ($e instanceof HttpExceptionInterface || $e instanceof AuthorizationException)
+                    && ! $e instanceof MovieNightTie) {
+                    return response()->json(['message' => $e->getMessage()], $response->getStatusCode())
+                        ->header('Cache-Control', 'no-store, private');
                 }
                 if ($response->getStatusCode() === 404) {
                     return response()->json(['message' => 'Not found.'], 404)->header('Cache-Control', 'no-store, private');

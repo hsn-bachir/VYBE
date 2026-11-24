@@ -4,6 +4,7 @@ namespace App\Services\MovieNights;
 
 use App\Enums\MovieNightRsvp;
 use App\Enums\MovieNightStatus;
+use App\Exceptions\MovieNightTie;
 use App\Models\MovieNight;
 use App\Models\MovieNightInvitation;
 use App\Models\User;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
-/** Shared domain transitions; RSVP is exposed through the M5.3 HTTP adapter. */
+/** Shared RSVP and finalization transitions used by the Movie Night HTTP adapters. */
 class MovieNightTransitions
 {
     public function __construct(private MovieNightRules $rules) {}
@@ -45,17 +46,18 @@ class MovieNightTransitions
     {
         return DB::transaction(function () use ($actor, $nightId, $chosenTmdbId): MovieNight {
             $actor = AccountAccess::lock($actor, community: true);
-            $night = $this->lockedMember($actor, $nightId);
+            $night = MovieNight::query()->visibleTo($actor)->whereKey($nightId)->lockForUpdate()->firstOrFail();
+            Gate::forUser($actor)->authorize('view', $night);
             $this->rules->assertScheduled($night);
             Gate::forUser($actor)->authorize('finalize', $night);
             // No deadline filter: votes cast before the start remain valid afterwards.
             // Account moderation does not retroactively erase an accepted participant's vote.
-            $totals = $night->movies()->withCount(['votes' => fn ($q) => $q->validFor($night)])->get();
+            $totals = $night->movies()->withCount(['votes' => fn ($q) => $q->validFor($night)])->orderBy('id')->get();
             $maximum = (int) $totals->max('votes_count');
             abort_if($maximum < 1, 409, 'At least one valid vote is required.');
             $leaders = $totals->where('votes_count', $maximum);
             if ($chosenTmdbId === null && $leaders->count() > 1) {
-                abort(409, 'Choose one of the tied leaders.');
+                throw new MovieNightTie($leaders->pluck('tmdb_id')->values()->all());
             }
             $winner = $chosenTmdbId === null ? $leaders->first() : $leaders->firstWhere('tmdb_id', $chosenTmdbId);
             if (! $winner) {

@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\MovieNights\FinalizeMovieNightRequest;
 use App\Http\Requests\MovieNights\ListMovieNightsRequest;
 use App\Http\Requests\MovieNights\ShowMovieNightRequest;
 use App\Http\Requests\MovieNights\WriteMovieNightRequest;
 use App\Http\Resources\MovieNightResource;
 use App\Http\Resources\MovieNightSummaryResource;
 use App\Services\MovieNights\MovieNightService;
+use App\Services\MovieNights\MovieNightTransitions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -43,6 +45,14 @@ class MovieNightController extends Controller
     public function cancel(ShowMovieNightRequest $request): MovieNightResource
     {
         return new MovieNightResource($this->nights->cancel($request->user(), (int) $request->validated('night')));
+    }
+
+    public function finalize(FinalizeMovieNightRequest $request, MovieNightTransitions $transitions): MovieNightResource
+    {
+        $night = $transitions->finalize($request->user(), (int) $request->validated('night'),
+            $request->has('tmdb_id') ? (int) $request->validated('tmdb_id') : null);
+
+        return new MovieNightResource($night->load('host:id,username,avatar_url'));
     }
 
     private function fields(WriteMovieNightRequest $request): array
