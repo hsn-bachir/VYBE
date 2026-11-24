@@ -34,7 +34,7 @@ class MovieNightInvitationService
     {
         return DB::transaction(function () use ($actor, $id, $targetId): MovieNightInvitation {
             $actor = AccountAccess::lock($actor, community: true);
-            $night = MovieNight::query()->visibleTo($actor)->whereKey($id)->lockForUpdate()->firstOrFail();
+            $night = MovieNight::query()->forMember($actor)->whereKey($id)->lockForUpdate()->firstOrFail();
             $this->rules->assertOpen($night);
             Gate::forUser($actor)->authorize('invite', $night);
             $target = $this->eligibleUsers()->whereKey($targetId)->lockForUpdate()->first();
@@ -75,8 +75,8 @@ class MovieNightInvitationService
 
     private function visible(User $actor, int $id): MovieNight
     {
-        $night = MovieNight::query()->visibleTo($actor)->whereKey($id)->firstOrFail();
-        Gate::forUser($actor)->authorize('view', $night);
+        $night = MovieNight::query()->forMember($actor)->whereKey($id)->firstOrFail();
+        Gate::forUser($actor)->authorize('viewInvitation', $night);
 
         return $night;
     }

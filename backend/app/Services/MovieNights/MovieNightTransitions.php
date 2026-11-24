@@ -5,32 +5,39 @@ namespace App\Services\MovieNights;
 use App\Enums\MovieNightRsvp;
 use App\Enums\MovieNightStatus;
 use App\Models\MovieNight;
+use App\Models\MovieNightInvitation;
 use App\Models\User;
 use App\Services\AccountAccess;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
-/** Internal state transitions only; M5.0 registers no HTTP endpoints. */
+/** Shared domain transitions; RSVP is exposed through the M5.3 HTTP adapter. */
 class MovieNightTransitions
 {
     public function __construct(private MovieNightRules $rules) {}
 
-    public function respond(User $actor, int $nightId, MovieNightRsvp $response): void
+    public function respond(User $actor, int $nightId, MovieNightRsvp $response): MovieNightInvitation
     {
-        DB::transaction(function () use ($actor, $nightId, $response): void {
+        return DB::transaction(function () use ($actor, $nightId, $response): MovieNightInvitation {
             $actor = AccountAccess::lock($actor, community: true);
-            $night = $this->lockedVisible($actor, $nightId);
+            $night = $this->lockedMember($actor, $nightId);
             $this->rules->assertOpen($night);
             Gate::forUser($actor)->authorize('rsvp', $night);
             if ($response === MovieNightRsvp::Pending) {
                 throw ValidationException::withMessages(['rsvp_status' => ['Choose accepted or declined.']]);
             }
-            $invitation = $night->invitations()->where('invited_user_id', $actor->id)->firstOrFail();
-            $invitation->update(['rsvp_status' => $response, 'responded_at' => now()]);
+            $invitation = $night->invitations()->where('invited_user_id', $actor->id)->lockForUpdate()->firstOrFail();
+            // A lock wait must not allow a response at or beyond the exact deadline.
+            $this->rules->assertOpen($night);
+            if ($invitation->rsvp_status !== $response) {
+                $invitation->update(['rsvp_status' => $response, 'responded_at' => now()]);
+            }
             if ($response === MovieNightRsvp::Declined) {
                 $night->votes()->where('voting_user_id', $actor->id)->delete();
             }
+
+            return $invitation->refresh()->load('invitedUser:id,username,avatar_url');
         }, 3);
     }
 
@@ -38,7 +45,7 @@ class MovieNightTransitions
     {
         return DB::transaction(function () use ($actor, $nightId, $chosenTmdbId): MovieNight {
             $actor = AccountAccess::lock($actor, community: true);
-            $night = $this->lockedVisible($actor, $nightId);
+            $night = $this->lockedMember($actor, $nightId);
             $this->rules->assertScheduled($night);
             Gate::forUser($actor)->authorize('finalize', $night);
             // No deadline filter: votes cast before the start remain valid afterwards.
@@ -65,8 +72,8 @@ class MovieNightTransitions
         }, 3);
     }
 
-    private function lockedVisible(User $actor, int $id): MovieNight
+    private function lockedMember(User $actor, int $id): MovieNight
     {
-        return MovieNight::query()->visibleTo($actor)->whereKey($id)->lockForUpdate()->firstOrFail();
+        return MovieNight::query()->forMember($actor)->whereKey($id)->lockForUpdate()->firstOrFail();
     }
 }

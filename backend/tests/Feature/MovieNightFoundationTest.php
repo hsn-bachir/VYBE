@@ -167,7 +167,7 @@ class MovieNightFoundationTest extends TestCase
         ]));
     }
 
-    public function test_private_visibility_includes_all_invitees_only(): void
+    public function test_membership_is_distinct_from_accepted_private_visibility(): void
     {
         $night = $this->night();
         $outsider = User::factory()->create();
@@ -177,8 +177,10 @@ class MovieNightFoundationTest extends TestCase
         foreach (MovieNightRsvp::cases() as $status) {
             $user = User::factory()->create();
             $this->invite($night, $user, $status);
-            $this->assertCount(1, MovieNight::query()->visibleTo($user)->get());
-            $this->assertTrue(Gate::forUser($user)->allows('view', $night));
+            $this->assertCount(1, MovieNight::query()->forMember($user)->get());
+            $this->assertCount($status === MovieNightRsvp::Accepted ? 1 : 0, MovieNight::query()->visibleTo($user)->get());
+            $this->assertTrue(Gate::forUser($user)->allows('viewInvitation', $night));
+            $this->assertSame($status === MovieNightRsvp::Accepted, Gate::forUser($user)->allows('view', $night));
         }
         $this->assertTrue(Gate::forUser($night->host)->allows('view', $night));
     }
@@ -492,7 +494,7 @@ class MovieNightFoundationTest extends TestCase
                 // Offset-bearing inputs must retain their instant as well.
                 $night->starts_at = $start->setTimezone('Asia/Beirut');
                 $night->save();
-                $invitation = $this->invite($night, $invitee);
+                $invitation = $this->invite($night, $invitee, MovieNightRsvp::Pending);
                 $movie = $this->movie($night);
                 $vote = $this->vote($night, $movie, $host);
                 app(MovieNightTransitions::class)->respond($invitee, $night->id, MovieNightRsvp::Accepted);

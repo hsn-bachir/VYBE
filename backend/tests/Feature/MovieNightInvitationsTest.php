@@ -107,7 +107,7 @@ class MovieNightInvitationsTest extends TestCase
         }
         $this->assertDatabaseCount('movie_night_invitations', 1);
         $this->signIn($this->target);
-        $this->getJson(self::URL.'/'.$this->night->id)->assertOk()->assertJsonPath('data.my_rsvp', 'declined');
+        $this->getJson(self::URL.'/'.$this->night->id)->assertNotFound()->assertExactJson(['message' => 'Not found.']);
         Http::assertNothingSent();
     }
 

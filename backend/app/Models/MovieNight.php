@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MovieNightRsvp;
 use App\Enums\MovieNightStatus;
 use App\Models\Concerns\HasMovieNightUtcTimestamps;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,10 +43,19 @@ class MovieNight extends Model
         return $this->hasMany(MovieNightVote::class);
     }
 
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    /** Invitation membership permits minimal reads and RSVP, not private event details. */
+    public function scopeForMember(Builder $query, User $user): Builder
     {
         return $query->where(fn (Builder $q) => $q->where('host_user_id', $user->id)
             ->orWhereHas('invitations', fn (Builder $i) => $i->where('invited_user_id', $user->id)));
+    }
+
+    /** Full private details belong only to the host and currently accepted participants. */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        return $query->where(fn (Builder $q) => $q->where('host_user_id', $user->id)
+            ->orWhereHas('invitations', fn (Builder $i) => $i->where('invited_user_id', $user->id)
+                ->where('rsvp_status', MovieNightRsvp::Accepted->value)));
     }
 
     public function votingIsOpen(): bool

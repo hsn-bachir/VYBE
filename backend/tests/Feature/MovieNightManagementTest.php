@@ -208,13 +208,18 @@ class MovieNightManagementTest extends TestCase
         }
     }
 
-    public function test_detail_has_safe_host_and_callers_rsvp_for_each_invitation_state(): void
+    public function test_detail_requires_accepted_rsvp_and_has_safe_host_projection(): void
     {
         $night = $this->night();
         foreach (MovieNightRsvp::cases() as $status) {
             $viewer = User::factory()->create();
             $this->invite($night, $viewer, $status);
             $this->signIn($viewer, 'web');
+            if ($status !== MovieNightRsvp::Accepted) {
+                $this->getJson(self::URL.'/'.$night->id)->assertNotFound()->assertExactJson(['message' => 'Not found.']);
+
+                continue;
+            }
             $this->getJson(self::URL.'/'.$night->id)->assertOk()->assertJsonPath('data.my_rsvp', $status->value)
                 ->assertJsonPath('data.location', 'Living room')->assertJsonPath('data.meeting_url', 'https://example.com/room')
                 ->assertJsonMissingPath('data.host.email')->assertJsonMissingPath('data.host.firebase_uid')
@@ -299,7 +304,7 @@ class MovieNightManagementTest extends TestCase
             $this->assertSame(409, $e->getStatusCode());
         }
         $this->signIn($viewer, 'web');
-        $this->getJson(self::URL.'/'.$night->id)->assertOk()->assertJsonPath('data.status', 'cancelled');
+        $this->getJson(self::URL.'/'.$night->id)->assertNotFound();
         $this->getJson(self::URL.'?status=cancelled')->assertOk()->assertJsonCount(1, 'data');
         $this->getJson(self::URL.'?status=scheduled')->assertOk()->assertJsonCount(0, 'data');
     }
@@ -445,11 +450,11 @@ class MovieNightManagementTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_only_management_and_invitation_endpoints_are_registered(): void
+    public function test_only_management_invitation_and_rsvp_endpoints_are_registered(): void
     {
         $routes = collect(Route::getRoutes())->filter(fn ($route) => str_starts_with($route->uri(), 'api/v1/me/movie-nights'));
-        $this->assertCount(9, $routes);
-        $this->assertSame(['cancel', 'eligible', 'index', 'index', 'received', 'show', 'store', 'store', 'update'], $routes->map(fn ($route) => $route->getActionMethod())->sort()->values()->all());
+        $this->assertCount(10, $routes);
+        $this->assertSame(['cancel', 'eligible', 'index', 'index', 'received', 'respond', 'show', 'store', 'store', 'update'], $routes->map(fn ($route) => $route->getActionMethod())->sort()->values()->all());
     }
 
     public function test_postgres_http_round_trip_in_beirut_session_and_failed_writes_rollback(): void

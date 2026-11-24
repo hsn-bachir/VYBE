@@ -86,6 +86,7 @@ Route::prefix('v1/me')->withoutMiddleware(EnsureFrontendRequestsAreStateful::cla
             Route::middleware([EnsureActiveAccount::class, 'throttle:library-write'])->group(function (): void {
                 Route::post('', [MovieNightController::class, 'store']);
                 Route::patch('{night}', [MovieNightController::class, 'update']);
+                Route::put('{night}/rsvp', [MovieNightInvitationController::class, 'respond']);
                 Route::post('{night}/invitations', [MovieNightInvitationController::class, 'store']);
                 Route::post('{night}/cancel', [MovieNightController::class, 'cancel']);
             });

@@ -28,6 +28,13 @@ class MovieNightPolicy
             ? Response::allow() : Response::denyAsNotFound();
     }
 
+    public function viewInvitation(User $user, MovieNight $night): Response
+    {
+        return $this->viewAny($user)
+            && MovieNight::query()->forMember($user)->whereKey($night->id)->exists()
+            ? Response::allow() : Response::denyAsNotFound();
+    }
+
     public function update(User $user, MovieNight $night): bool
     {
         return $this->host($user, $night) && $night->votingIsOpen();

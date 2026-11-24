@@ -16,7 +16,7 @@ class MovieNightService
     public function listing(User $actor, int $page, int $perPage, ?string $status): array
     {
         Gate::forUser($actor)->authorize('viewAny', MovieNight::class);
-        $query = MovieNight::query()->visibleTo($actor)->with($this->relations($actor));
+        $query = MovieNight::query()->forMember($actor)->with($this->relations($actor));
         if ($status !== null) {
             $query->where('status', $status);
         }
@@ -51,7 +51,7 @@ class MovieNightService
     {
         return DB::transaction(function () use ($actor, $id, $fields): MovieNight {
             $actor = AccountAccess::lock($actor, community: true);
-            $night = MovieNight::query()->visibleTo($actor)->whereKey($id)->lockForUpdate()->firstOrFail();
+            $night = MovieNight::query()->forMember($actor)->whereKey($id)->lockForUpdate()->firstOrFail();
             // Check the original start under the lock before applying any reschedule.
             $this->rules->assertOpen($night);
             Gate::forUser($actor)->authorize('update', $night);
@@ -65,7 +65,7 @@ class MovieNightService
     {
         return DB::transaction(function () use ($actor, $id): MovieNight {
             $actor = AccountAccess::lock($actor, community: true);
-            $night = MovieNight::query()->visibleTo($actor)->whereKey($id)->lockForUpdate()->firstOrFail();
+            $night = MovieNight::query()->forMember($actor)->whereKey($id)->lockForUpdate()->firstOrFail();
             $this->rules->assertScheduled($night);
             Gate::forUser($actor)->authorize('cancel', $night);
             $night->forceFill(['status' => MovieNightStatus::Cancelled, 'cancelled_at' => now()])->save();
