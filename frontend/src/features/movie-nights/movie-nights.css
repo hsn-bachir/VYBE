@@ -150,3 +150,16 @@
 .night-search-grid .button { width: 100%; margin-top: .75rem; }
 @media (max-width: 1099px) { .night-candidate-grid.movie-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 599px) { .night-candidate-grid.movie-grid, .night-search-grid.movie-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; } .night-candidate-grid > li { padding: .5rem; } .night-voting { padding: 1rem; } }
+/* Finalization stays in normal flow; the stored winner leads the private results. */
+.night-finalization, .night-finalized { padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); margin-bottom: 2rem; min-width: 0; }
+.night-finalization h2, .night-finalized h2 { margin-top: 0; }
+.night-finalization p, .night-finalized p { overflow-wrap: anywhere; }
+.night-finalized { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 240px); gap: 1.5rem; align-items: center; }
+.night-winner-card.movie-grid { display: block; margin: 0; padding: 0; }
+.night-winner-card .movie-card h3 { white-space: normal; overflow-wrap: anywhere; }
+.night-finalize-dialog fieldset { border: 1px solid var(--color-border); border-radius: 8px; margin-block: 1.25rem; min-width: 0; }
+.night-winner-choice { display: flex; align-items: center; gap: .75rem; padding-block: .75rem; overflow-wrap: anywhere; }
+.night-winner-choice input { width: 20px; height: 20px; min-height: 20px; padding: 0; accent-color: var(--color-primary); flex-shrink: 0; }
+@media (max-width: 599px) { .night-finalized { grid-template-columns: minmax(0, 1fr); } .night-winner-card.movie-grid { width: min(100%, 220px); } }
+.night-finalize-dialog legend { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.night-winner-choice span { min-width: 0; }

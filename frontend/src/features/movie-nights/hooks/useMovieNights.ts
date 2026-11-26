@@ -126,7 +126,7 @@ export function nightMutationOptions(client: QueryClient, owner: number, receipt
         if (lifetime.isCurrent() && id !== undefined && ['nominate', 'remove', 'vote'].includes(action.kind) && !info.movieNotFound && (info.refresh || info.status === 403 || info.status === 404)) {
           reconcileNightContent(client, owner, id)
           void client.invalidateQueries({ queryKey: nightKeys.event(owner, id), predicate: query => (query.queryKey[4] as NightQuery | undefined)?.kind === 'detail' })
-        } else if (currentOwner(client, owner) && info.refresh && id !== undefined) {
+        } else if (lifetime.isCurrent() && info.refresh && id !== undefined) {
           void client.invalidateQueries({ queryKey: nightKeys.event(owner, id) })
         }
         throw error

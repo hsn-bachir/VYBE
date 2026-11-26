@@ -16,6 +16,7 @@ import { movieNightError } from '../api/errors'
 import { useMovieNightQuery } from '../hooks/useMovieNights'
 import { useNightBoundary, useNightClock } from '../hooks/useNightBoundary'
 import { useNightContentCommand } from '../hooks/useNightContentCommand'
+import { MovieNightFinalization } from './MovieNightFinalization'
 import { canRemoveCandidate, nightPermissions } from '../lib/permissions'
 import { asTmdbId, type Candidate, type MovieNight, type VoteTotals } from '../types/movieNight.types'
 
@@ -38,6 +39,7 @@ export function MovieNightShortlist({ night }: { night: MovieNight }) {
   const busy = command.pending || votes.isFetching || shortlist.isFetching
   const full = (shortlist.data?.meta.total_results ?? 0) >= 50
   return <section className="night-shortlist" aria-labelledby="night-shortlist">
+    <MovieNightFinalization night={night} candidates={shortlist.isError ? [] : shortlist.data?.data ?? []} totals={totals} reconciling={votes.isFetching} />
     <div className="night-toolbar"><div><p className="eyebrow">A shared watchlist</p><h2 id="night-shortlist">Shared shortlist</h2><p>Nominate a film. Find your group’s next great story.</p></div>{writable && <Button disabled={command.pending || full} onClick={() => { command.clearError(); setDialog('nominate') }}>Nominate a movie</Button>}</div>
     {full && <p className="night-notice" role="status">The shortlist has reached its 50-movie limit.</p>}
     <section className="night-voting" aria-labelledby="night-voting"><h2 id="night-voting">Voting</h2>
