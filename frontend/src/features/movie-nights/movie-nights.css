@@ -43,7 +43,6 @@
 .night-notice { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--color-border); border-radius: 8px; }
 .night-inbox-note { margin-top: 1.5rem; }
 .night-skeleton { min-height: 310px; border-radius: 14px; }
-.night-placeholder > .button { margin-top: 1.5rem; }
 @media (max-width: 1099px) { .night-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 599px) {
   .movie-nights-page { padding-top: 1.5rem; }
@@ -57,3 +56,54 @@
   .night-filters a { padding-inline: .75rem; }
   .night-card { padding: 1.25rem; }
 }
+/* Creation, private details and organizer management share the dashboard's visual language. */
+.night-back { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-muted); }
+.night-create-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); gap: 2rem; align-items: start; }
+.night-form-panel, .night-detail-panel { padding: clamp(1.25rem, 3vw, 2rem); border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); min-width: 0; }
+.night-event-form { margin: 0; }
+.night-form-fields { border: 0; padding: 0; margin: 0; display: grid; gap: 1.25rem; min-width: 0; }
+.night-event-form input { padding-inline: .9rem; min-width: 0; }
+.night-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.night-form-row .field { min-width: 0; }
+.night-preview { padding: 1rem; background: var(--color-background); border: 1px solid var(--color-border); border-radius: 10px; overflow-wrap: anywhere; }
+.night-preview .eyebrow { font-size: .65rem; color: var(--color-info); }
+.night-preview p { margin: .5rem 0 0; font-size: .875rem; }
+.night-form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .75rem; margin-top: .5rem; }
+.night-form-aside { padding: 1.5rem; color: var(--color-muted); }
+.night-form-aside h2 { color: var(--color-foreground); font-size: 1.5rem; }
+.night-form-aside p { font-size: .9rem; }
+.night-occurrence { border: 1px solid var(--color-border); padding: 1rem; border-radius: 10px; min-width: 0; }
+.night-occurrence legend { font-size: .8rem; color: var(--color-info); padding-inline: .25rem; }
+.night-occurrence label { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding-block: .5rem; font-size: .875rem; cursor: pointer; }
+.night-occurrence input { width: 20px; min-height: 20px; height: 20px; padding: 0; accent-color: var(--color-primary); }
+.night-occurrence small { color: var(--color-muted); overflow-wrap: anywhere; }
+.night-detail .night-heading { align-items: flex-start; }
+.night-detail .night-heading > div { min-width: 0; }
+.night-detail h1 { overflow-wrap: anywhere; }
+.night-detail-labels { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; font-size: .8rem; }
+.night-detail-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .75rem; flex-shrink: 0; padding-top: 1rem; }
+.night-details-list { display: grid; gap: 1.5rem; margin-block: 2rem; }
+.night-details-list dt { color: var(--color-muted); font-size: .8rem; margin-bottom: .5rem; }
+.night-details-list dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.night-details-list a { color: var(--color-info); text-decoration: underline; text-underline-offset: 4px; }
+.night-detail-panel > .night-private-note { font-size: .8rem; margin-bottom: 0; }
+.night-future-sections { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; margin-top: 2rem; }
+.night-future-sections > section { border: 1px solid var(--color-border); border-radius: 12px; padding: 1.5rem; min-width: 0; }
+.night-future-sections h2 { font-size: 1.2rem; margin-top: 0; }
+.night-future-sections p, .night-dialog-copy { font-size: .875rem; color: var(--color-muted); }
+.app-dialog.night-edit-dialog { width: min(680px, calc(100% - 2rem)); }
+.night-edit-dialog .night-event-form { margin-top: 1.25rem; }
+@media (max-width: 899px) {
+  .night-create-layout { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .night-form-aside { padding: .5rem 0; }
+  .night-future-sections { grid-template-columns: minmax(0, 1fr); }
+  .night-detail .night-heading { flex-direction: column; gap: .75rem; }
+  .night-detail-actions { padding-top: 0; }
+}
+@media (max-width: 599px) {
+  .night-form-row { grid-template-columns: minmax(0, 1fr); }
+  .night-form-actions .button { flex: 1 1 auto; }
+  .night-detail-actions { justify-content: flex-start; }
+}
+
+.night-detail > .night-notice { margin: 0 0 1.25rem; }

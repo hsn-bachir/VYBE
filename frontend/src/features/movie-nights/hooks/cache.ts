@@ -19,13 +19,19 @@ function removeQueries(client: QueryClient, queryKey: readonly unknown[]) {
   client.removeQueries({ queryKey })
 }
 type ObservedMutation = Extract<MutationCacheNotifyEvent, { type: 'observerAdded' }>
+export interface NightEditAttempt {
+  contended: boolean
+  baseline: Map<string, number>
+  release: () => void
+}
 interface OwnerState {
   access: number; list: number; inbox: number
-  events: Map<number, { access: number; reads: number }>
+  events: Map<number, { access: number; reads: number; edits: Set<NightEditAttempt> }>
 }
 interface SessionState {
   identity: string; generation: number; owners: Map<number, OwnerState>
   observers: Map<ObservedMutation['observer'], ObservedMutation['mutation']>
+  accessListeners: Set<() => void>
 }
 const sessions = new WeakMap<QueryClient, SessionState>()
 const identity = (client: QueryClient) => {
@@ -39,7 +45,7 @@ function ownerState(state: SessionState, owner: number) {
 }
 function eventState(owner: OwnerState, id: number) {
   let value = owner.events.get(id)
-  if (!value) { value = { access: 0, reads: 0 }; owner.events.set(id, value) }
+  if (!value) { value = { access: 0, reads: 0, edits: new Set() }; owner.events.set(id, value) }
   return value
 }
 function mutationEventId(mutation: ObservedMutation['mutation']): number | undefined {
@@ -59,7 +65,7 @@ function removeMutations(client: QueryClient, owner?: number, id?: number) {
 export function watchNightSession(client: QueryClient) {
   const existing = sessions.get(client)
   if (existing) return existing
-  const state: SessionState = { identity: identity(client), generation: 0, owners: new Map(), observers: new Map() }
+  const state: SessionState = { identity: identity(client), generation: 0, owners: new Map(), observers: new Map(), accessListeners: new Set() }
   sessions.set(client, state)
   // Register before useMutation creates/attaches its observer. Only this feature's records are affected.
   client.getMutationCache().subscribe(event => {
@@ -82,6 +88,7 @@ export function watchNightSession(client: QueryClient) {
         state.owners.clear()
         removeQueries(client, ['movie-nights'])
         removeMutations(client)
+        state.accessListeners.forEach(listener => listener())
       }
       return
     }
@@ -94,6 +101,7 @@ export function watchNightSession(client: QueryClient) {
     // Advance guards before clearing either cache; ignored AbortSignals cannot resurrect private data.
     removeQueries(client, ['movie-nights'])
     removeMutations(client)
+    state.accessListeners.forEach(listener => listener())
   })
   return state
 }
@@ -126,27 +134,65 @@ export function purgeNight(client: QueryClient, owner: number, id?: number) {
   const keys = id === undefined ? [nightKeys.owner(owner)] : [nightKeys.event(owner, id), nightKeys.lists(owner), nightKeys.inbox(owner)]
   for (const queryKey of keys) removeQueries(client, queryKey)
   removeMutations(client, owner, id)
+  watchNightSession(client).accessListeners.forEach(listener => listener())
 }
 function queryKind(key: readonly unknown[]): unknown {
   const descriptor = key[4]
   return descriptor && typeof descriptor === 'object' && 'kind' in descriptor ? descriptor.kind : undefined
 }
-export function applyNightLifecycle(client: QueryClient, owner: number, id: number, night: MovieNight) {
+export function beginNightEdit(client: QueryClient, owner: number, id: number): NightEditAttempt {
+  const event = eventState(ownerState(watchNightSession(client), owner), id)
+  // Local overlap marks ambiguity, not server ordering: neither dispatch nor arrival order wins.
+  for (const pending of event.edits) pending.contended = true
+  const attempt: NightEditAttempt = {
+    contended: event.edits.size > 0,
+    baseline: new Map(client.getQueryCache().findAll({ queryKey: nightKeys.event(owner, id) })
+      .filter(query => queryKind(query.queryKey) === 'detail').map(query => [query.queryHash, query.state.dataUpdateCount])),
+    release: () => { event.edits.delete(attempt) },
+  }
+  event.edits.add(attempt)
+  return attempt
+}
+export function applyNightUpdate(client: QueryClient, owner: number, id: number, night: MovieNight, attempt?: NightEditAttempt) {
   if (!currentOwner(client, owner) || night.id !== id || night.my_rsvp !== 'accepted'
-    || night.host.id !== owner || !['cancelled', 'finalized'].includes(night.status)) return
+    || night.host.id !== owner) return
+  const eventKey = nightKeys.event(owner, id)
+  const ambiguous = night.status === 'scheduled' && (!attempt || attempt.contended
+    || client.getQueryCache().findAll({ queryKey: eventKey }).some(query => queryKind(query.queryKey) === 'detail'
+      && query.state.dataUpdateCount !== attempt.baseline.get(query.queryHash)))
   const account = ownerState(watchNightSession(client), owner)
   eventState(account, id).reads++
   account.list++
   account.inbox++
   // Stop older reads without invalidating concurrent server mutations, including unrelated events.
-  const eventKey = nightKeys.event(owner, id)
   for (const queryKey of [eventKey, nightKeys.lists(owner), nightKeys.inbox(owner)]) void client.cancelQueries({ queryKey })
-  client.setQueriesData<MovieNight>({ queryKey: eventKey, predicate: query => queryKind(query.queryKey) === 'detail' }, old =>
-    old?.id === id && old.my_rsvp === 'accepted' ? night : old)
+  if (!ambiguous) client.setQueriesData<MovieNight>({ queryKey: eventKey, predicate: query => queryKind(query.queryKey) === 'detail' }, old => {
+    if (old?.id !== id || old.my_rsvp !== 'accepted') return old
+    if (old.status !== 'scheduled' && old.status !== night.status) return old
+    return night
+  })
+  if (ambiguous) {
+    // Every ambiguous success supersedes earlier reads. Refetch even an inactive cached detail;
+    // a later competing response will cancel this read and reconcile again after that write.
+    // Read failures stay query errors and never turn a confirmed write into a failed mutation.
+    void client.invalidateQueries({ queryKey: eventKey, predicate: query => queryKind(query.queryKey) === 'detail', refetchType: 'all' })
+  }
   // The response supplies the authoritative winner/status; refresh summaries and totals without calculating them.
   void client.invalidateQueries({ queryKey: nightKeys.lists(owner) })
   void client.invalidateQueries({ queryKey: nightKeys.inbox(owner) })
   void client.invalidateQueries({ queryKey: eventKey, predicate: query => queryKind(query.queryKey) === 'votes' })
+}
+export function applyNightLifecycle(client: QueryClient, owner: number, id: number, night: MovieNight) {
+  if (['cancelled', 'finalized'].includes(night.status)) applyNightUpdate(client, owner, id, night)
+}
+export function subscribeNightAccess(client: QueryClient, listener: () => void) {
+  const state = watchNightSession(client)
+  state.accessListeners.add(listener)
+  return () => { state.accessListeners.delete(listener) }
+}
+export function nightAccessVersion(client: QueryClient, owner: number, id?: number): string {
+  const state = watchNightSession(client), account = ownerState(state, owner)
+  return `${state.generation}:${account.access}:${id === undefined ? '' : eventState(account, id).access}`
 }
 export async function guardedRequest<T>(client: QueryClient, owner: number, id: number | undefined, run: (context: RequestContext) => Promise<T>, signal?: AbortSignal, scope: RequestScope = 'write') {
   const context = requestContext(client, owner, id, signal, scope)

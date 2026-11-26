@@ -3,7 +3,7 @@ import { useAuth } from '../../auth/hooks/useAuth'
 import { useAccess } from '../../auth/hooks/useAccess'
 import { movieNightApi as api } from '../api/movieNightApi'
 import { MovieNightRequestCancelled, movieNightError } from '../api/errors'
-import { applyNightLifecycle, currentOwner, guardedRequest, nightKeys, purgeNight, requestContext, watchNightSession } from './cache'
+import { beginNightEdit, applyNightUpdate, applyNightLifecycle, currentOwner, guardedRequest, nightKeys, purgeNight, requestContext, watchNightSession } from './cache'
 import type { CandidateId, EventFields, Invitation, MovieNight, NightFilters, NightSummary, Page, Pagination, Participant, ReceivedInvitation, ShortlistPage, TmdbId, VoteTotals } from '../types/movieNight.types'
 
 export type NightQuery =
@@ -69,11 +69,17 @@ export function nightMutationOptions(client: QueryClient, owner: number) {
     mutationFn: async (action: NightMutation) => {
       const id = 'id' in action ? action.id : undefined
       const lifetime = requestContext(client, owner, id)
+      const edit = action.kind === 'update' ? beginNightEdit(client, owner, action.id) : undefined
       try {
         const result = await guardedRequest(client, owner, id, async context => {
           switch (action.kind) {
             case 'create': return api.create(action.fields, context)
-            case 'update': return api.update(action.id, action.fields, context)
+            case 'update': {
+              const night = await api.update(action.id, action.fields, context)
+              if (!context.isCurrent()) throw new MovieNightRequestCancelled()
+              applyNightUpdate(client, owner, action.id, night, edit)
+              return night
+            }
             case 'cancel': {
               const night = await api.cancel(action.id, context)
               if (!context.isCurrent()) throw new MovieNightRequestCancelled()
@@ -99,7 +105,7 @@ export function nightMutationOptions(client: QueryClient, owner: number) {
         if (action.kind === 'rsvp') {
           // Both directions discard prior membership projections. Accept never restores an old vote/detail.
           purgeNight(client, owner, action.id)
-        } else if (action.kind !== 'cancel' && action.kind !== 'finalize') {
+        } else if (action.kind !== 'cancel' && action.kind !== 'finalize' && action.kind !== 'update') {
           // Refetch server truth; never calculate totals, permissions or winners locally.
           void client.invalidateQueries({ queryKey: nightKeys.owner(owner) })
         }
@@ -110,7 +116,7 @@ export function nightMutationOptions(client: QueryClient, owner: number) {
           void client.invalidateQueries({ queryKey: nightKeys.event(owner, id) })
         }
         throw error
-      }
+      } finally { edit?.release() }
     },
   }
 }

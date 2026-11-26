@@ -22,6 +22,10 @@ export async function runMovieNightDashboardChecks(page, base = 'http://127.0.0.
     requests.push({ path, query: url.search, method: request.method() })
     if (path === '/api/v1/auth/me') return auth === 'guest' ? reply({ message: 'Unauthenticated.' }, 401) : reply({ data: { id: owner, username: `fixture_${owner}`, email: 'fixture@example.test', avatar_url: null, email_verified_at: auth === 'verified' ? '2026-01-01T00:00:00Z' : null } })
     if (path === '/api/v1/me/access') return reply({ data: { role: 'user', account_status: account } })
+    if (/^\/api\/v1\/me\/movie-nights\/\d+$/.test(path)) {
+      const event = entries.find(item => item.id === Number(path.split('/').at(-1)))
+      return event?.my_rsvp === 'accepted' ? reply({ data: { ...event, location: 'Fixture hall', meeting_url: null } }) : reply({ message: 'Not found.' }, 404)
+    }
     if (path === '/api/v1/me/movie-nights' || path === '/api/v1/me/movie-nights/invitations') {
       if (delay) await new Promise(resolve => setTimeout(resolve, 900))
       if (failure) return reply({ message: 'SQL SECRET', code: 'UPSTREAM_UNAVAILABLE' }, 503)
@@ -96,13 +100,13 @@ export async function runMovieNightDashboardChecks(page, base = 'http://127.0.0.
 
   await page.goto(`${base}/movie-nights`); await loaded()
   await page.getByRole('link', { name: 'Create Movie Night', exact: false }).click()
-  await page.waitForURL(/movie-nights\/new$/); await page.getByRole('heading', { name: 'Your next movie night.' }).waitFor()
+  await page.waitForURL(/movie-nights\/new$/); await page.getByRole('heading', { name: 'Create a movie night.' }).waitFor()
   assert(await nav.getByRole('link', { name: 'Movie Nights', exact: true }).getAttribute('aria-current') === 'page', 'New route lost highlight')
-  await page.getByRole('link', { name: 'Back to Movie Nights', exact: false }).click(); await loaded()
+  await page.getByRole('link', { name: '← Movie Nights', exact: true }).click(); await loaded()
   await page.getByRole('link', { name: /^View Friday,/ }).first().click()
-  await page.getByRole('heading', { name: 'Movie night details.' }).waitFor()
+  await page.getByRole('heading', { name: 'Friday, under the stars.' }).waitFor()
   assert(await nav.getByRole('link', { name: 'Movie Nights', exact: true }).getAttribute('aria-current') === 'page', 'Detail route lost highlight')
-  checks.push('Three lazy routes and active highlighting; creation/detail remain read-free temporary placeholders')
+  checks.push('Three lazy routes and active highlighting; creation and accepted-detail destinations render')
 
   account = 'restricted'; await page.goto(`${base}/movie-nights`); await loaded()
   assert(await page.getByRole('link', { name: 'Create Movie Night', exact: false }).count() === 0, 'Restricted account can create')

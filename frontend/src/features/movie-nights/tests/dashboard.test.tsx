@@ -9,7 +9,6 @@ import { authKey } from '../../auth/hooks/useAuth'
 import { accessKey, type Access } from '../../auth/hooks/useAccess'
 import { api } from '../../../lib/api/client'
 import MovieNightsPage from '../pages/MovieNightsPage'
-import MovieNightPlaceholderPage from '../pages/MovieNightPlaceholderPage'
 import { MovieNightCard } from '../components/MovieNightCard'
 import { nightOptions } from '../hooks/useMovieNights'
 import { dashboardState, dashboardTarget } from '../lib/dashboardState'
@@ -48,8 +47,9 @@ it('preserves guest navigation and avoids matching similar route names', () => {
 })
 it.each(['/movie-nights', '/movie-nights/new', '/movie-nights/12'])('renders protected lazy route %s for verified sessions', async path => {
   const client = setup(); seed(client)
+  client.setQueryData(nightOptions(client, 7, { kind: 'detail', id: 12 }).queryKey, { ...night, my_rsvp: 'accepted', location: null, meeting_url: null, finalized_tmdb_id: null, finalized_at: null, cancelled_at: null, voting_open: true, created_at: '', updated_at: '' })
   const html = await renderApp(client, path)
-  expect(html).toContain(path === '/movie-nights' ? 'A little cinema' : path.endsWith('new') ? 'Your next movie night.' : 'Movie night details.')
+  expect(html).toContain(path.endsWith('new') ? 'Create a movie night' : 'A little cinema')
   expect(html).toContain('Movie Nights</a>')
 })
 it.each(['/movie-nights', '/movie-nights/new', '/movie-nights/12'])('withholds %s from guests and unverified sessions', async path => {
@@ -132,11 +132,11 @@ it.each(['scheduled', 'finalized', 'cancelled'] as const)('restores %s status an
   expect(dashboardState(params)).toEqual({ view: 'nights', status, page: 3, valid: true })
   expect(dashboardTarget(params, { status: 'all' })).toBe('/movie-nights?view=nights&status=all')
 })
-it('keeps unsupported creation/detail operations absent from both temporary placeholders', () => {
-  for (const kind of ['new', 'detail'] as const) {
-    const html = render(setup(), `/movie-nights/${kind}`, <MovieNightPlaceholderPage kind={kind} />)
-    expect(html).toContain('Back to Movie Nights')
-    expect(html).not.toContain('<form'); expect(html).not.toContain('Vote'); expect(html).not.toContain('Finalize')
+it('keeps future RSVP, voting and finalization interfaces absent from management routes', async () => {
+  const client = setup()
+  for (const path of ['/movie-nights/new', '/movie-nights/12']) {
+    const html = await renderApp(client, path)
+    expect(html).not.toContain('Cast vote'); expect(html).not.toContain('Finalize movie night'); expect(html).not.toContain('Accept invitation')
   }
 })
 it('gracefully renders an unavailable schedule instead of failing the entire list', () => {
