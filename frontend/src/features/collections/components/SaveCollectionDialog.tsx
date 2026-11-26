@@ -8,22 +8,26 @@ import type { Collection } from '../types/collection.types'
 import { CollectionDialog } from './CollectionDialog'
 import { CollectionForm } from './CollectionForm'
 import '../collections.css'
+import { useAccess } from '../../auth/hooks/useAccess'
 
-function CollectionChoice({ owner, movie, collection, onConfirmed, savingNew = false }: { owner: number; movie: number; collection: Collection; onConfirmed: (add: boolean) => void; savingNew?: boolean }) {
+function CollectionChoice({ owner, movie, collection, onConfirmed, canAddPublic, savingNew = false }: { owner: number; movie: number; collection: Collection; onConfirmed: (add: boolean) => void; canAddPublic: boolean; savingNew?: boolean }) {
   const mutation = useCollectionMutation(owner, (_, operation) => { if (operation.action === 'membership') onConfirmed(operation.add) }, { id: collection.id, movie })
   const inFlight = useIsMutating({ mutationKey: collectionKeys.membership(owner, collection.id, movie) }) > 0
   const pending = savingNew || inFlight
   const selected = collection.contains_movie === true
+  const cannotAdd = collection.visibility === 'public' && !canAddPublic
   return <li className={`collection-choice ${selected ? 'is-selected' : ''}`}>
-    <label><input type="checkbox" checked={selected} disabled={pending} aria-label={`${collection.name}, collection ${collection.id}`} onChange={() => mutation.mutate({ action: 'membership', id: collection.id, tmdbId: movie, add: !selected })} />
+    <label><input type="checkbox" checked={selected} disabled={pending || !selected && cannotAdd} aria-label={`${collection.name}, collection ${collection.id}`} onChange={() => mutation.mutate({ action: 'membership', id: collection.id, tmdbId: movie, add: !selected })} />
       <span className="collection-choice-copy"><strong>{collection.name}</strong><small>Collection {collection.id} · {collection.movie_count} {collection.movie_count === 1 ? 'movie' : 'movies'}</small></span>
       <span className="collection-choice-state" aria-live="polite">{pending ? 'Saving…' : selected ? 'Saved' : 'Add'}</span>
     </label>
+    {!selected && cannotAdd && <p className="hint">An active account is required to add movies to public collections.</p>}
     {mutation.isError && <p role="alert">{collectionError(mutation.error, true)} Select this collection to retry.</p>}
   </li>
 }
 
-export default function SaveCollectionDialog({ owner, movie, title, onClose }: { owner: number; movie: number; title: string; onClose: () => void }) {
+export default function SaveCollectionDialog({ owner, movie, title, onClose, onMembershipConfirmed }: { owner: number; movie: number; title: string; onClose: () => void; onMembershipConfirmed?: (add: boolean) => void }) {
+  const access = useAccess(owner, true)
   const [page, setPage] = useState(1)
   const [creating, setCreating] = useState(false)
   const [created, setCreated] = useState<Collection | null>(null)
@@ -34,6 +38,7 @@ export default function SaveCollectionDialog({ owner, movie, title, onClose }: {
   const saveNew = useCollectionMutation(owner, () => {
     setCreated(old => old ? { ...old, contains_movie: true, movie_count: 1 } : old)
     setFeedback('Collection created and movie saved.')
+    onMembershipConfirmed?.(true)
   }, { id: 0, movie })
   const creatingPending = useIsMutating({ mutationKey: ['library', owner, 'collection-write'], exact: true }) > 0
   const rows = result.data?.data ?? []
@@ -47,8 +52,9 @@ export default function SaveCollectionDialog({ owner, movie, title, onClose }: {
       {result.isPending ? <ul role="status" aria-label="Loading collections" className="collection-choices collection-choice-skeletons">{[0, 1, 2].map(i => <li key={i} className="skeleton" aria-hidden="true" />)}</ul>
         : result.isError ? <div className="collection-dialog-copy" role="alert"><p>{collectionError(result.error)}</p><Button onClick={() => void result.refetch()}>Retry collections</Button></div>
           : <>
-            {choices.length ? <ul className="collection-choices">{choices.map(c => <CollectionChoice key={c.id} owner={owner} movie={movie} collection={c} savingNew={created?.id === c.id && saveNew.isPending} onConfirmed={add => {
+            {choices.length ? <ul className="collection-choices">{choices.map(c => <CollectionChoice key={c.id} owner={owner} movie={movie} collection={c} canAddPublic={!access.isError && access.data?.account_status === 'active'} savingNew={created?.id === c.id && saveNew.isPending} onConfirmed={add => {
               setFeedback(`${add ? 'Saved to' : 'Removed from'} ${c.name} (collection ${c.id}).`)
+              if (!c.system_key) onMembershipConfirmed?.(add)
               if (created?.id === c.id) { setCreated({ ...c, contains_movie: add }); saveNew.reset() }
             }} />)}</ul> : <p className="collection-dialog-copy">No collections yet. Create one to give this movie a home.</p>}
             {result.data.meta.total_pages > 1 && <nav className="collection-pagination" aria-label="Collection choices pages"><Button disabled={page <= 1 || result.isFetching} onClick={() => { setPage(p => p - 1); listHeading.current?.focus() }}>Previous</Button><span>Page {page} of {result.data.meta.total_pages}</span><Button disabled={page >= result.data.meta.total_pages || result.isFetching} onClick={() => { setPage(p => p + 1); listHeading.current?.focus() }}>Next</Button></nav>}

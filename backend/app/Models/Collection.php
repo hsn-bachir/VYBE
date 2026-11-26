@@ -10,7 +10,13 @@ class Collection extends Model
 {
     public const FAVORITES = 'favorites';
 
-    protected $fillable = ['name', 'description', 'system_key'];
+    public const PRIVATE = 'private';
+
+    public const PUBLIC = 'public';
+
+    protected $fillable = ['name', 'description', 'system_key', 'visibility'];
+
+    protected $attributes = ['visibility' => self::PRIVATE];
 
     public function user(): BelongsTo
     {

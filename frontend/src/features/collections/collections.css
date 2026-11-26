@@ -1,4 +1,15 @@
 .collection-section-heading { gap: 1.25rem; flex-wrap: wrap; }
+.public-profile-collections { margin-top: 2.5rem; }
+.public-profile-collections > .section-heading { margin-bottom: 1.25rem; }
+.public-collection-page { width: 100%; padding-block: .25rem 2rem; }
+.public-collection-page h1 { font-size: clamp(1.8rem, 4vw, 3rem); overflow-wrap: anywhere; }
+.public-collection-creator { display: inline-flex; align-items: center; gap: .75rem; min-height: 44px; max-width: 100%; margin-top: 1rem; }
+.public-collection-creator span { overflow-wrap: anywhere; min-width: 0; }
+.public-collection-creator .user-avatar { flex-shrink: 0; }
+.public-collection-missing { min-width: 0; min-height: 240px; padding: 1.25rem; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow-wrap: anywhere; }
+.collection-public-notice { color: var(--color-muted); padding-block: 1rem; }
+.collection-public-notice button { min-height: 44px; text-decoration: underline; color: var(--color-primary); }
+.collection-form select { width: 100%; min-height: 44px; padding: .75rem; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-foreground); background: var(--color-surface); }
 .collection-section-heading p { color: var(--color-muted); font-size: .9rem; }
 .collection-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; list-style: none; padding: 0; }
 .collection-card { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); overflow: hidden; transition: border-color var(--motion-card), transform var(--motion-card) var(--motion-ease); }

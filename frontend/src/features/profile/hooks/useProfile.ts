@@ -5,7 +5,8 @@ import { authKey } from '../../auth/hooks/useAuth'
 import type { User } from '../../auth/types/auth.types'
 import { changeProfile, readProfile } from '../api/profileApi'
 import type { Profile, ProfileOperation } from '../types/profile.types'
-import { profileKey } from './profileKeys'
+import { profileKey, publicProfileKey } from './profileKeys'
+import { publicCreatorFilter } from '../../collections/hooks/usePublicCollections'
 export { profileKey } from './profileKeys'
 
 export const profileOptions = (owner: number) => queryOptions({ queryKey: profileKey(owner), queryFn: ({ signal }) => readProfile(signal), enabled: owner > 0, staleTime: 30_000, retry: false, refetchOnWindowFocus: false })
@@ -13,10 +14,12 @@ const current = (client: QueryClient, owner: number) => { const user = client.ge
 const authors = { predicate: (query: { queryKey: readonly unknown[] }) => query.queryKey[0] === 'movies' && query.queryKey[1] === 'reviews' || query.queryKey[0] === 'me' && query.queryKey[2] === 'review' }
 export async function synchronizeProfile(client: QueryClient, owner: number, profile: Profile): Promise<boolean> {
   if (!current(client, owner) || profile.user.id !== owner) return false
-  await Promise.all([client.cancelQueries({ queryKey: authKey, exact: true }), client.cancelQueries({ queryKey: profileKey(owner), exact: true }), client.cancelQueries(authors)])
+  await Promise.all([client.cancelQueries({ queryKey: authKey, exact: true }), client.cancelQueries({ queryKey: profileKey(owner), exact: true }), client.cancelQueries(authors), client.cancelQueries({ queryKey: publicProfileKey(owner), exact: true }), client.cancelQueries(publicCreatorFilter(owner))])
   if (!current(client, owner)) return false
   client.setQueryData(authKey, profile.user); client.setQueryData(profileKey(owner), profile)
   void client.invalidateQueries(authors)
+  void client.invalidateQueries({ queryKey: publicProfileKey(owner), exact: true })
+  void client.invalidateQueries(publicCreatorFilter(owner))
   return current(client, owner)
 }
 export function useProfileAccess(error: unknown, owner: number) {

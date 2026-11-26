@@ -1,16 +1,18 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { authKey } from '../../auth/hooks/useAuth'
 import type { User } from '../../auth/types/auth.types'
 import { libraryKeys, useLibraryAccessError } from '../../library/hooks/useLibrary'
 import { changeCollection, collectionDetails, collectionMovies, collectionsPage } from '../api/collectionsApi'
 import type { Collection, CollectionOperation, CollectionsResponse } from '../types/collection.types'
 import { refreshRecommendations } from '../../recommendations/recommendations'
+import { refreshPublicCollections } from './usePublicCollections'
 
 export const collectionKeys = {
   lists: (owner: number) => [...libraryKeys.owner(owner), 'collections'] as const,
   list: (owner: number, page: number, movie?: number, includePreviews = true) => [...libraryKeys.owner(owner), 'collections', { page, contains_tmdb_id: movie ?? null, include_previews: includePreviews }] as const,
   detail: (owner: number, id: number) => [...libraryKeys.owner(owner), 'collection', id] as const,
   membership: (owner: number, id: number, movie: number) => [...libraryKeys.owner(owner), 'collection-write', id, movie] as const,
+  customMembership: (owner: number, movie: number) => [...libraryKeys.owner(owner), 'collections', 'custom-membership', movie] as const,
 }
 const policy = { staleTime: 30_000, retry: false, refetchOnWindowFocus: false } as const
 export const collectionsOptions = (owner: number, page: number, movie?: number, includePreviews = true) => queryOptions({
@@ -23,10 +25,27 @@ export const collectionMoviesOptions = (owner: number, id: number, page: number)
   ...policy, queryKey: [...collectionKeys.detail(owner, id), 'movies', page], queryFn: ({ signal }) => collectionMovies(id, page, signal), enabled: owner > 0 && id > 0,
 })
 
+export const customCollectionMembershipOptions = (client: QueryClient, owner: number, movie: number) => queryOptions({
+  ...policy, queryKey: collectionKeys.customMembership(owner, movie), enabled: owner > 0 && movie > 0,
+  refetchOnMount: 'always', refetchOnWindowFocus: true,
+  queryFn: async ({ signal }) => {
+    for (let page = 1; page <= 10000; page++) {
+      signal.throwIfAborted()
+      // Same page keys as Favorites/the dialog: reuse and deduplicate their requests.
+      const result = await client.fetchQuery({ ...collectionsOptions(owner, page, movie, false), staleTime: 0 })
+      signal.throwIfAborted()
+      if (result.data.some(collection => !collection.system_key && collection.contains_movie === true)) return true
+      if (page >= result.meta.total_pages) return false
+    }
+    throw new Error('Collection membership could not be fully checked.')
+  },
+})
+
 // Invalidate only this owner's collection views; discovery and Watchlist/Watched stay intact.
 export async function synchronizeCollections(client: ReturnType<typeof useQueryClient>, owner: number, operation: CollectionOperation, result: Collection | null) {
   const current = () => client.getQueryData<User | null>(authKey)?.id === owner
   if (!current()) return false
+  if (!await refreshPublicCollections(client, owner, operation.action === 'create' ? result?.id : operation.id, current)) return false
   void refreshRecommendations(client, owner, operation.action === 'membership' && operation.add ? operation.tmdbId : undefined)
   await client.cancelQueries({ queryKey: collectionKeys.lists(owner) })
   if (!current()) return false

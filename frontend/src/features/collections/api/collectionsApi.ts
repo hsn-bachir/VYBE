@@ -27,7 +27,7 @@ export async function changeCollection(operation: CollectionOperation, isCurrent
 export function collectionError(error: unknown, membership = false) {
   const status = axios.isAxiosError(error) ? error.response?.status : undefined
   if (status === 401) return 'Sign in again to access your collections.'
-  if (status === 403) return 'Verify your email to use your collections.'
+  if (status === 403) return 'This action is not permitted. Check your account access or make the collection private before editing.'
   if (status === 404) return 'This collection is no longer available.'
   if (status === 503) return 'Movie information is temporarily unavailable. Please try again shortly.'
   if (status === 422 && membership) return 'This movie could not be saved. Open its details and try again.'

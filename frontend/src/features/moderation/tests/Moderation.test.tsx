@@ -39,7 +39,7 @@ function screen(path: string, item: Report = report, status: 'active' | 'restric
 }
 
 it('shows report action for another author and clear dialog copy', () => {
-  const card = renderToStaticMarkup(<ReviewCard review={{ ...review, body: review.body ?? '', author: { ...review.author!, avatar_url: null } }} onReport={() => {}} />)
+  const card = renderToStaticMarkup(<MemoryRouter><ReviewCard review={{ ...review, body: review.body ?? '', author: { ...review.author!, avatar_url: null } }} onReport={() => {}} /></MemoryRouter>)
   expect(card).toContain('Report review by writer')
   const dialog = renderToStaticMarkup(<QueryClientProvider client={new QueryClient()}><ReportReviewDialog review={{ ...review, body: review.body ?? '', author: { ...review.author!, avatar_url: null } }} owner={8} onClose={() => {}} onDone={() => {}} /></QueryClientProvider>)
   expect(dialog).toContain('does not automatically remove a review')

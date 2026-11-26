@@ -49,7 +49,8 @@ function CollectionDetailsContent({ owner, id }: { owner: number; id: number }) 
       : detail.isPending ? <div className="collection-skeleton skeleton" role="status">Opening collection…</div>
         : detail.isError ? <MovieState title="Collection unavailable" retry={() => void detail.refetch()}>{collectionError(detail.error)}</MovieState>
           : c && <>
-            <div className="collection-detail-heading"><p className="eyebrow">Private collection · {c.id}</p><h2 ref={heading} tabIndex={-1}>{c.name}</h2>{c.description && <p className="collection-description">{c.description}</p>}<p className="collection-count">{c.movie_count} {c.movie_count === 1 ? 'movie' : 'movies'}</p>
+            <div className="collection-detail-heading"><p className="eyebrow">{c.system_key || c.visibility !== 'public' ? 'Private' : 'Public'} collection · {c.id}</p><h2 ref={heading} tabIndex={-1}>{c.name}</h2>{c.description && <p className="collection-description">{c.description}</p>}<p className="collection-count">{c.movie_count} {c.movie_count === 1 ? 'movie' : 'movies'}</p>
+              {!c.system_key && c.visibility === 'public' && <Link className="button" to={`/collections/${c.id}`}>Open public page</Link>}
               {!c.system_key && <div className="collection-card-actions"><Button onClick={() => setEditing(true)}>Edit collection</Button><Button className="destructive" onClick={() => setDeleting(true)}>Delete collection</Button></div>}
             </div>
             {!validPage ? <MovieState title="That page is out of frame."><Link to={`/library/collections/${id}`}>Go to the first page</Link></MovieState>

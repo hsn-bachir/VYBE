@@ -97,19 +97,19 @@ it('rejects old-account completion before and after cancellation', async () => {
   expect(client.getQueryData(reviewKeys.own(7, 550))).toBeUndefined()
 })
 it('conceals spoiler content completely from rendered HTML and reading order', () => {
-  const html = renderToStaticMarkup(<ReviewCard review={{ ...review, contains_spoilers: true, body: 'Secret final-scene revelation' }} />)
+  const html = renderToStaticMarkup(<MemoryRouter><ReviewCard review={{ ...review, contains_spoilers: true, body: 'Secret final-scene revelation' }} /></MemoryRouter>)
   expect(html).toContain('Spoiler hidden'); expect(html).toContain('Contains plot details.')
   expect(html).toContain('Reveal review'); expect(html).toContain('aria-expanded="false"')
   expect(html).not.toContain('Secret final-scene revelation')
   expect(html).not.toContain('review-spoiler-mask')
 })
 it('renders plain text safely and does not accept executable avatar URLs', () => {
-  const html = renderToStaticMarkup(<ReviewCard review={{ ...review, body: '<script>alert(1)</script>\n<img src=x onerror=alert(2)>', author: { ...review.author, avatar_url: 'javascript:alert(3)' } }} />)
+  const html = renderToStaticMarkup(<MemoryRouter><ReviewCard review={{ ...review, body: '<script>alert(1)</script>\n<img src=x onerror=alert(2)>', author: { ...review.author, avatar_url: 'javascript:alert(3)' } }} /></MemoryRouter>)
   expect(html).toContain('&lt;script&gt;'); expect(html).not.toContain('<script>'); expect(html).not.toContain('<img')
   expect(html).toContain('dateTime="2026-11-03T00:00:00Z"')
 })
 it('offers expansion for long plain reviews without truncating API state', () => {
-  const html = renderToStaticMarkup(<ReviewCard review={{ ...review, body: 'x'.repeat(700) }} />)
+  const html = renderToStaticMarkup(<MemoryRouter><ReviewCard review={{ ...review, body: 'x'.repeat(700) }} /></MemoryRouter>)
   expect(html).toContain('Read full review'); expect(html).toContain('aria-expanded="false"')
   expect(review.body).toContain('A thoughtful film.')
 })
@@ -150,7 +150,7 @@ it('prepopulates editing and counts Unicode characters after trimming', () => {
   expect(html).not.toContain('maxLength=')
 })
 it('keeps multiline reviews compact with an explicit expansion action', () => {
-  const html = renderToStaticMarkup(<ReviewCard review={{ ...review, body: 'Line\n'.repeat(12) }} />)
+  const html = renderToStaticMarkup(<MemoryRouter><ReviewCard review={{ ...review, body: 'Line\n'.repeat(12) }} /></MemoryRouter>)
   expect(html).toContain('review-copy-preview'); expect(html).toContain('Read full review')
 })
 it('preserves the draft and offers an explicit existing-review action on conflict', () => {

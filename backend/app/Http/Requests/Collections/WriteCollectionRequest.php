@@ -30,18 +30,19 @@ class WriteCollectionRequest extends FormRequest
     public function rules(): array
     {
         return ['name' => [$this->isMethod('PATCH') ? 'sometimes' : 'required', 'required', 'string', 'max:100'],
-            'description' => ['sometimes', 'nullable', 'string', 'max:2000']]
+            'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'visibility' => ['sometimes', 'required', 'in:private,public']]
             + ($this->isMethod('PATCH') ? ['id' => ShowCollectionRequest::ID_RULES] : []);
     }
 
     public function after(): array
     {
         return [function (Validator $validator): void {
-            foreach (array_diff(array_keys($this->all()), ['name', 'description']) as $field) {
+            foreach (array_diff(array_keys($this->all()), ['name', 'description', 'visibility']) as $field) {
                 $validator->errors()->add($field, 'This field is not allowed.');
             }
-            if ($this->isMethod('PATCH') && ! $this->hasAny(['name', 'description'])) {
-                $validator->errors()->add('name', 'Include a name or description to update.');
+            if ($this->isMethod('PATCH') && ! $this->hasAny(['name', 'description', 'visibility'])) {
+                $validator->errors()->add('name', 'Include a name, description or visibility to update.');
             }
         }];
     }
