@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { MovieNightRsvp } from './MovieNightRsvp'
 import { Avatar } from '../../../components/ui/Avatar'
 import { schedulePreview, utcToLocal } from '../lib/dateTime'
 import { nightRelationship } from '../lib/permissions'
@@ -28,5 +29,6 @@ export function MovieNightCard({ night, owner, rsvp }: { night: NightSummary; ow
       : <span className="night-private-note">Details available after accepting.</span>}
       {rsvp && <span className="night-rsvp">RSVP: {responses[rsvp]}</span>}
     </div>
+    <MovieNightRsvp key={`${owner}:${night.id}`} night={night} />
   </li>
 }

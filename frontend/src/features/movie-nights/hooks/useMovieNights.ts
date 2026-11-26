@@ -62,7 +62,9 @@ export type NightMutation =
   | { kind: 'remove' | 'vote'; id: number; candidateId: CandidateId }
   | { kind: 'finalize'; id: number; confirmed: true; tmdbId?: TmdbId }
 
-export function nightMutationOptions(client: QueryClient, owner: number) {
+// Imperative receipt only: lets the initiating UI identify its own synchronous purge.
+export interface RsvpReceipt { current: { confirmed: boolean } }
+export function nightMutationOptions(client: QueryClient, owner: number, receipt?: RsvpReceipt) {
   watchNightSession(client)
   return {
     mutationKey: nightKeys.owner(owner), retry: false as const, gcTime: 0,
@@ -104,7 +106,14 @@ export function nightMutationOptions(client: QueryClient, owner: number) {
         if (!lifetime.isCurrent()) throw new MovieNightRequestCancelled()
         if (action.kind === 'rsvp') {
           // Both directions discard prior membership projections. Accept never restores an old vote/detail.
+          if (receipt) receipt.current.confirmed = true
           purgeNight(client, owner, action.id)
+        } else if (action.kind === 'invite') {
+          // Only this event's roster/search projections changed; unrelated operations stay untouched.
+          void client.invalidateQueries({ queryKey: nightKeys.event(owner, action.id), predicate: query => {
+            const descriptor = query.queryKey[4] as NightQuery | undefined
+            return descriptor?.kind === 'roster' || descriptor?.kind === 'eligibleUsers'
+          } })
         } else if (action.kind !== 'cancel' && action.kind !== 'finalize' && action.kind !== 'update') {
           // Refetch server truth; never calculate totals, permissions or winners locally.
           void client.invalidateQueries({ queryKey: nightKeys.owner(owner) })
@@ -120,8 +129,8 @@ export function nightMutationOptions(client: QueryClient, owner: number) {
     },
   }
 }
-export function useMovieNightMutation() {
+export function useMovieNightMutation(receipt?: RsvpReceipt) {
   const client = useQueryClient()
   const { data: user } = useAuth()
-  return useMutation(nightMutationOptions(client, user?.id ?? 0))
+  return useMutation(nightMutationOptions(client, user?.id ?? 0, receipt))
 }

@@ -2,6 +2,7 @@
 export async function runMovieNightManagementChecks(page, base = 'http://127.0.0.1:5187', screenshots) {
   const assert = (value, message) => { if (!value) throw new Error(message) }
   const checks = [], requests = [], geometry = [], errors = []
+  const unexpectedRequests = []
   page.on('pageerror', error => errors.push(error.message))
   let owner = 7, account = 'active', access = true, failure = '', slow = false, nextId = 101
   const host = { id: 7, username: 'cinema_host', avatar_url: null }
@@ -18,6 +19,7 @@ export async function runMovieNightManagementChecks(page, base = 'http://127.0.0
     requests.push({ path, method, body })
     if (path === '/api/v1/auth/me' && owner === 0) return reply({ message: 'Unauthenticated.' }, 401)
     if (path === '/api/v1/auth/me') return reply({ data: { id: owner, username: `fixture_${owner}`, email: 'fixture@example.test', avatar_url: null, email_verified_at: '2026-01-01T00:00:00Z' } })
+    if (/^\/api\/v1\/me\/movie-nights\/\d+\/invitations$/.test(path) && method === 'GET') return reply({ data: [], meta: { page: 1, per_page: 12, total_pages: 0, total_results: 0 } })
     if (path === '/api/v1/me/access') return reply({ data: { role: 'user', account_status: account } })
     if (path === '/api/v1/auth/logout') { owner = 0; return reply({}) }
     if (path === '/api/v1/me/movie-nights' && method === 'POST') {
@@ -29,7 +31,7 @@ export async function runMovieNightManagementChecks(page, base = 'http://127.0.0
     }
     if (path === '/api/v1/me/movie-nights' || path === '/api/v1/me/movie-nights/invitations') return reply({ data: [], meta: { page: 1, per_page: 12, total_pages: 0, total_results: 0 } })
     const match = path.match(/^\/api\/v1\/me\/movie-nights\/(\d+)(\/cancel)?$/)
-    if (!match) return reply({ message: 'Unexpected test request.' }, 404)
+    if (!match) { unexpectedRequests.push(`${method} ${path}`); return reply({ message: 'Unexpected test request.' }, 404) }
     const id = Number(match[1]), event = events.get(id)
     if (!event || !access) return reply({ message: 'Not found.' }, 404)
     if (method === 'GET') return failure === 'read' ? reply({ message: 'SQL SECRET' }, 503) : reply({ data: event })
@@ -285,6 +287,7 @@ export async function runMovieNightManagementChecks(page, base = 'http://127.0.0
   assert(await page.getByRole('link', { name: 'Movie Nights', exact: true }).first().evaluate(element => getComputedStyle(element).outlineStyle !== 'none'), 'Keyboard focus invisible')
   checks.push('Time-sensitive start boundary updates without refetch, cancellation stays available after start, finalized read-only and reduced-motion focus')
   assert(!requests.some(request => /\/(rsvp|vote|votes|movies|finalize|eligible-users|invitations)$/.test(request.path) && request.method !== 'GET'), 'Out-of-scope mutation')
+  assert(unexpectedRequests.length === 0, unexpectedRequests.join('; '))
   assert(errors.length === 0, errors.join('; '))
-  return { checks, geometry, restorationCases, requests: requests.length, writes: requests.filter(request => ['POST', 'PATCH'].includes(request.method)), pageErrors: errors }
+  return { checks, geometry, restorationCases, requests: requests.length, writes: requests.filter(request => ['POST', 'PATCH'].includes(request.method)), pageErrors: errors, unexpectedRequests }
 }

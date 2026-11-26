@@ -107,3 +107,20 @@
 }
 
 .night-detail > .night-notice { margin: 0 0 1.25rem; }
+/* Invitations use the same quiet panels and explicit relationship labels. */
+.night-participants { margin-top: 2rem; border: 1px solid var(--color-border); border-radius: 12px; padding: clamp(1rem, 3vw, 1.5rem); min-width: 0; }
+.night-participants .night-toolbar { padding-top: 0; }
+.night-participants h2 { margin-top: 0; }
+.night-people { list-style: none; padding: 0; margin: 1rem 0; }
+.night-person { display: flex; align-items: center; gap: .75rem; padding-block: .9rem; min-width: 0; border-bottom: 1px solid var(--color-border); }
+.night-person > strong, .night-person > div:not(.user-avatar) { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: .875rem; }
+.night-person .user-avatar { flex-shrink: 0; }
+.night-person > .night-relationship { margin-left: auto; font-size: .8rem; }
+.night-person small { display: block; color: var(--color-muted); font-size: .75rem; margin-top: .35rem; }
+.night-person > .button { flex-shrink: 0; }
+.night-people-pagination { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: center; align-items: center; margin-top: 1rem; font-size: .85rem; }
+.night-response { margin-top: 1rem; }
+.night-response-actions { display: flex; flex-wrap: wrap; gap: .65rem; }
+.night-response-actions > .button { font-size: .8rem; }
+.night-future-sections { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 599px) { .night-future-sections { grid-template-columns: minmax(0, 1fr); } .night-person { gap: .5rem; } }

@@ -6,6 +6,8 @@ import { useAuth } from '../../auth/hooks/useAuth'
 import { useAccess } from '../../auth/hooks/useAccess'
 import { MovieState } from '../../movies/components/MovieState'
 import { movieNightError } from '../api/errors'
+import { MovieNightParticipants } from '../components/MovieNightParticipants'
+import { MovieNightRsvp } from '../components/MovieNightRsvp'
 import { CancelMovieNightDialog, EditMovieNightDialog } from '../components/MovieNightManagement'
 import { useMovieNightQuery } from '../hooks/useMovieNights'
 import { useNightBoundary, useNightClock } from '../hooks/useNightBoundary'
@@ -60,7 +62,9 @@ function DetailContent({ owner, id }: { owner: number; id: number }) {
     </div>
     {(night.status !== 'scheduled' || access.data.account_status === 'restricted' || !permission.edit && relationship === 'host') && <p className="night-notice" role="status">{night.status !== 'scheduled' ? `This movie night is ${night.status}. Details are read-only.` : access.data.account_status === 'restricted' ? 'Your account is restricted. You can view this movie night but cannot make changes.' : 'The scheduled start has been reached on this device. Editing is closed; the server checks every action.'}</p>}
     <div className="night-detail-panel"><div className="night-organizer"><Avatar username={night.host.username} url={night.host.avatar_url} /><span>Organized by <strong>@{night.host.username}</strong></span></div><dl className="night-details-list"><div><dt>Scheduled screening</dt><dd><time dateTime={night.starts_at}>{schedule}</time></dd></div>{night.location && <div><dt>Physical location</dt><dd>{night.location}</dd></div>}{night.meeting_url && <div><dt>Meeting link</dt><dd>{meeting ? <a href={meeting} target="_blank" rel="noopener noreferrer">{meeting}<span className="sr-only"> (opens in a new tab)</span></a> : 'Meeting link unavailable'}</dd></div>}</dl><p className="night-private-note">These details are private to the host and accepted guests.</p></div>
-    <div className="night-future-sections">{[['participants', 'Participants', 'Your guest list will be available here soon.'], ['shortlist', 'Shared shortlist', 'A place for everyone’s movie suggestions is coming soon.'], ['voting', 'Voting', 'Your group’s movie vote will be available here soon.']].map(([key, title, copy]) => <section key={key} aria-labelledby={`night-${key}`}><h2 id={`night-${key}`}>{title}</h2><p>{copy}</p></section>)}</div>
+    <MovieNightRsvp night={night} detail />
+    <MovieNightParticipants night={night} roster={visible && permission.roster} invite={visible && permission.invite} />
+    <div className="night-future-sections">{[['shortlist', 'Shared shortlist', 'A place for everyone’s movie suggestions is coming soon.'], ['voting', 'Voting', 'Your group’s movie vote will be available here soon.']].map(([key, title, copy]) => <section key={key} aria-labelledby={`night-${key}`}><h2 id={`night-${key}`}>{title}</h2><p>{copy}</p></section>)}</div>
     {dialog === 'edit' && canEdit && <EditMovieNightDialog night={night} onClose={() => setDialog(null)} />}
     {dialog === 'cancel' && canCancel && <CancelMovieNightDialog id={id} onClose={() => setDialog(null)} />}
   </section>
