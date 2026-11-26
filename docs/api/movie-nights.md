@@ -1,6 +1,6 @@
 # Movie Night Planner — M5.0–M5.6 backend contracts
 
-PDF §3 item **10**; roadmap **M5.0 + M5.1 + M5.2 + M5.3 + M5.4 + M5.5 + M5.6**. Core owns all event, participant and voting data. **M5.1 implements create/list/detail/edit/cancel; M5.2 adds user lookup and invitation creation/listing; M5.3 adds invitee RSVP; M5.4 adds the shared candidate shortlist; M5.5 adds voting/private totals; M5.6 exposes winner selection/finalization**, on `feature/movie-night`. Frontend and live acceptance remain for M5.7. No frontend or notifications are implemented. See the [M5.1 verification report](../development/m5.1-movie-night-management-report.md).
+PDF §3 item **10**; roadmap **M5.0 + M5.1 + M5.2 + M5.3 + M5.4 + M5.5 + M5.6**. Core owns all event, participant and voting data. **M5.1 implements create/list/detail/edit/cancel; M5.2 adds user lookup and invitation creation/listing; M5.3 adds invitee RSVP; M5.4 adds the shared candidate shortlist; M5.5 adds voting/private totals; M5.6 exposes winner selection/finalization**, on `feature/movie-night`. Frontend and live acceptance remain for M5.7. M5.7.2 adds a frontend data/utilities foundation for these unchanged contracts; pages, navigation, components, notifications and live acceptance remain pending. See the [frontend foundation report](../development/m5.7.2-movie-night-frontend-foundation-report.md). See the [M5.1 verification report](../development/m5.1-movie-night-management-report.md).
 
 ## Implemented domain boundary
 
