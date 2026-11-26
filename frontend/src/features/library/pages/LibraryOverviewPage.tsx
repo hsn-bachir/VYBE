@@ -17,7 +17,7 @@ import '../library.css'
 function builtIn(kind: 'watchlist' | 'watched', data: LibraryResponse): Collection {
   return {
     id: 0, name: kind === 'watchlist' ? 'Watchlist' : 'Watched', description: kind === 'watchlist' ? 'The stories waiting for you.' : 'The films that stayed with you.',
-    movie_count: data.meta.total_results, created_at: null, updated_at: null,
+    movie_count: data.meta.total_results, visibility: 'private', created_at: null, updated_at: null,
     preview_movies: data.data.slice(0, 3).map(entry => ({ tmdb_id: entry.tmdb_id, title: entry.movie?.title ?? null, poster_path: entry.movie?.poster_path ?? null })),
   }
 }

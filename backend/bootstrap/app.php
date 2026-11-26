@@ -21,8 +21,21 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn (Request $request) => $request->is('api/v1/me/*') ? null : '/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->shouldRenderJsonWhen(fn (Request $request, Throwable $e) => $request->is('api/v1/movies/*', 'api/v1/me/*', 'api/v1/admin/*', 'api/v1/auth/invitations/*', 'api/v1/auth/password/*') || $request->expectsJson());
+        $exceptions->shouldRenderJsonWhen(fn (Request $request, Throwable $e) => $request->is('api/v1/movies/*', 'api/v1/me/*', 'api/v1/admin/*', 'api/v1/auth/invitations/*', 'api/v1/auth/password/*') || $request->routeIs('public-profile.show', 'public-collections.*') || $request->expectsJson());
         $exceptions->respond(function (Response $response, Throwable $e, Request $request) {
+            if ($request->routeIs('public-profile.show', 'public-collections.*')) {
+                $response->headers->set('Cache-Control', 'no-store, private');
+                if ($response->getStatusCode() === 404) {
+                    return response()->json(['message' => 'Not found.'], 404)->header('Cache-Control', 'no-store, private');
+                }
+                if ($response->getStatusCode() === 429) {
+                    return response()->json(['message' => 'Too many requests.'], 429, $response->headers->all());
+                }
+                if ($response->getStatusCode() >= 500) {
+                    return response()->json(['message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR'], 500)
+                        ->header('Cache-Control', 'no-store, private');
+                }
+            }
             if ($request->is('api/v1/auth/invitations/*', 'api/v1/auth/password/*')) {
                 $response->headers->set('Cache-Control', 'no-store, private');
                 if (in_array($response->getStatusCode(), [419, 429], true)) return response()->json([

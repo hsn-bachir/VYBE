@@ -22,6 +22,8 @@ const ProviderConnectionsPage = lazy(() => import('./features/auth/pages/Provide
 const InvitationAcceptancePage = lazy(() => import('./features/auth/pages/InvitationAcceptancePage').then(module => ({ default: module.InvitationAcceptancePage })))
 const PasswordResetPage = lazy(() => import('./features/auth/pages/PasswordResetPage').then(module => ({ default: module.PasswordResetPage })))
 const ProfilePage = lazy(() => import('./features/profile/pages/ProfilePage'))
+const PublicProfilePage = lazy(() => import('./features/profile/pages/PublicProfilePage'))
+const PublicCollectionPage = lazy(() => import('./features/collections/pages/PublicCollectionPage'))
 const AdminPage = lazy(() => import('./features/admin/pages/AdminPage'))
 const AdminMovieInsightsPage = lazy(() => import('./features/admin/pages/AdminMovieInsightsPage'))
 const AdminMoviesPage = lazy(() => import('./features/admin/pages/AdminMoviesPage'))
@@ -42,6 +44,8 @@ export default function App() {
     <Route element={<PublicOrVerified />}><Route element={<AppLayout />}>
       <Route index element={<PopularMoviesPage />} />
       <Route path="/discover" element={<DiscoverPage />} />
+      <Route path="/users/:id" element={<Suspense fallback={<VybeLoader label="Opening public profile…" />}><PublicProfilePage /></Suspense>} />
+      <Route path="/collections/:id" element={<Suspense fallback={<VybeLoader label="Opening public collection…" />}><PublicCollectionPage /></Suspense>} />
       <Route path="/movies/:tmdbId" element={<Suspense fallback={<MovieDetailsSkeleton />}><MovieDetailsPage /></Suspense>} />
       <Route element={<RequireAuth />}>
         <Route path="/for-you" element={<Suspense fallback={<VybeLoader label="Finding your next story…" />}><ForYouPage /></Suspense>} />

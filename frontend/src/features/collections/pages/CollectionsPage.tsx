@@ -40,7 +40,7 @@ function CollectionsContent({ owner }: { owner: number }) {
       : result.isPending ? <ul className="collection-grid" aria-label="Loading collections">{[1, 2, 3].map(i => <CollectionCardSkeleton key={i} />)}</ul>
         : result.isError ? <MovieState title="Your collections are taking an intermission." retry={() => void result.refetch()}>{collectionError(result.error)}</MovieState>
           : <>
-            {result.data.data.length === 0 ? <MovieState title={page > 1 ? 'No collections on this page.' : 'Make room for your favorites.'}>{page > 1 ? <Link to="/library/collections">Go to the first page</Link> : <>Group films by mood, genre, or the people you watch with. Every collection is private. <Button className="primary" onClick={() => setEditor('new')}>Create your first collection</Button></>}</MovieState>
+            {result.data.data.length === 0 ? <MovieState title={page > 1 ? 'No collections on this page.' : 'Make room for your favorites.'}>{page > 1 ? <Link to="/library/collections">Go to the first page</Link> : <>Group films by mood, genre, or the people you watch with. New collections start private. <Button className="primary" onClick={() => setEditor('new')}>Create your first collection</Button></>}</MovieState>
               : <ul className="collection-grid">{result.data.data.map(c => <CollectionCard key={c.id} collection={c} onEdit={c.system_key ? undefined : () => setEditor(c)} onDelete={c.system_key ? undefined : () => setDeleting(c)} />)}</ul>}
             <MoviePagination page={page} totalPages={result.data.meta.total_pages} />
           </>}

@@ -15,7 +15,7 @@ import { DeleteCollectionDialog } from '../components/DeleteCollectionDialog'
 import type { Collection, CollectionsResponse } from '../types/collection.types'
 
 const user = { id: 7, username: 'fixture', email: 'fixture@example.test', avatar_url: null, email_verified_at: '2026-11-01T00:00:00Z' }
-const collection: Collection = { id: 4, name: 'Favorites', description: 'Quiet evenings', movie_count: 2, created_at: '2026-11-01T00:00:00Z', updated_at: null }
+const collection: Collection = { id: 4, name: 'Favorites', description: 'Quiet evenings', movie_count: 2, visibility: 'private', created_at: '2026-11-01T00:00:00Z', updated_at: null }
 const pageOf = (data: Collection[], page = 1, total = data.length): CollectionsResponse => ({ data, meta: { page, per_page: 20, total_pages: Math.ceil(total / 20), total_results: total } })
 function cache() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity, staleTime: Infinity } } })

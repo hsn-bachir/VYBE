@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\V1\ModerationController;
 use App\Http\Controllers\Api\V1\MovieController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\PublicCollectionController;
+use App\Http\Controllers\Api\V1\PublicProfileController;
 use App\Http\Controllers\Api\V1\RatingController;
 use App\Http\Controllers\Api\V1\RecommendationController;
 use App\Http\Controllers\Api\V1\ReportController;
@@ -31,6 +33,16 @@ use App\Http\Middleware\PreventAuthCaching;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
+
+Route::get('v1/users/{id}', PublicProfileController::class)
+    ->middleware([PreventAuthCaching::class, 'throttle:community-read'])
+    ->name('public-profile.show');
+
+Route::middleware([PreventAuthCaching::class, 'throttle:community-read'])->name('public-collections.')->group(function (): void {
+    Route::get('v1/users/{id}/collections', [PublicCollectionController::class, 'index'])->name('index');
+    Route::get('v1/collections/{id}', [PublicCollectionController::class, 'show'])->name('show');
+    Route::get('v1/collections/{id}/movies', [PublicCollectionController::class, 'movies'])->name('movies');
+});
 
 Route::prefix('v1/movies')->group(function (): void {
     Route::get('{tmdb_id}/ratings', [RatingController::class, 'statistics'])->middleware('throttle:community-read');

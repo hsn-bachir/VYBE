@@ -7,6 +7,8 @@ use App\Integrations\MovieCatalog\MovieCatalogClient;
 use App\Models\Collection;
 use App\Models\CollectionMovie;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -30,6 +32,44 @@ class CollectionService
         }
         $rows = $query->orderByRaw("CASE WHEN system_key = 'favorites' THEN 0 ELSE 1 END")
             ->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage, ['*'], 'page', $page);
+
+        return $this->collectionPage($rows, $includePreviews);
+    }
+
+    public function publicListing(int $userId, int $page, int $perPage): array
+    {
+        // Reuse M4.1 eligibility and its indistinguishable unavailable response.
+        app(ProfileService::class)->publicProfile($userId);
+        $rows = $this->publicQuery()->where('user_id', $userId)
+            ->with(['movies' => fn ($query) => $query->orderByDesc('created_at')->orderByDesc('id')->limit(3)])
+            ->orderByDesc('created_at')->orderByDesc('id')->paginate($perPage, ['*'], 'page', $page);
+
+        return $this->collectionPage($rows, true);
+    }
+
+    public function publicCollection(int $id): Collection
+    {
+        return $this->publicQuery()->whereKey($id)->first() ?? abort(404, 'Not found.');
+    }
+
+    public function publicMovies(int $id, int $page, int $perPage): array
+    {
+        $rows = $this->publicCollection($id)->movies()->orderByDesc('created_at')->orderByDesc('id')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        return $this->metadata->enrich($rows);
+    }
+
+    private function publicQuery(): Builder
+    {
+        return Collection::query()->where('visibility', Collection::PUBLIC)->whereNull('system_key')
+            ->whereHas('user', fn ($query) => $query->whereIn('account_status', [User::STATUS_ACTIVE, User::STATUS_RESTRICTED])
+                ->whereNotNull('email_verified_at')->where('invitation_pending', false))
+            ->with('user:id,username,avatar_url')->withCount('movies');
+    }
+
+    private function collectionPage(LengthAwarePaginator $rows, bool $includePreviews): array
+    {
         $ids = $includePreviews ? $rows->getCollection()->flatMap(fn (Collection $collection) => $collection->movies->pluck('tmdb_id'))
             ->unique()->values()->all() : [];
         $summaries = [];
@@ -54,16 +94,21 @@ class CollectionService
             }
         }
 
-        return ['entries' => $rows->getCollection(), 'meta' => ['page' => $page, 'per_page' => $perPage,
-            'total_pages' => (int) ceil($rows->total() / $perPage), 'total_results' => $rows->total(),
+        return ['entries' => $rows->getCollection(), 'meta' => ['page' => $rows->currentPage(), 'per_page' => $rows->perPage(),
+            'total_pages' => (int) ceil($rows->total() / $rows->perPage()), 'total_results' => $rows->total(),
             'preview_metadata_unavailable' => $unavailable]];
     }
 
     public function create(User $user, array $values): Collection
     {
         $this->guardReservedName($values);
+
         return DB::transaction(function () use ($user, $values): Collection {
-            AccountAccess::lock($user);
+            $current = AccountAccess::lock($user);
+            if (($values['visibility'] ?? Collection::PRIVATE) === Collection::PUBLIC) {
+                $this->guardPublicContribution($current);
+            }
+
             return $user->collections()->create($values)->loadCount('movies');
         }, 3);
     }
@@ -71,10 +116,15 @@ class CollectionService
     public function update(User $user, int $id, array $values): Collection
     {
         $this->guardReservedName($values);
+
         return DB::transaction(function () use ($user, $id, $values) {
-            AccountAccess::lock($user);
+            $current = AccountAccess::lock($user);
             $collection = $user->collections()->whereKey($id)->lockForUpdate()->first() ?? abort(404, 'Not found.');
             abort_if($collection->system_key !== null, 403, 'Built-in collections cannot be edited.');
+            if (($values['visibility'] ?? null) === Collection::PUBLIC
+                || ($collection->visibility === Collection::PUBLIC && array_intersect_key($values, array_flip(['name', 'description'])) !== [])) {
+                $this->guardPublicContribution($current);
+            }
             $collection->update($values);
 
             return $collection->loadCount('movies');
@@ -102,6 +152,9 @@ class CollectionService
     public function add(User $user, int $id, int $movie): CollectionMovie
     {
         $collection = $this->owned($user, $id);
+        if ($collection->visibility === Collection::PUBLIC) {
+            $this->guardPublicContribution($user->fresh());
+        }
         if ($entry = $collection->movies()->where('tmdb_id', $movie)->first()) {
             return $entry;
         }
@@ -109,8 +162,11 @@ class CollectionService
         $this->metadata->confirm($movie);
 
         return DB::transaction(function () use ($user, $id, $movie) {
-            AccountAccess::lock($user);
+            $current = AccountAccess::lock($user);
             $collection = $user->collections()->whereKey($id)->lockForUpdate()->first() ?? abort(404, 'Not found.');
+            if ($collection->visibility === Collection::PUBLIC) {
+                $this->guardPublicContribution($current);
+            }
 
             // Parent lock serializes against deletion. Unique membership key remains the final authority.
             return $collection->movies()->firstOrCreate(['tmdb_id' => $movie]);
@@ -131,5 +187,11 @@ class CollectionService
         if (isset($values['name']) && mb_strtolower(trim($values['name'])) === 'favorites') {
             throw ValidationException::withMessages(['name' => ['Favorites is reserved for your built-in collection.']]);
         }
+    }
+
+    private function guardPublicContribution(?User $user): void
+    {
+        abort_unless($user && $user->canWriteCommunity() && $user->hasVerifiedEmail() && ! $user->invitation_pending,
+            403, 'This account cannot publish or expand public collections.');
     }
 }

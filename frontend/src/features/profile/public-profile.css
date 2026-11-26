@@ -1,0 +1,17 @@
+.public-profile-page { width: 100%; padding-block: .25rem 2rem; }
+.public-profile-back { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 1.5rem; font-size: .85rem; color: var(--color-muted); }
+.public-profile-identity { min-height: 220px; padding: clamp(1.5rem, 4vw, 3rem); }
+.public-profile-identity .eyebrow { font-size: .65rem; margin: 0 0 .75rem; }
+.public-profile-identity h1 { margin: 0 0 .65rem; }
+.public-profile-caption { margin: 0; font-size: .85rem; color: var(--color-muted); }
+.public-profile-skeleton-label { width: 7rem; height: .8rem; margin-bottom: 1rem; }
+.public-profile-skeleton-name { width: min(100%, 22rem); height: 2.5rem; border-radius: 6px; }
+.public-profile-state { min-height: 220px; padding: clamp(1.5rem, 4vw, 3rem); border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); }
+.public-profile-state h1 { font-size: clamp(1.6rem, 3vw, 2.5rem); overflow-wrap: anywhere; margin: 0 0 1rem; }
+.public-profile-state > p:not(.eyebrow) { color: var(--color-muted); }
+.public-profile-state .button { margin-top: 1rem; min-height: 44px; }
+@media (max-width: 600px) {
+  .public-profile-identity { align-items: flex-start; flex-direction: column; gap: 1.25rem; min-height: 280px; }
+  .public-profile-identity .profile-identity-copy { width: 100%; flex: none; }
+  .public-profile-identity .profile-hero-avatar { width: 80px; height: 80px; flex-shrink: 0; }
+}

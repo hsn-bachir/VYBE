@@ -1,4 +1,5 @@
 import { useId, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { Button } from '../../../components/ui/Button'
 import { Avatar } from '../../../components/ui/Avatar'
 import type { Review } from '../types/review.types'
@@ -26,12 +27,13 @@ function ReviewBody({ review }: { review: Review }) {
 }
 
 export function ReviewCard({ review, onEdit, onDelete, onReport, busy = false }: { review: Review; onEdit?: () => void; onDelete?: () => void; onReport?: () => void; busy?: boolean }) {
+  const location = useLocation()
   const date = review.created_at ? new Date(review.created_at) : null
   const validDate = date && !Number.isNaN(date.getTime())
   return <article className={`review-card ${onEdit ? 'is-own' : ''}`} aria-label={`Review by ${review.author.username}`}>
     <header className="review-card-header"><div className="review-author">
       <Avatar username={review.author.username} url={review.author.avatar_url} className="review-avatar" />
-      <div><h3>@{review.author.username}</h3><p>{validDate ? <time dateTime={review.created_at!}>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</time> : 'Date unavailable'}{review.updated_at && review.updated_at !== review.created_at && <span> · Edited</span>}{onEdit && <span className="review-own-label"> · Your review{review.visibility === 'hidden' ? ' · Hidden from others' : ''}</span>}</p></div>
+      <div><h3><Link className="review-profile-link" to={`/users/${review.author.id}`} state={{ publicProfileFrom: location.pathname + location.search + location.hash }} aria-label={`View @${review.author.username}’s public profile`}>@{review.author.username}</Link></h3><p>{validDate ? <time dateTime={review.created_at!}>{date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</time> : 'Date unavailable'}{review.updated_at && review.updated_at !== review.created_at && <span> · Edited</span>}{onEdit && <span className="review-own-label"> · Your review{review.visibility === 'hidden' ? ' · Hidden from others' : ''}</span>}</p></div>
     </div><div className="review-card-actions">{onEdit && onDelete && <><Button className="compact secondary" disabled={busy} onClick={onEdit} aria-label={`Edit review by ${review.author.username}`}>Edit</Button><Button className="compact destructive" disabled={busy} onClick={onDelete} aria-label={`Delete review by ${review.author.username}`}>Delete</Button></>}{onReport && <Button className="compact ghost" disabled={busy} onClick={onReport} aria-label={`Report review by ${review.author.username}`}>Report</Button>}</div></header>
     <ReviewBody key={JSON.stringify([review.tmdb_id, review.id, review.updated_at, review.contains_spoilers, review.body])} review={review} />
   </article>

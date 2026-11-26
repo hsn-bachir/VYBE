@@ -29,7 +29,7 @@ class CollectionController extends Controller
 
     public function store(WriteCollectionRequest $request): JsonResponse
     {
-        return (new CollectionResource($this->collections->create($request->user(), $request->safe()->only(['name', 'description']))))
+        return (new CollectionResource($this->collections->create($request->user(), $request->safe()->only(['name', 'description', 'visibility']))))
             ->response()->setStatusCode(201);
     }
 
@@ -40,7 +40,7 @@ class CollectionController extends Controller
 
     public function update(WriteCollectionRequest $request): CollectionResource
     {
-        return new CollectionResource($this->collections->update($request->user(), (int) $request->validated('id'), $request->safe()->only(['name', 'description'])));
+        return new CollectionResource($this->collections->update($request->user(), (int) $request->validated('id'), $request->safe()->only(['name', 'description', 'visibility'])));
     }
 
     public function destroy(ShowCollectionRequest $request): Response

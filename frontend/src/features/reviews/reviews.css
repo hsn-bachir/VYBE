@@ -98,3 +98,5 @@
   .review-editor, .review-reveal, .review-delete-dialog[open] { animation: none; }
   .review-switch-track, .review-switch-track > span { transition: none; }
 }
+.review-profile-link { display: inline-flex; align-items: center; min-height: 44px; max-width: 100%; overflow-wrap: anywhere; color: inherit; text-underline-offset: .2em; }
+.review-profile-link:hover { color: var(--color-primary); }

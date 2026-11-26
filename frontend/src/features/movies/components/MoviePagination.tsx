@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 
-export function MoviePagination({ page, totalPages }: { page: number; totalPages: number }) {
+export function MoviePagination({ page, totalPages, preserveState = false }: { page: number; totalPages: number; preserveState?: boolean }) {
   const location = useLocation()
   if (totalPages <= 1 && page === 1) return null
   const target = (next: number) => {
@@ -9,8 +9,8 @@ export function MoviePagination({ page, totalPages }: { page: number; totalPages
     return `${location.pathname}?${params}`
   }
   return <nav className="movie-pagination" aria-label="Movie pages">
-    {page > 1 ? <Link className="button" to={target(page - 1)}>← Previous</Link> : <span className="button disabled" aria-disabled="true">← Previous</span>}
+    {page > 1 ? <Link className="button" to={target(page - 1)} state={preserveState ? location.state : undefined}>← Previous</Link> : <span className="button disabled" aria-disabled="true">← Previous</span>}
     <span aria-live="polite">Page <strong>{page}</strong>{totalPages > 0 && <> of {totalPages}</>}</span>
-    {page < totalPages ? <Link className="button" to={target(page + 1)}>Next page →</Link> : <span className="button disabled" aria-disabled="true">Next page →</span>}
+    {page < totalPages ? <Link className="button" to={target(page + 1)} state={preserveState ? location.state : undefined}>Next page →</Link> : <span className="button disabled" aria-disabled="true">Next page →</span>}
   </nav>
 }

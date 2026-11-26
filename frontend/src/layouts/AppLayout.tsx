@@ -36,6 +36,8 @@ export function AppLayout() {
   }, [location.pathname, location.search, location.state, navigation])
   useEffect(() => {
     if (location.pathname === '/for-you') { document.title = 'For You — VYBE'; return }
+    if (location.pathname.startsWith('/users/')) { document.title = 'Public profile — VYBE'; return }
+    if (location.pathname.startsWith('/collections/')) { document.title = 'Public collection — VYBE'; return }
     document.title = location.pathname === '/' ? 'VYBE — For the love of cinema' : location.pathname === '/profile' ? 'Your profile — VYBE' : location.pathname === '/discover' ? 'Discover — VYBE' : location.pathname.startsWith('/library') ? 'My library — VYBE' : 'Movie — VYBE'
   }, [location.pathname])
   useEffect(() => {

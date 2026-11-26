@@ -29,7 +29,7 @@ function CinematicDetails({ movie, stale, back }: { movie: MovieDetails; stale: 
   const data = experience.data?.data
   const trailer = data?.trailer && trailerEmbed(data.trailer) ? data.trailer : null
   return <article className="cinematic-detail">
-    <Link className="cinematic-back text-link" to={back} state={{ restoreHome: back === '/' }}>← {back.startsWith('/library') ? 'Back to library' : 'Back to discovery'}</Link>
+    <Link className="cinematic-back text-link" to={back} state={{ restoreHome: back === '/' }}>← {back.startsWith('/collections/') ? 'Back to collection' : back.startsWith('/library') ? 'Back to library' : 'Back to discovery'}</Link>
     <section className="cinematic-hero" aria-labelledby="movie-title">
       <div className="cinematic-backdrop" aria-hidden="true"><MovieImage path={movie.backdrop_path} title={movie.title} variant="backdrop" eager /></div>
       <div className="cinematic-hero-content">
@@ -75,7 +75,8 @@ export function MovieDetailsPage() {
   const location = useLocation()
   const result = useMovieDetails(tmdbId)
   const from: unknown = location.state?.from
-  const back = typeof from === 'string' && /^\/(?:discover(?:\?|$)|library\/(?:watchlist|watched)(?:\?|$)|\?|$)/.test(from) ? from : '/discover'
+  const collectionReturn = typeof from === 'string' && !/[\r\n\\]/.test(from) && /^\/collections\/[1-9][0-9]*(?:\?.*)?$/.test(from)
+  const back = typeof from === 'string' && (collectionReturn || /^\/(?:discover(?:\?|$)|library\/(?:watchlist|watched)(?:\?|$)|\?|$)/.test(from)) ? from : '/discover'
   if (!validMovieId(tmdbId)) return <MovieState title="This film is out of frame."><Link to="/discover">Back to discovery</Link></MovieState>
   if (result.isPending) return <MovieDetailsSkeleton />
   if (result.isError && !result.data) {

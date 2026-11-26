@@ -9,17 +9,18 @@ use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class RecommendationsTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function feature(int $id): array
+    private function feature(int $id, array $sources = []): array
     {
         return ['movie' => ['tmdb_id' => $id, 'title' => 'Fixture '.$id, 'overview' => null, 'poster_path' => '/poster.jpg', 'backdrop_path' => null, 'release_date' => '2020-01-01', 'tmdb_rating' => 8.0, 'tmdb_vote_count' => 500],
             'genres' => [['id' => 18, 'name' => 'Drama']], 'actors' => [['id' => 10, 'name' => 'Actor']], 'writers' => [['id' => 11, 'name' => 'Writer']], 'directors' => [['id' => 12, 'name' => 'Director']],
-            'sources' => [['kind' => 'similar', 'id' => 1], ['kind' => 'similar', 'id' => 3]]];
+            'sources' => $sources];
     }
 
     protected function setUp(): void
@@ -30,7 +31,7 @@ class RecommendationsTest extends TestCase
         Http::fake(function ($request) {
             $ids = $request['reference_ids'] ?? range(1, 60);
 
-            return Http::response(['data' => array_map($this->feature(...), $ids), 'meta' => ['partial' => false]]);
+            return Http::response(['data' => array_map(fn ($id) => $this->feature($id, $request['sources'] ?? []), $ids), 'meta' => ['partial' => false]]);
         });
     }
 
@@ -46,11 +47,17 @@ class RecommendationsTest extends TestCase
         $this->actingAs($user)->getJson($url)->assertForbidden();
     }
 
-    public function test_all_exclusions_cache_revision_signals_and_cross_user_isolation(): void
+    public static function lovedReferenceOrders(): array
+    {
+        return ['first film strongest' => [5, 4], 'second film strongest' => [4, 5]];
+    }
+
+    #[DataProvider('lovedReferenceOrders')]
+    public function test_all_exclusions_cache_revision_signals_and_cross_user_isolation(int $firstRating, int $secondRating): void
     {
         $user = User::factory()->create();
-        $user->movieRatings()->create(['tmdb_id' => 1, 'rating' => 5]);
-        $user->movieRatings()->create(['tmdb_id' => 2, 'rating' => 4]);
+        $user->movieRatings()->create(['tmdb_id' => 1, 'rating' => $firstRating]);
+        $user->movieRatings()->create(['tmdb_id' => 2, 'rating' => $secondRating]);
         $user->watchlistEntries()->create(['tmdb_id' => 3]);
         $user->watchedMovies()->create(['tmdb_id' => 4, 'watched_at' => now()]);
         $collection = $user->collections()->create(['name' => 'Test']);
@@ -63,6 +70,11 @@ class RecommendationsTest extends TestCase
         $this->assertArrayNotHasKey(5, $activity['signals']);
         $first = $this->actingAs($user)->getJson('/api/v1/me/recommendations')->assertOk()->assertJsonPath('meta.personalized', true);
         $this->assertCount(6, $first->json('data.sections'));
+        // Opposite signal orders exercise both rotating references without changing the clock.
+        $loved = array_values(array_filter($first->json('data.sections'), fn ($section) => $section['id'] === 'loved'));
+        $this->assertCount(1, $loved);
+        Http::assertSent(fn ($request) => count(array_filter($request['sources'] ?? [], fn ($source) => $source['kind'] === 'similar' && in_array($source['id'], [1, 2], true)
+            && $loved[0]['title'] === 'Because You Loved Fixture '.$source['id'])) === 1);
         foreach ($first->json('data.sections') as $section) {
             $this->assertEmpty(array_intersect(range(1, 6), array_column($section['movies'], 'tmdb_id')));
         }
