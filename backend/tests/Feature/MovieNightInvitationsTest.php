@@ -189,10 +189,15 @@ class MovieNightInvitationsTest extends TestCase
         $this->signIn($this->target);
         foreach (MovieNightRsvp::cases() as $status) {
             MovieNightInvitation::findOrFail($id)->update(['rsvp_status' => $status, 'responded_at' => $status === MovieNightRsvp::Pending ? null : now()]);
-            $result = $this->getJson(self::URL.'/invitations?per_page=1')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.total_results', 1)->assertJsonPath('data.0.id', $id)->assertJsonPath('data.0.rsvp_status', $status->value)->assertJsonPath('data.0.movie_night.my_rsvp', $status->value);
-            $this->assertArrayNotHasKey('location', $result->json('data.0.movie_night'));
-            $this->assertArrayNotHasKey('meeting_url', $result->json('data.0.movie_night'));
-            $this->assertSame(['id', 'username', 'avatar_url'], array_keys($result->json('data.0.movie_night.host')));
+            $result = $this->getJson(self::URL.'/invitations?per_page=1')->assertOk();
+            if ($status === MovieNightRsvp::Accepted) {
+                $result->assertJsonCount(0, 'data')->assertJsonPath('meta.total_results', 0);
+            } else {
+                $result->assertJsonCount(1, 'data')->assertJsonPath('meta.total_results', 1)->assertJsonPath('data.0.id', $id)->assertJsonPath('data.0.rsvp_status', $status->value)->assertJsonPath('data.0.movie_night.my_rsvp', $status->value);
+                $this->assertArrayNotHasKey('location', $result->json('data.0.movie_night'));
+                $this->assertArrayNotHasKey('meeting_url', $result->json('data.0.movie_night'));
+                $this->assertSame(['id', 'username', 'avatar_url'], array_keys($result->json('data.0.movie_night.host')));
+            }
             $this->signIn($this->host);
             $this->getJson($this->path())->assertOk()->assertJsonPath('data.0.rsvp_status', $status->value);
             $this->signIn($this->target);

@@ -2,6 +2,7 @@ import { QueryClient, type MutationCacheNotifyEvent } from '@tanstack/react-quer
 import { authKey } from '../../auth/hooks/useAuth'
 import { accessKey, type Access } from '../../auth/hooks/useAccess'
 import type { User } from '../../auth/types/auth.types'
+import { movieNightApi } from '../api/movieNightApi'
 import { MovieNightRequestCancelled, movieNightError } from '../api/errors'
 import type { RequestContext } from '../api/movieNightApi'
 import type { MovieNight } from '../types/movieNight.types'
@@ -26,7 +27,7 @@ export interface NightEditAttempt {
 }
 interface OwnerState {
   access: number; list: number; inbox: number
-  events: Map<number, { access: number; reads: number; edits: Set<NightEditAttempt> }>
+  events: Map<number, { access: number; reads: number; content: number; edits: Set<NightEditAttempt> }>
 }
 interface SessionState {
   identity: string; generation: number; owners: Map<number, OwnerState>
@@ -45,7 +46,7 @@ function ownerState(state: SessionState, owner: number) {
 }
 function eventState(owner: OwnerState, id: number) {
   let value = owner.events.get(id)
-  if (!value) { value = { access: 0, reads: 0, edits: new Set() }; owner.events.set(id, value) }
+  if (!value) { value = { access: 0, reads: 0, content: 0, edits: new Set() }; owner.events.set(id, value) }
   return value
 }
 function mutationEventId(mutation: ObservedMutation['mutation']): number | undefined {
@@ -111,7 +112,7 @@ export function currentOwner(client: QueryClient, owner: number) {
   return owner > 0 && user?.id === owner && !!user.email_verified_at
     && (!access || ['active', 'restricted'].includes(access.account_status))
 }
-export type RequestScope = 'write' | 'read' | 'list' | 'inbox'
+export type RequestScope = 'write' | 'read' | 'content' | 'list' | 'inbox'
 export function requestContext(client: QueryClient, owner: number, id?: number, signal?: AbortSignal, scope: RequestScope = 'write'): RequestContext {
   const state = watchNightSession(client)
   const account = ownerState(state, owner)
@@ -119,10 +120,10 @@ export function requestContext(client: QueryClient, owner: number, id?: number, 
   const generation = state.generation
   const access = account.access
   const eventAccess = event?.access
-  const revision = scope === 'read' ? event?.reads : scope === 'list' ? account.list : scope === 'inbox' ? account.inbox : undefined
+  const revision = scope === 'content' ? `${event?.reads}:${event?.content}` : scope === 'read' ? event?.reads : scope === 'list' ? account.list : scope === 'inbox' ? account.inbox : undefined
   return { signal, isCurrent: () => currentOwner(client, owner) && generation === state.generation && access === account.access
     && eventAccess === event?.access
-    && (scope === 'write' || revision === (scope === 'read' ? event?.reads : scope === 'list' ? account.list : account.inbox)) }
+    && (scope === 'write' || revision === (scope === 'content' ? `${event?.reads}:${event?.content}` : scope === 'read' ? event?.reads : scope === 'list' ? account.list : account.inbox)) }
 }
 export function purgeNight(client: QueryClient, owner: number, id?: number) {
   const account = ownerState(watchNightSession(client), owner)
@@ -182,6 +183,14 @@ export function applyNightUpdate(client: QueryClient, owner: number, id: number,
   void client.invalidateQueries({ queryKey: nightKeys.inbox(owner) })
   void client.invalidateQueries({ queryKey: eventKey, predicate: query => queryKind(query.queryKey) === 'votes' })
 }
+export function reconcileNightContent(client: QueryClient, owner: number, id: number) {
+  if (!currentOwner(client, owner)) return
+  eventState(ownerState(watchNightSession(client), owner), id).content++
+  const affected = { queryKey: nightKeys.event(owner, id), predicate: (query: { queryKey: readonly unknown[] }) => ['shortlist', 'votes'].includes(String(queryKind(query.queryKey))) }
+  void client.cancelQueries(affected)
+  // Each completed write supersedes earlier reads; never infer server write order from responses.
+  void client.invalidateQueries({ ...affected, refetchType: 'all' })
+}
 export function applyNightLifecycle(client: QueryClient, owner: number, id: number, night: MovieNight) {
   if (['cancelled', 'finalized'].includes(night.status)) applyNightUpdate(client, owner, id, night)
 }
@@ -194,7 +203,7 @@ export function nightAccessVersion(client: QueryClient, owner: number, id?: numb
   const state = watchNightSession(client), account = ownerState(state, owner)
   return `${state.generation}:${account.access}:${id === undefined ? '' : eventState(account, id).access}`
 }
-export async function guardedRequest<T>(client: QueryClient, owner: number, id: number | undefined, run: (context: RequestContext) => Promise<T>, signal?: AbortSignal, scope: RequestScope = 'write') {
+export async function guardedRequest<T>(client: QueryClient, owner: number, id: number | undefined, run: (context: RequestContext) => Promise<T>, signal?: AbortSignal, scope: RequestScope = 'write', failureScope: 'event' | 'candidate' = 'event') {
   const context = requestContext(client, owner, id, signal, scope)
   if (!context.isCurrent()) throw new MovieNightRequestCancelled()
   try {
@@ -203,7 +212,18 @@ export async function guardedRequest<T>(client: QueryClient, owner: number, id: 
     return result
   } catch (error) {
     if (context.isCurrent()) {
-      const { status } = movieNightError(error)
+      const { status, movieNotFound } = movieNightError(error)
+      if (failureScope === 'candidate' && movieNotFound) throw error
+      if (failureScope === 'candidate' && id !== undefined && (status === 403 || status === 404)) {
+        if (status === 403) void client.invalidateQueries({ queryKey: accessKey(owner) })
+        // A missing candidate or forbidden removal is not proof of revoked membership.
+        // Probe through the normal private-read guard; denied reads still purge immediately.
+        try { await guardedRequest(client, owner, id, fresh => movieNightApi.detail(id, fresh)) } catch (probeError) {
+          const probe = movieNightError(probeError)
+          if (![401, 403, 404].includes(probe.status ?? 0) && context.isCurrent()) purgeNight(client, owner, id)
+        }
+        throw error
+      }
       if (status === 401 || status === 403 || status === 404) {
         purgeNight(client, owner, status === 401 ? undefined : id)
         if (status === 401 || status === 403) void client.invalidateQueries({ queryKey: authKey })

@@ -20,6 +20,8 @@ export async function runMovieNightManagementChecks(page, base = 'http://127.0.0
     if (path === '/api/v1/auth/me' && owner === 0) return reply({ message: 'Unauthenticated.' }, 401)
     if (path === '/api/v1/auth/me') return reply({ data: { id: owner, username: `fixture_${owner}`, email: 'fixture@example.test', avatar_url: null, email_verified_at: '2026-01-01T00:00:00Z' } })
     if (/^\/api\/v1\/me\/movie-nights\/\d+\/invitations$/.test(path) && method === 'GET') return reply({ data: [], meta: { page: 1, per_page: 12, total_pages: 0, total_results: 0 } })
+    if (/^\/api\/v1\/me\/movie-nights\/\d+\/movies$/.test(path) && method === 'GET') return reply({ data: [], meta: { page: 1, per_page: 12, total_pages: 0, total_results: 0, metadata_unavailable: false } })
+    if (/^\/api\/v1\/me\/movie-nights\/\d+\/votes$/.test(path) && method === 'GET') return reply({ data: { totals: [], my_vote: null, total_votes: 0, leaders: [], voting_open: true } })
     if (path === '/api/v1/me/access') return reply({ data: { role: 'user', account_status: account } })
     if (path === '/api/v1/auth/logout') { owner = 0; return reply({}) }
     if (path === '/api/v1/me/movie-nights' && method === 'POST') {

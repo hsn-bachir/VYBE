@@ -237,9 +237,9 @@ class MovieNightFinalizationTest extends TestCase
         $received = $this->getJson(self::BASE.'/invitations')->assertOk();
         if (in_array($kind, ['pending', 'declined'], true)) {
             $fields = ['id', 'title', 'host', 'starts_at', 'timezone', 'status', 'my_rsvp'];
-            $this->assertSame($fields, array_keys($listing->json('data.0')));
+            $listing->assertJsonCount(0, 'data')->assertJsonPath('meta.total_results', 0);
             $this->assertSame($fields, array_keys($received->json('data.0.movie_night')));
-            $this->assertSame($kind, $listing->json('data.0.my_rsvp'));
+            $this->assertSame($kind, $received->json('data.0.movie_night.my_rsvp'));
         } else {
             $listing->assertJsonCount(0, 'data');
             $received->assertJsonCount(0, 'data');

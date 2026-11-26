@@ -92,9 +92,8 @@ class MovieNightRsvpTest extends TestCase
             'host' => ['id' => $this->host->id, 'username' => $this->host->username, 'avatar_url' => $this->host->avatar_url],
             'starts_at' => $night->starts_at->toISOString(), 'timezone' => $night->timezone,
             'status' => $night->status->value, 'my_rsvp' => $status];
-        $listing = $this->getJson(self::BASE)->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson(self::BASE)->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.total_results', 0);
         $received = $this->getJson(self::BASE.'/invitations')->assertOk()->assertJsonCount(1, 'data');
-        $this->assertSame($expected, $listing->json('data.0'));
         $this->assertSame($expected, $received->json('data.0.movie_night'));
         $this->assertSame(['id', 'participant', 'rsvp_status', 'responded_at', 'movie_night'], array_keys($received->json('data.0')));
         $this->assertSame(['id', 'username', 'avatar_url'], array_keys($received->json('data.0.participant')));
@@ -182,14 +181,16 @@ class MovieNightRsvpTest extends TestCase
         $this->assertSame(['id', 'participant', 'rsvp_status', 'responded_at'], array_keys($response->json('data')));
         $this->assertSame(['id', 'username', 'avatar_url'], array_keys($response->json('data.participant')));
         $this->assertSame($this->invitee->id, $response->json('data.participant.id'));
-        $this->getJson(self::BASE.'/invitations')->assertOk()->assertJsonPath('data.0.rsvp_status', $status)
-            ->assertJsonPath('data.0.movie_night.my_rsvp', $status)->assertJsonPath('data.0.responded_at', now()->toISOString());
         if ($status === 'accepted') {
+            $this->getJson(self::BASE.'/invitations')->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.total_results', 0);
+            $this->getJson(self::BASE)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.my_rsvp', $status);
             $this->getJson(self::BASE.'/'.$this->night->id)->assertOk()->assertJsonPath('data.my_rsvp', $status);
         } else {
+            $this->getJson(self::BASE.'/invitations')->assertOk()->assertJsonPath('data.0.rsvp_status', $status)
+                ->assertJsonPath('data.0.movie_night.my_rsvp', $status)->assertJsonPath('data.0.responded_at', now()->toISOString());
+            $this->getJson(self::BASE)->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.total_results', 0);
             $this->getJson(self::BASE.'/'.$this->night->id)->assertNotFound();
         }
-        $this->getJson(self::BASE)->assertOk()->assertJsonPath('data.0.my_rsvp', $status);
         $this->signIn($this->host);
         $this->getJson(self::BASE.'/'.$this->night->id.'/invitations')->assertOk()->assertJsonPath('data.0.rsvp_status', $status)
             ->assertJsonPath('data.0.responded_at', now()->toISOString());

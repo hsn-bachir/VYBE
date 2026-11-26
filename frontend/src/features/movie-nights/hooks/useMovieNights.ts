@@ -3,7 +3,7 @@ import { useAuth } from '../../auth/hooks/useAuth'
 import { useAccess } from '../../auth/hooks/useAccess'
 import { movieNightApi as api } from '../api/movieNightApi'
 import { MovieNightRequestCancelled, movieNightError } from '../api/errors'
-import { beginNightEdit, applyNightUpdate, applyNightLifecycle, currentOwner, guardedRequest, nightKeys, purgeNight, requestContext, watchNightSession } from './cache'
+import { reconcileNightContent, beginNightEdit, applyNightUpdate, applyNightLifecycle, currentOwner, guardedRequest, nightKeys, purgeNight, requestContext, watchNightSession } from './cache'
 import type { CandidateId, EventFields, Invitation, MovieNight, NightFilters, NightSummary, Page, Pagination, Participant, ReceivedInvitation, ShortlistPage, TmdbId, VoteTotals } from '../types/movieNight.types'
 
 export type NightQuery =
@@ -38,7 +38,7 @@ export function nightOptions<Q extends NightQuery>(client: QueryClient, owner: n
           case 'shortlist': return api.shortlist(request.id, request.page ?? {}, context)
           case 'eligibleUsers': return api.eligibleUsers(request.id, request.query, request.page ?? {}, context)
         }
-      }, signal, request.kind === 'list' ? 'list' : request.kind === 'received' ? 'inbox' : 'read')
+      }, signal, request.kind === 'list' ? 'list' : request.kind === 'received' ? 'inbox' : request.kind === 'shortlist' || request.kind === 'votes' ? 'content' : 'read')
       // The descriptor switch above selects the matching adapter; preserve that correlation for consumers.
       return result as ResultFor<Q['kind']>
     },
@@ -102,12 +102,14 @@ export function nightMutationOptions(client: QueryClient, owner: number, receipt
                 return night
               }
           }
-        })
+        }, undefined, 'write', ['nominate', 'remove', 'vote'].includes(action.kind) ? 'candidate' : 'event')
         if (!lifetime.isCurrent()) throw new MovieNightRequestCancelled()
         if (action.kind === 'rsvp') {
           // Both directions discard prior membership projections. Accept never restores an old vote/detail.
           if (receipt) receipt.current.confirmed = true
           purgeNight(client, owner, action.id)
+        } else if (action.kind === 'nominate' || action.kind === 'remove' || action.kind === 'vote') {
+          reconcileNightContent(client, owner, action.id)
         } else if (action.kind === 'invite') {
           // Only this event's roster/search projections changed; unrelated operations stay untouched.
           void client.invalidateQueries({ queryKey: nightKeys.event(owner, action.id), predicate: query => {
@@ -121,7 +123,10 @@ export function nightMutationOptions(client: QueryClient, owner: number, receipt
         return result
       } catch (error) {
         const info = movieNightError(error)
-        if (currentOwner(client, owner) && info.refresh && id !== undefined) {
+        if (lifetime.isCurrent() && id !== undefined && ['nominate', 'remove', 'vote'].includes(action.kind) && !info.movieNotFound && (info.refresh || info.status === 403 || info.status === 404)) {
+          reconcileNightContent(client, owner, id)
+          void client.invalidateQueries({ queryKey: nightKeys.event(owner, id), predicate: query => (query.queryKey[4] as NightQuery | undefined)?.kind === 'detail' })
+        } else if (currentOwner(client, owner) && info.refresh && id !== undefined) {
           void client.invalidateQueries({ queryKey: nightKeys.event(owner, id) })
         }
         throw error

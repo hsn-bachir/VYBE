@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useNightClock } from '../hooks/useNightBoundary'
 import { MovieNightRsvp } from './MovieNightRsvp'
 import { Avatar } from '../../../components/ui/Avatar'
 import { schedulePreview, utcToLocal } from '../lib/dateTime'
@@ -10,6 +11,8 @@ const statuses = { scheduled: 'Scheduled', finalized: 'Finalized', cancelled: 'C
 const responses = { pending: 'Pending', accepted: 'Accepted', declined: 'Declined' }
 export function MovieNightCard({ night, owner, rsvp }: { night: NightSummary; owner: number; rsvp?: Rsvp }) {
   const relationship = nightRelationship(night, owner)
+  const now = useNightClock(night.starts_at)
+  const invitationClosed = night.status !== 'scheduled' || !(now < Date.parse(night.starts_at))
   let date: string | undefined, time: string | undefined, preview: string | undefined
   try {
     const local = utcToLocal(night.starts_at, night.timezone)
@@ -26,7 +29,7 @@ export function MovieNightCard({ night, owner, rsvp }: { night: NightSummary; ow
     </div>
     <div className="night-card-bottom">{relationship === 'host' || relationship === 'accepted'
       ? <Link className="text-link" to={`/movie-nights/${night.id}`} aria-label={`View ${night.title}`}>View movie night <span aria-hidden="true">↗</span></Link>
-      : <span className="night-private-note">Details available after accepting.</span>}
+      : <span className="night-private-note">{invitationClosed ? 'This invitation is closed. Private details are unavailable.' : 'Details available after accepting.'}</span>}
       {rsvp && <span className="night-rsvp">RSVP: {responses[rsvp]}</span>}
     </div>
     <MovieNightRsvp key={`${owner}:${night.id}`} night={night} />

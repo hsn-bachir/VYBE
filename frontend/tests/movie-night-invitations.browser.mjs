@@ -24,11 +24,13 @@ export async function runMovieNightInvitationChecks(page, base = 'http://127.0.0
     const body = req.postData() ? req.postDataJSON() : undefined
     requests.push({ path, method, query: url.search, body, owner, response })
     if (path === '/api/v1/auth/me') return owner ? reply({ data: { ...host, id: owner, username: `fixture_${owner}`, email: 'fake@example.test', email_verified_at: '2026-01-01T00:00:00Z' } }) : reply({ message: 'Unauthenticated.' }, 401)
+    if (/^\/api\/v1\/me\/movie-nights\/\d+\/movies$/.test(path) && method === 'GET') return reply({ data: [], meta: { page: 1, per_page: 12, total_pages: 0, total_results: 0, metadata_unavailable: false } })
+    if (/^\/api\/v1\/me\/movie-nights\/\d+\/votes$/.test(path) && method === 'GET') return reply({ data: { totals: [], my_vote: null, total_votes: 0, leaders: [], voting_open: true } })
     if (path === '/api/v1/me/access') return reply({ data: { role: 'user', account_status: account } })
     if (path === '/api/v1/auth/logout') { owner = 0; return reply({}) }
     const paged = items => { const p = Number(url.searchParams.get('page') || 1), per = Number(url.searchParams.get('per_page') || 12); return reply({ data: items.slice((p - 1) * per, p * per), meta: { page: p, per_page: per, total_pages: Math.ceil(items.length / per), total_results: items.length } }) }
-    if (path === '/api/v1/me/movie-nights') return paged(owner === 11 ? [] : [summary()])
-    if (path === '/api/v1/me/movie-nights/invitations') return paged(owner === 9 ? [{ ...invitation(9), movie_night: summary() }] : [])
+    if (path === '/api/v1/me/movie-nights') return paged(owner === 7 || owner === 9 && response === 'accepted' ? [summary()] : [])
+    if (path === '/api/v1/me/movie-nights/invitations') return paged(owner === 9 && response !== 'accepted' ? [{ ...invitation(9), movie_night: summary() }] : [])
     if (path === '/api/v1/me/movie-nights/12') return allowed && (owner === 7 || owner === 9 && response === 'accepted') ? reply({ data: { ...rich(), location: 'PRIVATE_ROOM', meeting_url: 'https://example.test/private' } }) : reply({ message: 'Not found.' }, 404)
     if (path.endsWith('/12/eligible-users')) {
       if (owner !== 7) { unexpected.push('Non-host search'); return reply({}, 403) }
@@ -153,10 +155,12 @@ export async function runMovieNightInvitationChecks(page, base = 'http://127.0.0
   response = 'pending'; await inbox(); await page.getByRole('button', { name: 'Decline invitation', exact: true }).click(); await page.getByText('RSVP: Declined', { exact: true }).waitFor()
   assert(new URL(page.url()).search === '?view=invitations&status=scheduled&page=1', 'RSVP changed dashboard URL state')
   checks.push('Pending decline preserves inbox URL/filter/page and keeps responded invitation visible')
-  response = 'pending'; await go('/movie-nights?status=scheduled&page=1'); await page.getByRole('button', { name: 'Decline invitation', exact: true }).click(); await page.getByText('Declined', { exact: true }).first().waitFor()
-  response = 'accepted'; await go('/movie-nights?status=scheduled&page=1'); await page.getByRole('button', { name: 'Change to declined', exact: true }).click(); await page.getByRole('button', { name: 'Confirm decline' }).click(); await page.getByText('Declined', { exact: true }).first().waitFor()
+  response = 'pending'; await go('/movie-nights?status=scheduled&page=1'); await page.getByText('No movie nights with this status.', { exact: true }).waitFor()
+  assert(!await page.getByRole('button', { name: 'Decline invitation', exact: true }).count(), 'Pending invitation appeared in My nights')
+  response = 'accepted'; await go('/movie-nights?status=scheduled&page=1'); await page.getByRole('button', { name: 'Change to declined', exact: true }).click(); await page.getByRole('button', { name: 'Confirm decline' }).click(); await page.getByText('No movie nights with this status.', { exact: true }).waitFor()
   assert(new URL(page.url()).search === '?status=scheduled&page=1', 'My nights RSVP changed URL')
-  checks.push('My nights cards support pending and accepted decline with URL state retained and server-confirmed minimal reload')
+  await page.getByRole('link', { name: 'Invitations', exact: true }).click(); await page.getByText('RSVP: Declined', { exact: true }).waitFor()
+  checks.push('My nights excludes pending invitations; accepted decline removes its card, preserves URL state and appears in Invitations')
   for (const reason of ['restriction', 'lifecycle', 'deadline', 'access']) {
     response = 'accepted'; account = 'active'; status = 'scheduled'; allowed = true; start = reason === 'deadline' ? new Date(Date.now() + 2000).toISOString() : '2030-07-16T18:00:00Z'
     await go('/movie-nights/12'); await page.getByRole('button', { name: 'Change to declined', exact: true }).click(); await page.waitForTimeout(200)
@@ -173,6 +177,13 @@ export async function runMovieNightInvitationChecks(page, base = 'http://127.0.0
   for (const terminal of ['cancelled', 'finalized']) { status = terminal; await page.reload(); await page.getByText(`This movie night is ${terminal}.`, { exact: false }).waitFor(); assert(!await page.getByRole('button', { name: 'Change to declined', exact: true }).count(), 'Terminal RSVP enabled') }
   status = 'scheduled'; start = new Date(Date.now() + 2000).toISOString(); await page.reload(); await page.getByRole('button', { name: 'Change to declined', exact: true }).waitFor(); await page.waitForTimeout(2100); assert(!await page.getByRole('button', { name: 'Change to declined', exact: true }).count(), 'Deadline remained enabled'); start = '2030-07-16T18:00:00Z'
   checks.push('Four mounted RSVP confirmation loss/restoration cases; 409 conflict, terminal events and live deadline controls remain safe')
+  owner = 9; response = 'pending'; account = 'active'; status = 'scheduled'; start = new Date(Date.now() + 2200).toISOString()
+  await inbox(); await page.getByText('Details available after accepting.', { exact: true }).waitFor()
+  await page.getByText('This invitation is closed. Private details are unavailable.', { exact: true }).waitFor()
+  assert(!await page.getByRole('button', { name: 'Accept invitation', exact: true }).count(), 'Expired pending invitation remained actionable')
+  response = 'declined'; status = 'cancelled'; start = '2030-07-16T18:00:00Z'; await page.reload(); await page.getByText('This invitation is closed. Private details are unavailable.', { exact: true }).waitFor()
+  assert(!await page.getByRole('button', { name: 'Accept invitation', exact: true }).count() && !await page.getByRole('link', { name: 'View A seat', exact: false }).count(), 'Closed declined invitation exposed action or details')
+  checks.push('Expired pending and terminal declined invitations stay minimal with honest closed wording and no RSVP controls')
   const rsvpCount = () => requests.filter(item => item.method === 'PUT' && item.path.endsWith('/rsvp')).length
   const beginHold = () => {
     let release
@@ -222,7 +233,7 @@ export async function runMovieNightInvitationChecks(page, base = 'http://127.0.0
     await freshPending(); hold = beginHold()
     await page.getByRole('button', { name: outcome === 'accepted' ? 'Accept invitation' : 'Decline invitation', exact: true }).click(); await waitForHold(hold)
     await losePermission('restriction'); hold.release(); heldRsvp = null
-    await page.getByText(`RSVP: ${outcome === 'accepted' ? 'Accepted' : 'Declined'}`, { exact: true }).waitFor()
+    await page.getByText(outcome === 'accepted' ? 'No pending or declined invitations.' : 'RSVP: Declined', { exact: true }).waitFor()
     assert(page.url().includes('view=invitations') && !await page.getByText('PRIVATE_ROOM').count(), `${outcome}: retired completion navigated or leaked details`)
     account = 'active'; await refresh(); await page.waitForTimeout(200)
     assert(!await page.getByRole('alert').count() && !await dialog().count() && page.url().includes('view=invitations'), `${outcome}: stale completion restored`)
@@ -241,10 +252,10 @@ export async function runMovieNightInvitationChecks(page, base = 'http://127.0.0
   // Leaving and returning to the same URL retires the originating component, even though its URL matches again.
   await freshPending(); hold = beginHold(); const originatingUrl = page.url()
   await page.getByRole('button', { name: 'Accept invitation', exact: true }).click(); await waitForHold(hold)
-  await page.getByRole('link', { name: 'My Movie Nights', exact: true }).click(); await page.getByRole('list', { name: 'Your movie nights' }).waitFor()
+  await page.getByRole('link', { name: 'My Movie Nights', exact: true }).click(); await page.getByText('No movie nights with this status.', { exact: true }).waitFor()
   await page.goBack(); await page.getByRole('list', { name: 'Received invitations' }).waitFor()
   assert(page.url() === originatingUrl, 'Originating URL was not restored for the stale-navigation regression')
-  hold.release(); heldRsvp = null; await page.getByText('RSVP: Accepted', { exact: true }).waitFor()
+  hold.release(); heldRsvp = null; await page.getByText('No pending or declined invitations.', { exact: true }).waitFor()
   assert(page.url().includes('view=invitations') && !await page.getByText('PRIVATE_ROOM').count(), 'Unmounted origin completion navigated after return')
   stateCases.push('delayed success / leave and return / no stale navigation')
   checks.push('Leaving and returning to the originating UI suppresses stale navigation while reconciling a confirmed write')

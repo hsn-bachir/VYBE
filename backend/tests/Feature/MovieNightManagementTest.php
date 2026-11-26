@@ -180,19 +180,21 @@ class MovieNightManagementTest extends TestCase
             $night = $this->night();
             $this->invite($night, $viewer, $status);
             $this->invite($night, User::factory()->create(), MovieNightRsvp::Accepted);
-            $ids[] = $night->id;
+            if ($status === MovieNightRsvp::Accepted) {
+                $ids[] = $night->id;
+            }
         }
         $hidden = $this->night();
         $this->signIn($viewer, 'web');
-        $first = $this->getJson(self::URL.'?per_page=2')->assertOk()->assertJsonCount(2, 'data')
-            ->assertJsonPath('meta', ['page' => 1, 'per_page' => 2, 'total_pages' => 2, 'total_results' => 4])
-            ->assertJsonPath('data.0.my_rsvp', 'accepted')->assertJsonPath('data.1.my_rsvp', 'pending')
+        $first = $this->getJson(self::URL.'?per_page=1')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta', ['page' => 1, 'per_page' => 1, 'total_pages' => 2, 'total_results' => 2])
+            ->assertJsonPath('data.0.my_rsvp', 'accepted')
             ->assertJsonMissingPath('data.0.location')->assertJsonMissingPath('data.0.meeting_url')
             ->assertJsonMissingPath('data.0.invitations');
-        $second = $this->getJson(self::URL.'?page=2&per_page=2')->assertOk()->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.my_rsvp', 'accepted')->assertJsonPath('data.1.my_rsvp', 'declined');
+        $second = $this->getJson(self::URL.'?page=2&per_page=1')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.my_rsvp', 'accepted');
         $this->assertSame($ids, array_merge(array_column($first->json('data'), 'id'), array_column($second->json('data'), 'id')));
-        $this->getJson(self::URL.'?page=3&per_page=2')->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.total_results', 4);
+        $this->getJson(self::URL.'?page=3&per_page=1')->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.total_results', 2);
         $this->getJson(self::URL.'/'.$hidden->id)->assertNotFound();
         Http::assertNothingSent();
     }
@@ -305,7 +307,8 @@ class MovieNightManagementTest extends TestCase
         }
         $this->signIn($viewer, 'web');
         $this->getJson(self::URL.'/'.$night->id)->assertNotFound();
-        $this->getJson(self::URL.'?status=cancelled')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson(self::URL.'?status=cancelled')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson(self::URL.'/invitations')->assertOk()->assertJsonPath('data.0.movie_night.status', 'cancelled');
         $this->getJson(self::URL.'?status=scheduled')->assertOk()->assertJsonCount(0, 'data');
     }
 
@@ -432,7 +435,7 @@ class MovieNightManagementTest extends TestCase
         $viewer = User::factory()->create();
         for ($i = 0; $i < 8; $i++) {
             $night = $this->night();
-            $this->invite($night, $viewer);
+            $this->invite($night, $viewer, MovieNightRsvp::Accepted);
         }
         $this->signIn($viewer, 'web');
         DB::enableQueryLog();

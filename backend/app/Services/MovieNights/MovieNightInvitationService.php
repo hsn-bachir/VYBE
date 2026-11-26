@@ -58,6 +58,7 @@ class MovieNightInvitationService
     {
         Gate::forUser($actor)->authorize('viewAny', MovieNight::class);
         $query = MovieNightInvitation::query()->where('invited_user_id', $actor->id)
+            ->whereIn('rsvp_status', [MovieNightRsvp::Pending->value, MovieNightRsvp::Declined->value])
             ->with(['invitedUser:id,username,avatar_url', 'movieNight.host:id,username,avatar_url',
                 'movieNight.invitations' => fn ($q) => $q->where('invited_user_id', $actor->id)])
             ->orderBy('id');

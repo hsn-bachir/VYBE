@@ -23,6 +23,8 @@ export async function runMovieNightDashboardChecks(page, base = 'http://127.0.0.
     requests.push({ path, query: url.search, method: request.method() })
     if (path === '/api/v1/auth/me' || path === '/api/v1/auth/email/verification-status') return auth === 'guest' ? reply({ message: 'Unauthenticated.' }, 401) : reply({ data: { id: owner, username: `fixture_${owner}`, email: 'fixture@example.test', avatar_url: null, email_verified_at: auth === 'verified' ? '2026-01-01T00:00:00Z' : null } })
     if (/^\/api\/v1\/me\/movie-nights\/\d+\/invitations$/.test(path) && request.method() === 'GET') return reply({ data: [], meta: { page: 1, per_page: 12, total_pages: 0, total_results: 0 } })
+    if (/^\/api\/v1\/me\/movie-nights\/\d+\/movies$/.test(path) && request.method() === 'GET') return reply({ data: [], meta: { page: 1, per_page: 12, total_pages: 0, total_results: 0, metadata_unavailable: false } })
+    if (/^\/api\/v1\/me\/movie-nights\/\d+\/votes$/.test(path) && request.method() === 'GET') return reply({ data: { totals: [], my_vote: null, total_votes: 0, leaders: [], voting_open: true } })
     if (path === '/api/v1/me/access') return reply({ data: { role: 'user', account_status: account } })
     if (/^\/api\/v1\/me\/movie-nights\/\d+$/.test(path)) {
       const event = entries.find(item => item.id === Number(path.split('/').at(-1)))
@@ -34,7 +36,8 @@ export async function runMovieNightDashboardChecks(page, base = 'http://127.0.0.
       const inbox = path.endsWith('/invitations')
       let items = owner === 7 ? entries : []
       if (!inbox && url.searchParams.has('status')) items = items.filter(item => item.status === url.searchParams.get('status'))
-      if (inbox) items = items.filter(item => item.host.id !== owner).map(item => ({ id: item.id, participant: { id: owner, username: 'you', avatar_url: null }, rsvp_status: item.my_rsvp, responded_at: null, movie_night: item }))
+      if (!inbox) items = items.filter(item => item.host.id === owner || item.my_rsvp === 'accepted')
+      if (inbox) items = items.filter(item => item.host.id !== owner && ['pending', 'declined'].includes(item.my_rsvp)).map(item => ({ id: item.id, participant: { id: owner, username: 'you', avatar_url: null }, rsvp_status: item.my_rsvp, responded_at: null, movie_night: item }))
       const current = Number(url.searchParams.get('page') ?? 1), perPage = Number(url.searchParams.get('per_page') ?? 20)
       return reply({ data: items.slice((current - 1) * perPage, current * perPage), meta: { page: current, per_page: perPage, total_pages: Math.ceil(items.length / perPage), total_results: items.length } })
     }
@@ -47,12 +50,13 @@ export async function runMovieNightDashboardChecks(page, base = 'http://127.0.0.
   const shot = async name => { if (screenshotDirectory) await page.screenshot({ path: `${screenshotDirectory}/${name}.png`, fullPage: false }) }
   await page.goto(`${base}/movie-nights`); await loaded()
   assert(await page.title() === 'Movie Nights — VYBE', 'Incorrect document title')
-  for (const label of ['Hosting', 'Going', 'Invited', 'Declined']) assert(await page.getByText(label, { exact: true }).count() > 0, `Missing ${label}`)
+  for (const label of ['Hosting', 'Going']) assert(await page.getByText(label, { exact: true }).count() > 0, `Missing ${label}`)
   assert(await page.getByRole('link', { name: 'Create Movie Night', exact: false }).count() === 1, 'Create action missing')
   const nav = page.getByRole('navigation', { name: 'Movie navigation', exact: true })
   assert((await nav.getByRole('link').allTextContents()).join('|') === 'Home|Discover|For You|Library|Movie Nights', 'Navigation order changed')
   assert(await nav.getByRole('link', { name: 'Movie Nights', exact: true }).getAttribute('aria-current') === 'page', 'Section nav not active')
-  checks.push('Dashboard heading, title, navigation order/highlight, create action and four relationship labels')
+  assert(await page.locator('.night-relationship.is-pending, .night-relationship.is-declined').count() === 0, 'My nights contains unaccepted invitations')
+  checks.push('Dashboard heading, navigation, creation and hosted/accepted-only cards')
 
   for (const view of ['nights', 'invitations']) {
     await page.goto(`${base}/movie-nights?view=${view}`); await loaded(view === 'nights' ? 'Your movie nights' : 'Received invitations')
@@ -96,6 +100,8 @@ export async function runMovieNightDashboardChecks(page, base = 'http://127.0.0.
   assert(new URL(page.url()).searchParams.get('view') === 'invitations', 'Inbox pagination lost selected view')
   assert(!requests.filter(request => request.path.endsWith('/movie-nights/invitations')).some(request => request.query.includes('status=')), 'Unsupported inbox status filter sent')
   assert(await page.getByRole('navigation', { name: 'Event status' }).count() === 0, 'Inbox filters a partial page')
+  assert(await page.locator('.night-relationship.is-host, .night-relationship.is-accepted').count() === 0, 'Inbox contains hosted or accepted events')
+  for (const label of ['Invited', 'Declined']) assert(await page.getByText(label, { exact: true }).count() > 0, `Missing inbox ${label}`)
   assert(await page.locator('.night-card').filter({ has: page.locator('.night-relationship.is-pending, .night-relationship.is-declined') }).getByRole('link').count() === 0, 'Pending/declined summary has private detail link')
   assert(!requests.some(request => /\/movie-nights\/\d/.test(request.path)), 'Dashboard requested private details')
   assert(!requests.some(request => request.method !== 'GET'), 'Dashboard wrote data')
@@ -119,7 +125,7 @@ export async function runMovieNightDashboardChecks(page, base = 'http://127.0.0.
   await page.getByRole('heading', { name: 'Your next movie night starts here.' }).waitFor()
   assert(await page.getByText('Friday, under the stars', { exact: true }).count() === 0, 'Other owner data retained')
   await page.goto(`${base}/movie-nights?view=invitations`)
-  await page.getByRole('heading', { name: 'No invitations just yet.' }).waitFor()
+  await page.getByRole('heading', { name: 'No pending or declined invitations.' }).waitFor()
   checks.push('Empty event/inbox states and owner-isolated reload')
 
   owner = 7; failure = true; await page.goto(`${base}/movie-nights`)
@@ -130,6 +136,9 @@ export async function runMovieNightDashboardChecks(page, base = 'http://127.0.0.
   delay = true; await page.reload(); await page.getByRole('status', { name: 'Loading movie nights', exact: true }).waitFor(); await loaded(); delay = false
   await page.goto(`${base}/movie-nights?page=0`); await page.getByRole('heading', { name: 'That view is out of frame.' }).waitFor()
   await page.goto(`${base}/movie-nights?page=999`); await page.getByRole('heading', { name: 'No movie nights on this page.' }).waitFor()
+  await page.getByRole('link', { name: 'Go to the first page', exact: true }).click(); await loaded()
+  assert(!new URL(page.url()).searchParams.has('page'), 'Empty-page recovery did not restore page one')
+  await page.goBack(); await page.getByRole('heading', { name: 'No movie nights on this page.' }).waitFor()
   checks.push('Loading, invalid URL and out-of-range page states')
 
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto(`${base}/movie-nights`); await loaded()

@@ -16,6 +16,7 @@ import type { NightSummary, Page, ReceivedInvitation } from '../types/movieNight
 
 const user = { id: 7, username: 'fixture', email: 'fixture@example.test', avatar_url: null, email_verified_at: '2026-01-01T00:00:00Z' }
 const night: NightSummary = { id: 12, title: 'A little cinema', host: { id: 8, username: 'organizer', avatar_url: null }, starts_at: '2027-07-16T18:00:00.000000Z', timezone: 'Asia/Beirut', status: 'scheduled', my_rsvp: 'pending' }
+const accepted: NightSummary = { ...night, my_rsvp: 'accepted', finalized_tmdb_id: null, finalized_at: null, cancelled_at: null, voting_open: true, created_at: '', updated_at: '' }
 const meta = { page: 1, per_page: 12, total_pages: 3, total_results: 25 }
 function setup(status: Access['account_status'] = 'active') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryOnMount: false, gcTime: Infinity } } })
@@ -23,7 +24,7 @@ function setup(status: Access['account_status'] = 'active') {
   client.setQueryData(accessKey(7), { role: 'user', account_status: status })
   return client
 }
-function seed(client: QueryClient, url = '/movie-nights', data: NightSummary[] = [night]) {
+function seed(client: QueryClient, url = '/movie-nights', data: NightSummary[] = [accepted]) {
   const state = dashboardState(new URL(url, 'https://fixture.test').searchParams)
   const options = nightOptions(client, 7, { kind: 'list', filters: { page: state.page, per_page: 12, ...(state.status === 'all' ? {} : { status: state.status }) } })
   client.setQueryData(options.queryKey, { data, meta })
@@ -62,7 +63,7 @@ it.each(['/movie-nights', '/movie-nights/new', '/movie-nights/12'])('withholds %
 it('renders server summaries, creation action and semantic status filters without inferred counts', () => {
   const client = setup(); seed(client)
   const html = render(client)
-  for (const text of ['Create Movie Night', 'My Movie Nights', 'Invitations', 'All', 'Scheduled', 'Finalized', 'Cancelled', 'A little cinema', '@organizer', '21:00', 'Asia/Beirut', 'Invited']) expect(html).toContain(text)
+  for (const text of ['Create Movie Night', 'My Movie Nights', 'Invitations', 'All', 'Scheduled', 'Finalized', 'Cancelled', 'A little cinema', '@organizer', '21:00', 'Asia/Beirut', 'Going']) expect(html).toContain(text)
   expect(html).not.toContain('25 movie nights')
   expect(html).not.toContain('Hosting (')
 })
@@ -81,7 +82,7 @@ it.each(['pending', 'declined'] as const)('never renders private fields or links
   try {
     const html = render(client, '/movie-nights?view=invitations&page=2&status=scheduled')
     expect(html).toContain('RSVP:'); expect(html).toContain(rsvp === 'pending' ? 'Pending' : 'Declined')
-    expect(html).toContain('across all event and RSVP statuses')
+    expect(html).toContain('Pending and declined invitations, across all event statuses')
     expect(html).not.toContain('Event status')
     expect(html).not.toContain('PRIVATE LOCATION'); expect(html).not.toContain('secret.test'); expect(html).not.toContain('550')
     expect(html).not.toContain('href="/movie-nights/12"')
@@ -142,4 +143,27 @@ it('keeps future RSVP, voting and finalization interfaces absent from management
 it('gracefully renders an unavailable schedule instead of failing the entire list', () => {
   const html = render(setup(), '/movie-nights', <ul><MovieNightCard night={{ ...night, timezone: 'Unknown/Zone' }} owner={7} /></ul>)
   expect(html).toContain('Schedule unavailable'); expect(html).toContain('A little cinema')
+})
+it('describes hosted/accepted nights and pending/declined invitations without historical-inbox promises', () => {
+  const client = setup(); seed(client)
+  expect(render(client)).toContain('Nights you host and invitations you’ve accepted.')
+  client.setQueryData(nightOptions(client, 7, { kind: 'received', page: { page: 1, per_page: 12 } }).queryKey, { data: [], meta: { ...meta, total_pages: 0, total_results: 0 } })
+  const html = render(client, '/movie-nights?view=invitations')
+  expect(html).toContain('No pending or declined invitations.')
+  expect(html).toContain('Accepted invitations move to My Movie Nights. Declined invitations stay here.')
+  expect(html).not.toContain('Invitations stay here after you respond.')
+})
+it.each([
+  ['pending', 'scheduled', -1, false], ['pending', 'scheduled', 0, true], ['pending', 'scheduled', 1, true],
+  ['declined', 'scheduled', -1, false], ['declined', 'scheduled', 0, true], ['declined', 'scheduled', 1, true],
+  ['pending', 'cancelled', -1, true], ['pending', 'finalized', -1, true],
+  ['declined', 'cancelled', -1, true], ['declined', 'finalized', -1, true],
+] as const)('uses honest %s/%s invitation wording at deadline offset %s', (rsvp, status, offset, closed) => {
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse(night.starts_at) + offset)
+  try {
+    const html = render(setup(), '/movie-nights?view=invitations', <ul><MovieNightCard night={{ ...night, my_rsvp: rsvp, status }} owner={7} /></ul>)
+    expect(html.includes('This invitation is closed. Private details are unavailable.')).toBe(closed)
+    expect(html.includes('Details available after accepting.')).toBe(!closed)
+    expect(html).not.toContain('href="/movie-nights/12"')
+  } finally { clock.mockRestore() }
 })

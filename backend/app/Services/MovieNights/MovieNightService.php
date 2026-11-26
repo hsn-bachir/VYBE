@@ -16,7 +16,7 @@ class MovieNightService
     public function listing(User $actor, int $page, int $perPage, ?string $status): array
     {
         Gate::forUser($actor)->authorize('viewAny', MovieNight::class);
-        $query = MovieNight::query()->forMember($actor)->with($this->relations($actor));
+        $query = MovieNight::query()->visibleTo($actor)->with($this->relations($actor));
         if ($status !== null) {
             $query->where('status', $status);
         }

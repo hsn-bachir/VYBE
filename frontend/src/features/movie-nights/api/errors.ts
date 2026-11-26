@@ -14,13 +14,14 @@ export function movieNightError(error: unknown) {
     ? data.leaders.filter((id: unknown): id is number => typeof id === 'number' && Number.isInteger(id) && id > 0 && id <= 2147483647).map(asTmdbId) : []
   const fields = errorDetails(error).fields
   return {
-    status, code: tie ? 'MOVIE_NIGHT_TIE' as const : undefined, leaders, fields,
+    status, movieNotFound: status === 404 && data?.code === 'MOVIE_NOT_FOUND', code: tie ? 'MOVIE_NIGHT_TIE' as const : undefined, leaders, fields,
     staleSelection: status === 422 && Array.isArray(fields.tmdb_id),
     refresh: status === 409 || (status === 422 && Array.isArray(fields.tmdb_id)),
     retryAfter: response?.headers?.['retry-after'] as string | undefined,
     message: error instanceof MovieNightRequestCancelled ? error.message
       : tie ? 'Choose one of the current tied leaders.'
       : status === 401 ? 'Sign in again to access Movie Nights.'
+      : status === 404 && data?.code === 'MOVIE_NOT_FOUND' ? 'This movie could not be found. Try another title.'
       : status === 404 ? 'This movie night or candidate is unavailable.'
       : status === 409 ? 'The movie night changed or this action is no longer available. Refresh and try again.'
       : errorDetails(error).message,

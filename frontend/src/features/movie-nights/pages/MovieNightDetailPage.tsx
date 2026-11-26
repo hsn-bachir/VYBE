@@ -7,6 +7,7 @@ import { useAccess } from '../../auth/hooks/useAccess'
 import { MovieState } from '../../movies/components/MovieState'
 import { movieNightError } from '../api/errors'
 import { MovieNightParticipants } from '../components/MovieNightParticipants'
+import { MovieNightShortlist } from '../components/MovieNightShortlist'
 import { MovieNightRsvp } from '../components/MovieNightRsvp'
 import { CancelMovieNightDialog, EditMovieNightDialog } from '../components/MovieNightManagement'
 import { useMovieNightQuery } from '../hooks/useMovieNights'
@@ -64,7 +65,7 @@ function DetailContent({ owner, id }: { owner: number; id: number }) {
     <div className="night-detail-panel"><div className="night-organizer"><Avatar username={night.host.username} url={night.host.avatar_url} /><span>Organized by <strong>@{night.host.username}</strong></span></div><dl className="night-details-list"><div><dt>Scheduled screening</dt><dd><time dateTime={night.starts_at}>{schedule}</time></dd></div>{night.location && <div><dt>Physical location</dt><dd>{night.location}</dd></div>}{night.meeting_url && <div><dt>Meeting link</dt><dd>{meeting ? <a href={meeting} target="_blank" rel="noopener noreferrer">{meeting}<span className="sr-only"> (opens in a new tab)</span></a> : 'Meeting link unavailable'}</dd></div>}</dl><p className="night-private-note">These details are private to the host and accepted guests.</p></div>
     <MovieNightRsvp night={night} detail />
     <MovieNightParticipants night={night} roster={visible && permission.roster} invite={visible && permission.invite} />
-    <div className="night-future-sections">{[['shortlist', 'Shared shortlist', 'A place for everyone’s movie suggestions is coming soon.'], ['voting', 'Voting', 'Your group’s movie vote will be available here soon.']].map(([key, title, copy]) => <section key={key} aria-labelledby={`night-${key}`}><h2 id={`night-${key}`}>{title}</h2><p>{copy}</p></section>)}</div>
+    <MovieNightShortlist night={night} />
     {dialog === 'edit' && canEdit && <EditMovieNightDialog night={night} onClose={() => setDialog(null)} />}
     {dialog === 'cancel' && canCancel && <CancelMovieNightDialog id={id} onClose={() => setDialog(null)} />}
   </section>

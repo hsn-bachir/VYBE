@@ -124,3 +124,29 @@
 .night-response-actions > .button { font-size: .8rem; }
 .night-future-sections { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 599px) { .night-future-sections { grid-template-columns: minmax(0, 1fr); } .night-person { gap: .5rem; } }
+/* Shared shortlist: poster-first cards with private, server-confirmed actions. */
+.night-shortlist { margin-top: 2.5rem; min-width: 0; }
+.night-shortlist .night-toolbar h2 { font-size: 1.6rem; }
+.night-shortlist .eyebrow { color: var(--color-info); margin-bottom: .5rem; }
+.night-voting { border: 1px solid var(--color-border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; background: var(--color-surface); }
+.night-voting h2 { font-size: 1.2rem; margin-top: 0; }
+.night-tally { display: grid; gap: .5rem; font-size: .9rem; overflow-wrap: anywhere; }
+.night-tally p { margin: 0; }
+.night-tally p:first-child strong { color: var(--color-info); font-size: 1.5rem; }
+.night-candidate-grid.movie-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
+.night-candidate-grid > li { border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); padding: .75rem; min-width: 0; }
+.night-candidate-grid .movie-card h3, .night-search-grid .movie-card h3 { white-space: normal; overflow-wrap: anywhere; }
+.night-candidate { padding-top: .75rem; font-size: .8rem; }
+.night-candidate .night-organizer { align-items: flex-start; }
+.night-candidate .night-organizer > span { min-width: 0; overflow-wrap: anywhere; }
+.night-candidate-votes { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.night-candidate-votes strong { color: var(--color-success); }
+.night-candidate-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.night-candidate-actions .button, .night-search-grid .button { font-size: .8rem; min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.night-candidate-actions .button[aria-pressed=true] { border-color: var(--color-success); color: var(--color-success); }
+.app-dialog.night-nominate-dialog { width: min(900px, calc(100% - 2rem)); }
+.night-search-grid.movie-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.night-search-grid > li { min-width: 0; }
+.night-search-grid .button { width: 100%; margin-top: .75rem; }
+@media (max-width: 1099px) { .night-candidate-grid.movie-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 599px) { .night-candidate-grid.movie-grid, .night-search-grid.movie-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; } .night-candidate-grid > li { padding: .5rem; } .night-voting { padding: 1rem; } }
