@@ -1,0 +1,13 @@
+/* Make room for the full personal navigation without squeezing account controls. */
+@media (max-width: 1099px) {
+  .app-header.has-personal-navigation { flex-wrap: wrap; }
+  .app-header.has-personal-navigation .discovery-nav { order: 3; width: 100%; margin: 0; justify-content: flex-start; gap: clamp(.75rem, 3vw, 2rem); align-self: auto; }
+}
+@media (max-width: 599px) {
+  .app-header.has-personal-navigation .discovery-nav a { font-size: .75rem; white-space: nowrap; }
+}
+
+/* Preserve hero alignment and Discover scroll offsets with the two-row header. */
+@media (min-width: 600px) and (max-width: 1099px) {
+  .app-layout.has-personal-navigation { --header-height: 153px; }
+}

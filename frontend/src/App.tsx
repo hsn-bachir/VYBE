@@ -11,6 +11,8 @@ import { DiscoverPage } from './features/movies/pages/DiscoverPage'
 import { MovieState } from './features/movies/components/MovieState'
 import { VybeLoader } from './components/branding/VybeLoader'
 import { MovieDetailsSkeleton } from './features/movies/components/MovieDetailsSkeleton'
+const MovieNightsPage = lazy(() => import('./features/movie-nights/pages/MovieNightsPage'))
+const MovieNightPlaceholderPage = lazy(() => import('./features/movie-nights/pages/MovieNightPlaceholderPage'))
 const LibraryPage = lazy(() => import('./features/library/pages/LibraryPage'))
 const ForYouPage = lazy(() => import('./features/recommendations/ForYouPage'))
 const LibraryOverviewPage = lazy(() => import('./features/library/pages/LibraryOverviewPage'))
@@ -44,6 +46,9 @@ export default function App() {
       <Route path="/discover" element={<DiscoverPage />} />
       <Route path="/movies/:tmdbId" element={<Suspense fallback={<MovieDetailsSkeleton />}><MovieDetailsPage /></Suspense>} />
       <Route element={<RequireAuth />}>
+        <Route path="/movie-nights" element={<Suspense fallback={<VybeLoader label="Opening movie nights…" />}><MovieNightsPage /></Suspense>} />
+        <Route path="/movie-nights/new" element={<Suspense fallback={<VybeLoader label="Opening movie nights…" />}><MovieNightPlaceholderPage kind="new" /></Suspense>} />
+        <Route path="/movie-nights/:nightId" element={<Suspense fallback={<VybeLoader label="Opening movie nights…" />}><MovieNightPlaceholderPage kind="detail" /></Suspense>} />
         <Route path="/for-you" element={<Suspense fallback={<VybeLoader label="Finding your next story…" />}><ForYouPage /></Suspense>} />
         <Route element={<RequireAdmin />}>
           <Route path="/admin" element={<Suspense fallback={<VybeLoader label="Opening administration…" />}><AdminPage /></Suspense>} />
