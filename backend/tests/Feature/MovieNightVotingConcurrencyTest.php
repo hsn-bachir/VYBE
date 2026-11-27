@@ -37,7 +37,9 @@ class MovieNightVotingConcurrencyTest extends TestCase
             $this->markTestSkipped('Requires isolated PostgreSQL and independent PHP processes.');
         }
         $this->assertDisposableDatabase();
-        $this->assertSame('55433', (string) config('database.connections.pgsql.port'));
+        // Exact disposable Core identity; support the existing local and CI endpoints only.
+        $this->assertSame('vybe_core_test', config('database.connections.pgsql.database'));
+        $this->assertContains((string) config('database.connections.pgsql.port'), ['55433', '5432']);
         Artisan::call('migrate', ['--force' => true]);
         Http::preventStrayRequests();
         $host = User::factory()->create();
@@ -77,7 +79,8 @@ $c = config('database.connections.pgsql');
 if (! $app->environment('testing') || config('database.default') !== 'pgsql'
     || ! in_array($c['host'], ['127.0.0.1', 'localhost', '::1'], true)
     || ! str_ends_with($c['database'], '_test') || ! empty($c['url'])
-    || (string) $c['port'] !== '55433' || env('VYBE_DISPOSABLE_TEST_DB') !== '1') { exit(2); }
+    || $c['database'] !== 'vybe_core_test' || ! in_array((string) $c['port'], ['55433', '5432'], true)
+    || env('VYBE_DISPOSABLE_TEST_DB') !== '1') { exit(2); }
 Illuminate\Support\Facades\Http::preventStrayRequests();
 Illuminate\Support\Facades\DB::selectOne("SELECT set_config('application_name', ?, false)", [$argv[5]]);
 Illuminate\Support\Facades\DB::statement("SET lock_timeout = '10s'");
