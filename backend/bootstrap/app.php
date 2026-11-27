@@ -1,12 +1,15 @@
 <?php
 
 use App\Exceptions\AvatarUnavailable;
+use App\Exceptions\MovieNightTie;
 use App\Integrations\MovieCatalog\CatalogFailure;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -25,22 +28,32 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->respond(function (Response $response, Throwable $e, Request $request) {
             if ($request->is('api/v1/auth/invitations/*', 'api/v1/auth/password/*')) {
                 $response->headers->set('Cache-Control', 'no-store, private');
-                if (in_array($response->getStatusCode(), [419, 429], true)) return response()->json([
-                    'message' => $response->getStatusCode() === 419 ? 'CSRF token mismatch.' : 'Too many requests.',
-                ], $response->getStatusCode(), $response->headers->all())->header('Cache-Control', 'no-store, private');
-                if ($response->getStatusCode() >= 500) return response()->json([
-                    'message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR',
-                ], 500)->header('Cache-Control', 'no-store, private');
+                if (in_array($response->getStatusCode(), [419, 429], true)) {
+                    return response()->json([
+                        'message' => $response->getStatusCode() === 419 ? 'CSRF token mismatch.' : 'Too many requests.',
+                    ], $response->getStatusCode(), $response->headers->all())->header('Cache-Control', 'no-store, private');
+                }
+                if ($response->getStatusCode() >= 500) {
+                    return response()->json([
+                        'message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR',
+                    ], 500)->header('Cache-Control', 'no-store, private');
+                }
             }
             if ($request->is('api/v1/admin/*')) {
                 $response->headers->set('Cache-Control', 'no-store, private');
-                if ($response->getStatusCode() === 404) return response()->json(['message' => 'Not found.'], 404)->header('Cache-Control', 'no-store, private');
-                if (in_array($response->getStatusCode(), [419, 429], true)) return response()->json([
-                    'message' => $response->getStatusCode() === 419 ? 'CSRF token mismatch.' : 'Too many requests.',
-                ], $response->getStatusCode(), $response->headers->all())->header('Cache-Control', 'no-store, private');
-                if ($response->getStatusCode() >= 500 && ! $e instanceof CatalogFailure) return response()->json([
-                    'message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR',
-                ], 500)->header('Cache-Control', 'no-store, private');
+                if ($response->getStatusCode() === 404) {
+                    return response()->json(['message' => 'Not found.'], 404)->header('Cache-Control', 'no-store, private');
+                }
+                if (in_array($response->getStatusCode(), [419, 429], true)) {
+                    return response()->json([
+                        'message' => $response->getStatusCode() === 419 ? 'CSRF token mismatch.' : 'Too many requests.',
+                    ], $response->getStatusCode(), $response->headers->all())->header('Cache-Control', 'no-store, private');
+                }
+                if ($response->getStatusCode() >= 500 && ! $e instanceof CatalogFailure) {
+                    return response()->json([
+                        'message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR',
+                    ], 500)->header('Cache-Control', 'no-store, private');
+                }
             }
             if ($request->is('api/v1/me/profile', 'api/v1/me/profile/*')) {
                 $response->headers->set('Cache-Control', 'no-store, private');
@@ -81,6 +94,30 @@ return Application::configure(basePath: dirname(__DIR__))
                 if ($response->getStatusCode() >= 500 && ! $e instanceof CatalogFailure) {
                     return response()->json(['message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR'], 500)
                         ->header('Cache-Control', $request->is('api/v1/me/*') ? 'no-store, private' : 'no-store');
+                }
+            }
+            if ($request->is('api/v1/me/movie-nights', 'api/v1/me/movie-nights/*')) {
+                $response->headers->set('Cache-Control', 'no-store, private');
+                if ($e instanceof CatalogFailure) {
+                    return $e->render()->header('Cache-Control', 'no-store, private');
+                }
+                if ($request->is('api/v1/me/movie-nights/*/finalize')
+                    && in_array($response->getStatusCode(), [403, 409], true)
+                    && ($e instanceof HttpExceptionInterface || $e instanceof AuthorizationException)
+                    && ! $e instanceof MovieNightTie) {
+                    return response()->json(['message' => $e->getMessage()], $response->getStatusCode())
+                        ->header('Cache-Control', 'no-store, private');
+                }
+                if ($response->getStatusCode() === 404) {
+                    return response()->json(['message' => 'Not found.'], 404)->header('Cache-Control', 'no-store, private');
+                }
+                if (in_array($response->getStatusCode(), [419, 429], true)) {
+                    return response()->json(['message' => $response->getStatusCode() === 419 ? 'CSRF token mismatch.' : 'Too many requests.'],
+                        $response->getStatusCode(), $response->headers->all())->header('Cache-Control', 'no-store, private');
+                }
+                if ($response->getStatusCode() >= 500) {
+                    return response()->json(['message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR'], 500)
+                        ->header('Cache-Control', 'no-store, private');
                 }
             }
             if ($request->is('api/v1/me/*')) {

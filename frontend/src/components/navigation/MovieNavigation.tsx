@@ -1,11 +1,12 @@
 import { useCallback, useLayoutEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import './MovieNavigation.css'
 
 export function MovieNavigation({ showLibrary = false }: { showLibrary?: boolean }) {
   const { pathname } = useLocation()
   const nav = useRef<HTMLElement>(null)
   const indicator = useRef<HTMLSpanElement>(null)
-  const section = pathname === '/' ? 'home' : pathname === '/for-you' ? 'for-you' : pathname.startsWith('/library') ? 'library' : pathname.startsWith('/discover') || pathname.startsWith('/movies/') ? 'discover' : null
+  const section = pathname === '/' ? 'home' : pathname === '/for-you' ? 'for-you' : pathname.startsWith('/library') ? 'library' : pathname === '/movie-nights' || pathname.startsWith('/movie-nights/') ? 'movie-nights' : pathname.startsWith('/discover') || pathname.startsWith('/movies/') ? 'discover' : null
   const position = useCallback((snap = false) => {
     const bar = nav.current
     const line = indicator.current
@@ -31,5 +32,6 @@ export function MovieNavigation({ showLibrary = false }: { showLibrary?: boolean
     <Link to="/discover" aria-current={section === 'discover' ? 'page' : undefined}>Discover</Link>
     {showLibrary && <Link to="/for-you" aria-current={section === 'for-you' ? 'page' : undefined}>For You</Link>}
     {showLibrary && <Link to="/library" aria-current={section === 'library' ? 'page' : undefined}>Library</Link>}
+    {showLibrary && <Link to="/movie-nights" aria-current={section === 'movie-nights' ? 'page' : undefined}>Movie Nights</Link>}
   </nav>
 }
