@@ -22,10 +22,10 @@ class MovieNightInvitationService
         $this->rules->assertOpen($night);
         Gate::forUser($actor)->authorize('invite', $night);
         // Escape the username underscore: it is a literal, not a LIKE wildcard.
-        $pattern = str_replace('_', '\\_', $prefix).'%';
+        $pattern = str_replace('_', '!_', $prefix).'%';
         $query = $this->eligibleUsers()->where('id', '<>', $actor->id)
             ->whereNotIn('id', $night->invitations()->select('invited_user_id'))
-            ->whereRaw("username LIKE ? ESCAPE '\\'", [$pattern])->orderBy('username')->orderBy('id');
+            ->whereRaw("username LIKE ? ESCAPE '!'", [$pattern])->orderBy('username')->orderBy('id');
 
         return $this->paginate($query, $page, $perPage, ['id', 'username', 'avatar_url']);
     }

@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Support\MySqlWriteFailure;
 use Tests\TestCase;
 
 class MovieNightRsvpTest extends TestCase
@@ -381,7 +382,11 @@ class MovieNightRsvpTest extends TestCase
         $this->respond()->assertOk();
         $before = $this->invitation->fresh();
         $vote = $this->vote($this->invitee);
-        if (DB::getDriverName() === 'pgsql') {
+        $failure = null;
+        if (DB::getDriverName() === 'mysql') {
+            $this->assertDisposableDatabase();
+            $failure = new MySqlWriteFailure(DB::connection(), 'delete from', 'movie_night_votes');
+        } elseif (DB::getDriverName() === 'pgsql') {
             DB::unprepared("CREATE FUNCTION m53_reject_vote_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test-only vote deletion failure'; END $$");
             DB::unprepared('CREATE TRIGGER m53_vote_delete BEFORE DELETE ON movie_night_votes FOR EACH ROW EXECUTE FUNCTION m53_reject_vote_delete()');
         } else {
@@ -391,6 +396,7 @@ class MovieNightRsvpTest extends TestCase
             $this->travel(1)->minutes();
             config(['app.debug' => true]);
             $this->respond('declined')->assertStatus(500)->assertExactJson(['message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR']);
+            $failure?->assertTriggered([$this->night->id, $this->invitee->id]);
             $after = $this->invitation->fresh();
             $this->assertSame(MovieNightRsvp::Accepted, $after->rsvp_status);
             $this->assertTrue($before->responded_at->eq($after->responded_at));
@@ -398,7 +404,9 @@ class MovieNightRsvpTest extends TestCase
             $this->assertDatabaseHas('movie_night_votes', ['id' => $vote->id]);
             $this->getJson(self::BASE.'/'.$this->night->id)->assertOk()->assertJsonPath('data.location', 'Private location');
         } finally {
-            if (DB::getDriverName() === 'pgsql') {
+            if ($failure !== null) {
+                $failure->disarm();
+            } elseif (DB::getDriverName() === 'pgsql') {
                 DB::unprepared('DROP TRIGGER m53_vote_delete ON movie_night_votes');
                 DB::unprepared('DROP FUNCTION m53_reject_vote_delete()');
             } else {
@@ -406,6 +414,7 @@ class MovieNightRsvpTest extends TestCase
             }
         }
         $this->respond('declined')->assertOk();
+        $failure?->assertDisarmed();
         $this->assertDatabaseMissing('movie_night_votes', ['id' => $vote->id]);
     }
 }

@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Support\MySqlWriteFailure;
 use Tests\TestCase;
 
 class MovieNightShortlistTest extends TestCase
@@ -414,7 +415,11 @@ class MovieNightShortlistTest extends TestCase
         $this->fakeCatalog();
         $this->signIn($this->host);
         config(['app.debug' => true]);
-        if (DB::getDriverName() === 'pgsql') {
+        $failure = null;
+        if (DB::getDriverName() === 'mysql') {
+            $this->assertDisposableDatabase();
+            $failure = new MySqlWriteFailure(DB::connection(), 'insert into', 'movie_night_movies');
+        } elseif (DB::getDriverName() === 'pgsql') {
             DB::statement('ALTER TABLE movie_night_movies ADD CONSTRAINT m54_insert_fail CHECK (tmdb_id <> 550) NOT VALID');
         } else {
             DB::unprepared("CREATE TRIGGER m54_insert_fail BEFORE INSERT ON movie_night_movies BEGIN SELECT RAISE(ABORT, 'private test diagnostic'); END");
@@ -422,15 +427,19 @@ class MovieNightShortlistTest extends TestCase
         try {
             $this->postJson($this->url(), ['tmdb_id' => 550])->assertStatus(500)
                 ->assertExactJson(['message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR']);
+            $failure?->assertTriggered([550, $this->night->id, $this->host->id]);
             $this->assertDatabaseCount('movie_night_movies', 0);
         } finally {
-            if (DB::getDriverName() === 'pgsql') {
+            if ($failure !== null) {
+                $failure->disarm();
+            } elseif (DB::getDriverName() === 'pgsql') {
                 DB::statement('ALTER TABLE movie_night_movies DROP CONSTRAINT m54_insert_fail');
             } else {
                 DB::unprepared('DROP TRIGGER m54_insert_fail');
             }
         }
         $this->postJson($this->url(), ['tmdb_id' => 550])->assertCreated();
+        $failure?->assertDisarmed();
     }
 
     public function test_account_gates_sessions_csrf_and_shared_throttles(): void

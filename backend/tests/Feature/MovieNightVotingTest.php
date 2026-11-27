@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Support\MySqlWriteFailure;
 use Tests\TestCase;
 
 class MovieNightVotingTest extends TestCase
@@ -369,7 +370,11 @@ class MovieNightVotingTest extends TestCase
         $this->signIn($this->host);
         $this->cast()->assertOk();
         $before = MovieNightVote::query()->firstOrFail();
-        if (DB::getDriverName() === 'pgsql') {
+        $failure = null;
+        if (DB::getDriverName() === 'mysql') {
+            $this->assertDisposableDatabase();
+            $failure = new MySqlWriteFailure(DB::connection(), 'update', 'movie_night_votes');
+        } elseif (DB::getDriverName() === 'pgsql') {
             DB::statement('ALTER TABLE movie_night_votes ADD CONSTRAINT m55_change_fail CHECK (movie_night_movie_id <> '.$this->second->id.') NOT VALID');
         } else {
             DB::unprepared("CREATE TRIGGER m55_change_fail BEFORE UPDATE ON movie_night_votes BEGIN SELECT RAISE(ABORT, 'private test diagnostic'); END");
@@ -378,17 +383,21 @@ class MovieNightVotingTest extends TestCase
             $this->travel(1)->minutes();
             config(['app.debug' => true]);
             $this->cast($this->second)->assertStatus(500)->assertExactJson(['message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR']);
+            $failure?->assertTriggered([$this->second->id, $before->id]);
             $this->assertSame($this->first->id, $before->fresh()->movie_night_movie_id);
             $this->assertTrue($before->updated_at->eq($before->fresh()->updated_at));
             $this->assertDatabaseCount('movie_night_votes', 1);
         } finally {
-            if (DB::getDriverName() === 'pgsql') {
+            if ($failure !== null) {
+                $failure->disarm();
+            } elseif (DB::getDriverName() === 'pgsql') {
                 DB::statement('ALTER TABLE movie_night_votes DROP CONSTRAINT m55_change_fail');
             } else {
                 DB::unprepared('DROP TRIGGER m55_change_fail');
             }
         }
         $this->cast($this->second)->assertOk();
+        $failure?->assertDisarmed();
     }
 
     public function test_postgres_non_utc_vote_timestamps_and_deadline(): void

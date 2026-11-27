@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\Support\MySqlWriteFailure;
 use Tests\TestCase;
 
 class MovieNightFinalizationTest extends TestCase
@@ -374,7 +375,11 @@ class MovieNightFinalizationTest extends TestCase
     {
         $this->vote($this->host);
         $this->signIn($this->host);
-        if (DB::getDriverName() === 'pgsql') {
+        $failure = null;
+        if (DB::getDriverName() === 'mysql') {
+            $this->assertDisposableDatabase();
+            $failure = new MySqlWriteFailure(DB::connection(), 'update', 'movie_nights');
+        } elseif (DB::getDriverName() === 'pgsql') {
             DB::statement("ALTER TABLE movie_nights ADD CONSTRAINT m56_fail CHECK (status <> 'finalized') NOT VALID");
         } else {
             DB::unprepared("CREATE TRIGGER m56_fail BEFORE UPDATE ON movie_nights BEGIN SELECT RAISE(ABORT, 'private diagnostic'); END");
@@ -382,19 +387,23 @@ class MovieNightFinalizationTest extends TestCase
         try {
             config(['app.debug' => true]);
             $this->finalize()->assertStatus(500)->assertExactJson(['message' => 'Unable to complete this request. Please try again.', 'code' => 'INTERNAL_ERROR']);
+            $failure?->assertTriggered(['finalized', $this->night->id]);
             $after = $this->night->fresh();
             $this->assertSame('scheduled', $after->status->value);
             $this->assertNull($after->finalized_tmdb_id);
             $this->assertNull($after->finalized_at);
             $this->assertDatabaseCount('movie_night_votes', 1);
         } finally {
-            if (DB::getDriverName() === 'pgsql') {
+            if ($failure !== null) {
+                $failure->disarm();
+            } elseif (DB::getDriverName() === 'pgsql') {
                 DB::statement('ALTER TABLE movie_nights DROP CONSTRAINT m56_fail');
             } else {
                 DB::unprepared('DROP TRIGGER m56_fail');
             }
         }
         $this->finalize()->assertOk();
+        $failure?->assertDisarmed();
     }
 
     public function test_postgres_non_utc_finalization_timestamp_is_the_absolute_instant(): void
